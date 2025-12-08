@@ -17,18 +17,16 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
   const [extractedName, setExtractedName] = useState<string | null>(initialVerifiedName);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync status with isVerified prop
+  // Sync status with isVerified prop - only when component mounts or isVerified becomes true
   useEffect(() => {
-    if (isVerified && status !== "verified") {
+    if (isVerified && status === "idle") {
       setStatus("verified");
       if (initialVerifiedName) {
         setExtractedName(initialVerifiedName);
       }
-    } else if (!isVerified && status === "verified") {
-      setStatus("idle");
-      setPreviewUrl(null);
-      setExtractedName(null);
     }
+    // Only reset to idle when isVerified changes from true to false AND we're currently verified
+    // Don't interfere with uploading/verifying states
   }, [isVerified, initialVerifiedName]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
