@@ -1,7 +1,8 @@
 import { PayPalScriptProvider, PayPalButtons, FUNDING, usePayPalScriptReducer } from "@paypal/react-paypal-js";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface PayPalCheckoutProps {
   amount: number;
@@ -28,9 +29,20 @@ const PayPalButtonWrapper = ({
   onSuccess 
 }: Omit<PayPalCheckoutProps, 'clientId'>) => {
   const { toast } = useToast();
-  const [{ isPending, isRejected }] = usePayPalScriptReducer();
+  const [{ isPending, isResolved, isRejected }] = usePayPalScriptReducer();
+  const [showFallback, setShowFallback] = useState(false);
 
-  if (isPending) {
+  // Show fallback after 10 seconds if still pending
+  useEffect(() => {
+    if (isPending) {
+      const timeout = setTimeout(() => {
+        setShowFallback(true);
+      }, 10000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isPending]);
+
+  if (isPending && !showFallback) {
     return (
       <div className="flex items-center justify-center py-4 gap-2">
         <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -39,13 +51,31 @@ const PayPalButtonWrapper = ({
     );
   }
 
-  if (isRejected) {
-    console.error("PayPal SDK failed to load");
+  if (isRejected || showFallback) {
+    console.error("PayPal SDK failed to load or timed out");
     return (
-      <div className="text-center py-4">
-        <p className="text-destructive text-sm">Impossible de charger PayPal. Utilisez Revolut ci-dessous.</p>
+      <div className="text-center py-3">
+        <p className="text-muted-foreground text-sm mb-2">
+          PayPal n'est pas disponible dans cet environnement.
+        </p>
+        <a
+          href={`https://www.paypal.com/paypalme/makemusicstudio/${amount}EUR`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#0070ba] hover:bg-[#005ea6] text-white font-semibold rounded-lg transition-colors text-sm"
+        >
+          Payer {amount}€ via PayPal.me
+          <ExternalLink className="w-4 h-4" />
+        </a>
+        <p className="text-xs text-muted-foreground mt-2">
+          Après paiement, envoyez-nous la confirmation
+        </p>
       </div>
     );
+  }
+
+  if (!isResolved) {
+    return null;
   }
 
   return (
