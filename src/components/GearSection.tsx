@@ -32,7 +32,7 @@ const gearData: GearItem[] = [
     features: ["Conversion 32-bit", "Latence <1ms", "Connexion Thunderbolt"],
   },
   {
-    name: "8340A + Sub",
+    name: "Monitors + Sub Genelec",
     brand: "GENELEC",
     category: "Monitoring",
     description: "Système de monitoring actif avec correction de pièce SAM™. Précision chirurgicale du mix.",
