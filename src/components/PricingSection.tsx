@@ -147,7 +147,7 @@ const PricingSection = () => {
               "Révisions incluses",
               "Plugins premium",
               "Traitement SSL",
-              "Master de référence",
+              "Lien Drive envoyé par mail",
             ]}
           />
 
@@ -162,7 +162,7 @@ const PricingSection = () => {
               "Mastering numérique",
               "Format streaming",
               "Loudness optimisé",
-              "Fichiers haute résolution",
+              "Lien Drive envoyé par mail",
             ]}
           />
 
@@ -176,9 +176,9 @@ const PricingSection = () => {
             features={[
               "Traitement analogique",
               "Warmth et caractère",
-              "Format CD/Vinyl",
               "Chaîne SSL complète",
-              "Acompte 80€",
+              "Lien Drive envoyé par mail",
+              "Paiement 100% requis",
             ]}
           />
         </div>
