@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2 } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 
 type SessionType = "with-engineer" | "without-engineer" | null;
+type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 const BookingSection = () => {
   const { toast } = useToast();
@@ -18,6 +19,8 @@ const BookingSection = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
   const [loadingClientId, setLoadingClientId] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("idle");
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -74,6 +77,47 @@ const BookingSection = () => {
     };
   }, []);
 
+  // Check availability when date, time, duration or session type changes
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!sessionType || !formData.date || !formData.time) {
+        setAvailabilityStatus("idle");
+        return;
+      }
+
+      setAvailabilityStatus("checking");
+      setShowPayment(false);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("check-availability", {
+          body: {
+            date: formData.date,
+            time: formData.time,
+            duration: hours,
+            sessionType,
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.available) {
+          setAvailabilityStatus("available");
+          setAvailabilityMessage(data.message);
+        } else {
+          setAvailabilityStatus("unavailable");
+          setAvailabilityMessage(data.message);
+        }
+      } catch (err) {
+        console.error("Availability check failed:", err);
+        setAvailabilityStatus("error");
+        setAvailabilityMessage("Impossible de vérifier la disponibilité. Veuillez réessayer.");
+      }
+    };
+
+    const debounce = setTimeout(checkAvailability, 500);
+    return () => clearTimeout(debounce);
+  }, [sessionType, formData.date, formData.time, hours]);
+
   const validateForm = (): boolean => {
     if (!sessionType) {
       toast({
@@ -88,6 +132,15 @@ const BookingSection = () => {
       toast({
         title: "Formulaire incomplet",
         description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (availabilityStatus !== "available") {
+      toast({
+        title: "Créneau non disponible",
+        description: "Veuillez choisir un autre créneau",
         variant: "destructive",
       });
       return false;
@@ -337,6 +390,42 @@ const BookingSection = () => {
               />
             </div>
 
+            {/* Availability status */}
+            {sessionType && formData.date && formData.time && (
+              <div className={cn(
+                "mb-6 p-4 rounded-xl border flex items-center gap-3",
+                availabilityStatus === "checking" && "bg-secondary/50 border-border",
+                availabilityStatus === "available" && "bg-green-500/10 border-green-500/30",
+                availabilityStatus === "unavailable" && "bg-destructive/10 border-destructive/30",
+                availabilityStatus === "error" && "bg-accent/10 border-accent/30"
+              )}>
+                {availabilityStatus === "checking" && (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    <span className="text-muted-foreground">Vérification de la disponibilité...</span>
+                  </>
+                )}
+                {availabilityStatus === "available" && (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-green-500">{availabilityMessage}</span>
+                  </>
+                )}
+                {availabilityStatus === "unavailable" && (
+                  <>
+                    <XCircle className="w-5 h-5 text-destructive" />
+                    <span className="text-destructive">{availabilityMessage}</span>
+                  </>
+                )}
+                {availabilityStatus === "error" && (
+                  <>
+                    <AlertCircle className="w-5 h-5 text-accent" />
+                    <span className="text-accent">{availabilityMessage}</span>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Price display */}
             {sessionType && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
@@ -363,12 +452,17 @@ const BookingSection = () => {
                 size="xl" 
                 className="w-full"
                 onClick={handleProceedToPayment}
-                disabled={loadingClientId}
+                disabled={loadingClientId || availabilityStatus === "checking" || availabilityStatus === "unavailable"}
               >
-                {loadingClientId ? (
+                {loadingClientId || availabilityStatus === "checking" ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Chargement...
+                    {availabilityStatus === "checking" ? "Vérification..." : "Chargement..."}
+                  </>
+                ) : availabilityStatus === "unavailable" ? (
+                  <>
+                    <XCircle className="w-5 h-5 mr-2" />
+                    CRÉNEAU NON DISPONIBLE
                   </>
                 ) : (
                   <>
