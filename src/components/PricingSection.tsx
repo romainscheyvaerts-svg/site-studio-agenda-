@@ -163,7 +163,7 @@ const PricingSection = () => {
               "Format streaming",
               "Loudness optimisé",
               "Fichiers haute résolution",
-              "Vérification d'identité requise",
+              "Délai ~2 semaines",
             ]}
           />
 
