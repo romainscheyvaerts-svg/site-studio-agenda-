@@ -1,1 +1,10 @@
 project_id = "aafjeezfrmxssehnpwct"
+
+[functions.get-paypal-client-id]
+verify_jwt = false
+
+[functions.paypal-webhook]
+verify_jwt = false
+
+[functions.studio-chat]
+verify_jwt = false
