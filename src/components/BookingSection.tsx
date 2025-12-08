@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -549,23 +549,53 @@ const BookingSection = () => {
                     <span className="font-semibold text-foreground">Paiement sécurisé</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Finalisez votre réservation de {hours}h pour {totalPrice}€ via PayPal
+                    Finalisez votre réservation de {hours}h pour {totalPrice}€
                   </p>
                   
-                  {paypalClientId ? (
-                    <PayPalCheckout
-                      amount={totalPrice}
-                      sessionType={sessionType!}
-                      hours={hours}
-                      formData={formData}
-                      clientId={paypalClientId}
-                      onSuccess={handlePaymentSuccess}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <div className="space-y-4">
+                    {/* PayPal Option */}
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 1 : PayPal</p>
+                      {paypalClientId ? (
+                        <PayPalCheckout
+                          amount={totalPrice}
+                          sessionType={sessionType!}
+                          hours={hours}
+                          formData={formData}
+                          clientId={paypalClientId}
+                          onSuccess={handlePaymentSuccess}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-xs text-muted-foreground">ou</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* Revolut Option */}
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut</p>
+                      <a
+                        href={`https://revolut.me/rom95?amount=${totalPrice}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
+                      >
+                        <span>Payer {totalPrice}€ via Revolut</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Après paiement Revolut, envoyez-nous une capture d'écran de confirmation
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <Button 
