@@ -888,14 +888,16 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                 </td>
               </tr>
 
-              <!-- Footer -->
               <tr>
                 <td style="padding: 30px 40px; background-color: #09090b; border-radius: 0 0 16px 16px; text-align: center; border-top: 1px solid #1e1e21;">
                   <p style="margin: 0 0 10px 0; color: #71717a; font-size: 14px;">
                     ${isPostProduction ? "Merci pour votre confiance !" : "À très bientôt au studio !"}
                   </p>
+                  <p style="margin: 0 0 8px 0; color: #a1a1aa; font-size: 13px;">
+                    📍 Rue du Sceptre 22, 1050 Ixelles, Bruxelles
+                  </p>
                   <p style="margin: 0; color: #52525b; font-size: 12px;">
-                    Make Music Studio • Bruxelles • +32 476 09 41 72
+                    Make Music Studio • +32 476 09 41 72 • prod.makemusic@gmail.com
                   </p>
                 </td>
               </tr>
