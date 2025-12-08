@@ -723,17 +723,39 @@ const BookingSection = () => {
             {sessionType && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
                 {!isImmediateService && (
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total session</p>
-                      <p className="text-xs text-muted-foreground">
-                        {hours}h × {pricing[sessionType]}€
-                      </p>
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total session</p>
+                        <p className="text-xs text-muted-foreground">
+                          {hours}h × {pricing[sessionType]}€
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
-                    </div>
-                  </div>
+                    
+                    {/* Promo discount display for 5+ hours */}
+                    {hours >= 5 && (sessionType === "with-engineer" || sessionType === "without-engineer") && (
+                      <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-accent/10 border border-accent/30">
+                        <div>
+                          <p className="text-sm font-semibold text-accent">🎉 Offre promo appliquée</p>
+                          <p className="text-xs text-muted-foreground">
+                            {sessionType === "with-engineer" 
+                              ? `${hours}h × 5€ de réduction (40€/h au lieu de 45€/h)`
+                              : `${hours}h × 2€ de réduction (20€/h au lieu de 22€/h)`
+                            }
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-display text-lg text-accent">
+                            -{sessionType === "with-engineer" ? hours * 5 : hours * 2}€
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
                 {isImmediateService && (
                   <div className="flex items-center justify-between mb-2">
@@ -742,6 +764,7 @@ const BookingSection = () => {
                         {sessionType === "mixing" && "Mixage projet"}
                         {sessionType === "mastering" && "Mastering"}
                         {sessionType === "analog-mastering" && "Mastering analogique"}
+                        {sessionType === "podcast" && `Mixage Podcast (${podcastMinutes} min)`}
                       </p>
                     </div>
                     <div className="text-right">
@@ -754,8 +777,21 @@ const BookingSection = () => {
                     <p className="text-sm font-semibold text-foreground">
                       {isDeposit ? "Acompte à payer (50%)" : "Montant à payer"}
                     </p>
-                    {isDeposit && !isImmediateService && (
-                      <p className="text-xs text-accent">Le reste sera payé au studio</p>
+                    {isDeposit && !isImmediateService && sessionType === "with-engineer" && (
+                      <p className="text-xs text-accent">
+                        {hours >= 5
+                          ? `Solde au studio: ${totalPrice - paymentAmount - hours * 5}€ (après réduction)`
+                          : "Le reste sera payé au studio"
+                        }
+                      </p>
+                    )}
+                    {!isImmediateService && sessionType === "without-engineer" && hours >= 5 && (
+                      <p className="text-xs text-accent">
+                        Réduction de {hours * 2}€ déduite sur place
+                      </p>
+                    )}
+                    {!isImmediateService && sessionType === "without-engineer" && hours < 5 && (
+                      <p className="text-xs text-muted-foreground">Paiement complet requis</p>
                     )}
                     {isDeposit && isImmediateService && (
                       <p className="text-xs text-accent">Le reste après la session d'écoute</p>
