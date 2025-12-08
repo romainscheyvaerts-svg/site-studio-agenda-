@@ -174,35 +174,17 @@ serve(async (req) => {
     let isAvailable = false;
     let message = "";
 
-    if (sessionType === "with-engineer") {
-      // WITH Engineer: Check patron first, then studio (assistant)
-      const patronBusy = hasOverlap(patronEvents, requestedStart, requestedEnd);
-      
-      if (!patronBusy) {
-        isAvailable = true;
-        message = "Le patron est disponible pour votre session.";
-      } else {
-        // Check if assistant (studio calendar) is available
-        const studioBusy = hasOverlap(studioEvents, requestedStart, requestedEnd);
-        if (!studioBusy) {
-          isAvailable = true;
-          message = "L'assistant sera disponible pour votre session.";
-        } else {
-          isAvailable = false;
-          message = "Désolé, aucun ingénieur n'est disponible à ce créneau.";
-        }
-      }
-    } else if (sessionType === "without-engineer") {
-      // WITHOUT Engineer: Both must be free (solo access)
+    if (sessionType === "with-engineer" || sessionType === "without-engineer") {
+      // Check both calendars - if either has an event, studio is not available
       const patronBusy = hasOverlap(patronEvents, requestedStart, requestedEnd);
       const studioBusy = hasOverlap(studioEvents, requestedStart, requestedEnd);
       
       if (!patronBusy && !studioBusy) {
         isAvailable = true;
-        message = "Le studio est disponible pour votre session en autonomie.";
+        message = "Ce créneau est disponible.";
       } else {
         isAvailable = false;
-        message = "Désolé, le studio n'est pas disponible à ce créneau (un membre du staff sera présent).";
+        message = "Désolé, ce créneau n'est pas disponible.";
       }
     } else {
       // Mixing/Mastering - always available (async work)
