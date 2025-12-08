@@ -239,22 +239,73 @@ function hasAllDayEvent(events: CalendarEvent[], date: Date): boolean {
   return false;
 }
 
+// Check calendar load to determine if we need extended delay
+async function checkCalendarLoad(
+  accessToken: string,
+  patronCalendarId: string,
+  studioCalendarId: string,
+  daysToCheck: number = 14
+): Promise<{ isOverloaded: boolean; avgHoursPerDay: number }> {
+  const now = new Date();
+  let currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  currentDate.setDate(currentDate.getDate() + 1);
+
+  let totalWorkHours = 0;
+  let workableDays = 0;
+
+  for (let i = 0; i < daysToCheck; i++) {
+    const dayStart = new Date(currentDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(currentDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const [patronEvents, studioEvents] = await Promise.all([
+      getCalendarEvents(accessToken, patronCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
+      getCalendarEvents(accessToken, studioCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
+    ]);
+
+    // Skip days blocked by patron (Claridge)
+    if (!hasAllDayEvent(patronEvents, currentDate)) {
+      workableDays++;
+
+      // Calculate total hours of work scheduled on studio calendar
+      for (const event of studioEvents) {
+        if (event.start.dateTime && event.end.dateTime) {
+          const start = new Date(event.start.dateTime);
+          const end = new Date(event.end.dateTime);
+          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          totalWorkHours += hours;
+        }
+      }
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  const avgHoursPerDay = workableDays > 0 ? totalWorkHours / workableDays : 0;
+  const isOverloaded = avgHoursPerDay > 15;
+
+  console.log(`[CALENDAR-LOAD] Checked ${daysToCheck} days: ${workableDays} workable days, ${totalWorkHours.toFixed(1)}h total, ${avgHoursPerDay.toFixed(1)}h/day avg, overloaded: ${isOverloaded}`);
+
+  return { isOverloaded, avgHoursPerDay };
+}
+
 async function findAvailableSlots(
   accessToken: string,
   patronCalendarId: string,
   studioCalendarId: string,
   durationHours: number,
-  count: number
+  count: number,
+  maxDaysToCheck: number = 30
 ): Promise<Date[]> {
   const slots: Date[] = [];
   const now = new Date();
   let currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   currentDate.setDate(currentDate.getDate() + 1); // Start from tomorrow
   
-  const maxDaysToCheck = 30;
   let daysChecked = 0;
 
-  console.log(`[WORK-SESSIONS] Looking for ${count} slots of ${durationHours}h each (optimized for adjacent booking)`);
+  console.log(`[WORK-SESSIONS] Looking for ${count} slots of ${durationHours}h each (max ${maxDaysToCheck} days)`);
 
   // First pass: collect all days with existing studio events
   const daysWithBookings: { date: Date; events: CalendarEvent[] }[] = [];
@@ -424,8 +475,24 @@ async function scheduleInternalWorkSessions(
   clientName: string,
   orderId: string,
   podcastMinutes?: number
-): Promise<void> {
+): Promise<{ delayWeeks: number }> {
   console.log(`[WORK-SESSIONS] Scheduling internal work sessions for ${sessionType}`);
+
+  // Check if calendar is overloaded in the next 2 weeks
+  const { isOverloaded, avgHoursPerDay } = await checkCalendarLoad(
+    accessToken,
+    patronCalendarId,
+    studioCalendarId,
+    14 // Check 2 weeks
+  );
+
+  // If overloaded (>15h/day average), extend to 1 month (30 days)
+  const maxDaysToCheck = isOverloaded ? 60 : 30;
+  const delayWeeks = isOverloaded ? 4 : 2;
+
+  if (isOverloaded) {
+    console.log(`[WORK-SESSIONS] ⚠️ Calendar overloaded (${avgHoursPerDay.toFixed(1)}h/day avg). Extending delay to 1 month.`);
+  }
 
   let sessionsToSchedule: { duration: number; label: string }[] = [];
 
@@ -455,7 +522,8 @@ async function scheduleInternalWorkSessions(
       patronCalendarId,
       studioCalendarId,
       session.duration,
-      1
+      1,
+      maxDaysToCheck
     );
 
     if (slots.length > 0) {
@@ -478,6 +546,8 @@ async function scheduleInternalWorkSessions(
       console.warn(`[WORK-SESSIONS] Could not find slot for ${session.label}`);
     }
   }
+
+  return { delayWeeks };
 }
 
 // ============ GOOGLE DRIVE INTEGRATION ============
@@ -642,8 +712,9 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
-const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null): string => {
-  const isPostProduction = ["mixing", "mastering", "analog-mastering"].includes(payload.sessionType);
+const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null, delayWeeks: number = 2): string => {
+  const isPostProduction = ["mixing", "mastering", "analog-mastering", "podcast"].includes(payload.sessionType);
+  const delayText = delayWeeks === 4 ? "environ 1 mois" : "environ 2 semaines";
   
   let sessionLabel = "";
   let contactInfo = "";
@@ -655,17 +726,21 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
     sessionLabel = "Location sèche (autonomie)";
     contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Contact studio :</strong> Vous recevrez les instructions d'accès par email.</p>`;
   } else if (payload.sessionType === "mixing") {
-    sessionLabel = "Service Mixage";
-    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mixage sera traité dans un délai d'environ 2 semaines.</p>
+    sessionLabel = "Service Mixage + Mastering";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mixage sera traité dans un délai de <strong>${delayText}</strong>.</p>
                    <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous proposer des dates pour la session d'écoute au studio.</p>`;
   } else if (payload.sessionType === "mastering") {
     sessionLabel = "Service Mastering";
-    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mastering sera traité dans un délai d'environ 2 semaines.</p>
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mastering sera traité dans un délai de <strong>${delayText}</strong>.</p>
                    <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous proposer des dates pour la session d'écoute au studio.</p>`;
   } else if (payload.sessionType === "analog-mastering") {
     sessionLabel = "Service Mastering Analogique";
-    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mastering analogique sera traité dans un délai d'environ 2 semaines.</p>
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mastering analogique sera traité dans un délai de <strong>${delayText}</strong>.</p>
                    <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous proposer des dates pour la session d'écoute au studio.</p>`;
+  } else if (payload.sessionType === "podcast") {
+    sessionLabel = "Service Mixage Podcast";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mixage podcast sera traité dans un délai de <strong>${delayText}</strong>.</p>
+                   <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous envoyer les fichiers finalisés.</p>`;
   }
 
   const driveSection = driveFolderLink ? `
@@ -872,6 +947,8 @@ serve(async (req) => {
     const patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID");
 
     // ACTION 1: Handle calendar events based on session type
+    let actualDelayWeeks = 2; // Default 2 weeks delay for post-production
+    
     if (serviceAccountKey && studioCalendarId) {
       try {
         const calendarToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/calendar"]);
@@ -881,7 +958,7 @@ serve(async (req) => {
           console.log("[CALENDAR] Scheduling internal work sessions for post-production");
           
           if (patronCalendarId) {
-            await scheduleInternalWorkSessions(
+            const result = await scheduleInternalWorkSessions(
               calendarToken,
               studioCalendarId,
               patronCalendarId,
@@ -891,6 +968,7 @@ serve(async (req) => {
               payload.orderId,
               payload.podcastMinutes
             );
+            actualDelayWeeks = result.delayWeeks;
           } else {
             console.log("[CALENDAR] Missing patron calendar ID, skipping work session scheduling");
           }
@@ -979,7 +1057,7 @@ serve(async (req) => {
     console.log("[EMAIL] Sending confirmation email to:", payload.payerEmail);
     
     try {
-      const emailHtml = generateConfirmationEmail(payload, driveFolderLink);
+      const emailHtml = generateConfirmationEmail(payload, driveFolderLink, actualDelayWeeks);
       
       // Adapt email subject based on service type
       let emailSubject = "";
