@@ -285,7 +285,14 @@ const BookingSection = () => {
         <div className="max-w-4xl mx-auto">
           {/* Session type selector */}
           <div className="mb-10">
-            <Label className="text-sm text-muted-foreground mb-4 block">TYPE DE SERVICE</Label>
+            <div className="mb-6">
+              <h3 className="font-display text-2xl text-foreground mb-2">
+                1. SÉLECTIONNEZ VOTRE SERVICE
+              </h3>
+              <p className="text-muted-foreground text-sm">
+                Choisissez le type de prestation qui correspond à votre projet
+              </p>
+            </div>
             
             {/* Sessions studio */}
             <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Sessions Studio</p>
