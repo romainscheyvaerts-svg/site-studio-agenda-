@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering";
+
 interface PayPalCheckoutProps {
   amount: number;
-  sessionType: "with-engineer" | "without-engineer";
+  sessionType: SessionType;
   hours: number;
   formData: {
     name: string;
