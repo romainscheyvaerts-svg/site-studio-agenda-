@@ -141,7 +141,7 @@ const PricingSection = () => {
             price="200€"
             unit="/projet"
             icon={<Music2 className="w-6 h-6" />}
-            buttonText="DEMANDER UN DEVIS"
+            buttonText="RÉSERVER"
             features={[
               "Mix professionnel",
               "Révisions incluses",
@@ -157,7 +157,7 @@ const PricingSection = () => {
             price="60€"
             unit="/titre"
             icon={<Sparkles className="w-6 h-6" />}
-            buttonText="DEMANDER UN DEVIS"
+            buttonText="RÉSERVER"
             features={[
               "Mastering numérique",
               "Format streaming",
@@ -172,7 +172,7 @@ const PricingSection = () => {
             price="100€"
             unit="/titre"
             icon={<Disc3 className="w-6 h-6" />}
-            buttonText="DEMANDER UN DEVIS"
+            buttonText="RÉSERVER"
             features={[
               "Traitement analogique",
               "Warmth et caractère",
