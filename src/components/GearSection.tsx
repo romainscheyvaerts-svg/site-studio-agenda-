@@ -50,6 +50,7 @@ const GearSection = () => {
     { name: "UAD", type: "Plugins" },
     { name: "Waves", type: "Plugins" },
     { name: "Soundtoys", type: "Plugins" },
+    { name: "Slate Digital", type: "Plugins" },
     { name: "Auto-Tune", type: "Antares" },
     { name: "SSL Native", type: "Plugins" },
   ];
