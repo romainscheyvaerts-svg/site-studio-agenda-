@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, Mic, Building2, Music2, Sparkles } from "lucide-react";
+import { Check, Mic, Building2, Music2, Sparkles, Disc3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PricingCardProps {
@@ -101,7 +101,7 @@ const PricingSection = () => {
         </div>
 
         {/* Pricing grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto">
           <PricingCard
             title="AVEC INGÉNIEUR"
             subtitle="Session accompagnée"
@@ -159,11 +159,27 @@ const PricingSection = () => {
             icon={<Sparkles className="w-6 h-6" />}
             buttonText="DEMANDER UN DEVIS"
             features={[
-              "Mastering analogique",
+              "Mastering numérique",
               "Format streaming",
-              "Format CD/Vinyl",
               "Loudness optimisé",
               "Fichiers haute résolution",
+              "Vérification d'identité requise",
+            ]}
+          />
+
+          <PricingCard
+            title="ANALOGIQUE"
+            subtitle="Supplément mastering"
+            price="+40€"
+            unit="/titre"
+            icon={<Disc3 className="w-6 h-6" />}
+            buttonText="DEMANDER UN DEVIS"
+            features={[
+              "Traitement analogique",
+              "Warmth et caractère",
+              "Format CD/Vinyl",
+              "Chaîne SSL complète",
+              "En plus du mastering standard",
             ]}
           />
         </div>
