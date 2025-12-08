@@ -583,7 +583,7 @@ const BookingSection = () => {
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
                       <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut</p>
                       <a
-                        href={`https://revolut.me/rom95?amount=${totalPrice}`}
+                        href={`https://revolut.me/makemusic?amount=${totalPrice}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
