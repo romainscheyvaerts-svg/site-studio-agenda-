@@ -3,15 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 
-type SessionType = "with-engineer" | "without-engineer" | null;
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
+
+// Services qui ne nécessitent pas de calendrier ni de vérification d'identité
+const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering"];
 
 const BookingSection = () => {
   const { toast } = useToast();
@@ -33,26 +36,35 @@ const BookingSection = () => {
     message: "",
   });
 
-  const pricing = {
+  const pricing: Record<string, number> = {
     "with-engineer": 45,
     "without-engineer": 22,
+    "mixing": 200,
+    "mastering": 60,
+    "analog-mastering": 40,
   };
+
+  // Pour les services immédiats, pas de notion d'heures
+  const isImmediateService = sessionType && IMMEDIATE_SERVICES.includes(sessionType);
 
   const totalPrice = useMemo(() => {
     if (!sessionType) return 0;
+    if (isImmediateService) {
+      return pricing[sessionType];
+    }
     return hours * pricing[sessionType];
-  }, [sessionType, hours]);
+  }, [sessionType, hours, isImmediateService]);
 
-  // Location sèche = paiement complet, autres services = 50% acompte
+  // Location sèche et mastering analogique = paiement complet, autres = 50% acompte
   const paymentAmount = useMemo(() => {
     if (!sessionType) return 0;
-    if (sessionType === "without-engineer") {
+    if (sessionType === "without-engineer" || sessionType === "analog-mastering") {
       return totalPrice; // Paiement complet
     }
     return Math.ceil(totalPrice / 2); // 50% acompte
   }, [sessionType, totalPrice]);
 
-  const isDeposit = sessionType === "with-engineer";
+  const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering";
 
   // Fetch PayPal client ID
   useEffect(() => {
@@ -135,13 +147,27 @@ const BookingSection = () => {
   const validateForm = (): boolean => {
     if (!sessionType) {
       toast({
-        title: "Type de session requis",
-        description: "Veuillez sélectionner un type de session",
+        title: "Type de service requis",
+        description: "Veuillez sélectionner un type de service",
         variant: "destructive",
       });
       return false;
     }
 
+    // Pour les services immédiats, seuls nom, email et téléphone sont requis
+    if (isImmediateService) {
+      if (!formData.name || !formData.email || !formData.phone) {
+        toast({
+          title: "Formulaire incomplet",
+          description: "Veuillez remplir tous les champs obligatoires",
+          variant: "destructive",
+        });
+        return false;
+      }
+      return true;
+    }
+
+    // Pour les sessions avec calendrier
     if (!formData.name || !formData.email || !formData.phone || !formData.date || !formData.time) {
       toast({
         title: "Formulaire incomplet",
@@ -160,7 +186,7 @@ const BookingSection = () => {
       return false;
     }
 
-    // KYC is required for all session types
+    // KYC is required only for session types (not immediate services)
     if (!identityVerified) {
       toast({
         title: "Vérification d'identité requise",
@@ -256,8 +282,11 @@ const BookingSection = () => {
         <div className="max-w-4xl mx-auto">
           {/* Session type selector */}
           <div className="mb-10">
-            <Label className="text-sm text-muted-foreground mb-4 block">TYPE DE SESSION</Label>
-            <div className="grid md:grid-cols-2 gap-4">
+            <Label className="text-sm text-muted-foreground mb-4 block">TYPE DE SERVICE</Label>
+            
+            {/* Sessions studio */}
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Sessions Studio</p>
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
               <button
                 type="button"
                 onClick={() => {
@@ -312,11 +341,104 @@ const BookingSection = () => {
                 </p>
               </button>
             </div>
+
+            {/* Services post-production */}
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Post-Production (délai ~2 semaines)</p>
+            <div className="grid md:grid-cols-3 gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionType("mixing");
+                  setShowPayment(false);
+                }}
+                className={cn(
+                  "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                  sessionType === "mixing"
+                    ? "border-primary bg-primary/10 box-glow-cyan"
+                    : "border-border bg-card hover:border-primary/50"
+                )}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Music className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-display text-lg text-foreground">MIXAGE</h4>
+                    <p className="text-primary font-semibold text-sm">200€/projet</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">50% acompte</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionType("mastering");
+                  setShowPayment(false);
+                }}
+                className={cn(
+                  "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                  sessionType === "mastering"
+                    ? "border-primary bg-primary/10 box-glow-cyan"
+                    : "border-border bg-card hover:border-primary/50"
+                )}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Headphones className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-display text-lg text-foreground">MASTERING</h4>
+                    <p className="text-primary font-semibold text-sm">60€/titre</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">50% acompte</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionType("analog-mastering");
+                  setShowPayment(false);
+                }}
+                className={cn(
+                  "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                  sessionType === "analog-mastering"
+                    ? "border-accent bg-accent/10 box-glow-gold"
+                    : "border-border bg-card hover:border-accent/50"
+                )}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+                    <Disc className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <h4 className="font-display text-lg text-foreground">MASTERING ANALOGIQUE</h4>
+                    <p className="text-accent font-semibold text-sm">+40€/titre</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Paiement complet</p>
+              </button>
+            </div>
           </div>
 
           {/* Booking form */}
           <div className="bg-card rounded-2xl border border-border p-8">
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
+            {/* Info message for immediate services */}
+            {isImmediateService && (
+              <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-foreground">Délai de traitement : ~2 semaines</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp 
+                  pour vous proposer des dates pour la session d'écoute au studio.
+                </p>
+              </div>
+            )}
+
+            <div className={cn("grid gap-6 mb-6", isImmediateService ? "md:grid-cols-1" : "md:grid-cols-2")}>
               {/* Personal info */}
               <div className="space-y-4">
                 <div>
@@ -373,71 +495,73 @@ const BookingSection = () => {
                 </div>
               </div>
 
-              {/* Date and time */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="date" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" /> Date souhaitée
-                  </Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => {
-                      setFormData({ ...formData, date: e.target.value });
-                      setShowPayment(false);
-                    }}
-                    className="bg-secondary/50 border-border"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="time" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Heure de début
-                  </Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    value={formData.time}
-                    onChange={(e) => {
-                      setFormData({ ...formData, time: e.target.value });
-                      setShowPayment(false);
-                    }}
-                    className="bg-secondary/50 border-border"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">Durée (heures)</Label>
-                  <div className="flex items-center gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        setHours(Math.max(1, hours - 1));
+              {/* Date and time - Only for studio sessions */}
+              {!isImmediateService && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="date" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" /> Date souhaitée
+                    </Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => {
+                        setFormData({ ...formData, date: e.target.value });
                         setShowPayment(false);
                       }}
-                    >
-                      -
-                    </Button>
-                    <span className="font-display text-3xl text-foreground w-12 text-center">{hours}</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        setHours(Math.min(12, hours + 1));
+                      className="bg-secondary/50 border-border"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="time" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4" /> Heure de début
+                    </Label>
+                    <Input
+                      id="time"
+                      type="time"
+                      value={formData.time}
+                      onChange={(e) => {
+                        setFormData({ ...formData, time: e.target.value });
                         setShowPayment(false);
                       }}
-                    >
-                      +
-                    </Button>
+                      className="bg-secondary/50 border-border"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm text-muted-foreground mb-2 block">Durée (heures)</Label>
+                    <div className="flex items-center gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setHours(Math.max(1, hours - 1));
+                          setShowPayment(false);
+                        }}
+                      >
+                        -
+                      </Button>
+                      <span className="font-display text-3xl text-foreground w-12 text-center">{hours}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setHours(Math.min(12, hours + 1));
+                          setShowPayment(false);
+                        }}
+                      >
+                        +
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Message */}
@@ -454,8 +578,8 @@ const BookingSection = () => {
               />
             </div>
 
-            {/* Availability status */}
-            {sessionType && formData.date && formData.time && (
+            {/* Availability status - Only for studio sessions */}
+            {!isImmediateService && sessionType && formData.date && formData.time && (
               <div className={cn(
                 "mb-6 p-4 rounded-xl border flex items-center gap-3",
                 availabilityStatus === "checking" && "bg-secondary/50 border-border",
@@ -490,8 +614,8 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Identity Verification - Required for all sessions */}
-            {sessionType && formData.name && availabilityStatus === "available" && (
+            {/* Identity Verification - Only for studio sessions */}
+            {!isImmediateService && sessionType && formData.name && availabilityStatus === "available" && (
               <div className="mb-6">
                 <IdentityVerification
                   formName={formData.name}
@@ -505,24 +629,43 @@ const BookingSection = () => {
             {/* Price display */}
             {sessionType && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total session</p>
-                    <p className="text-xs text-muted-foreground">
-                      {hours}h × {pricing[sessionType]}€
-                    </p>
+                {!isImmediateService && (
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total session</p>
+                      <p className="text-xs text-muted-foreground">
+                        {hours}h × {pricing[sessionType]}€
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
+                )}
+                {isImmediateService && (
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {sessionType === "mixing" && "Mixage projet"}
+                        {sessionType === "mastering" && "Mastering"}
+                        {sessionType === "analog-mastering" && "Mastering analogique"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div>
                     <p className="text-sm font-semibold text-foreground">
                       {isDeposit ? "Acompte à payer (50%)" : "Montant à payer"}
                     </p>
-                    {isDeposit && (
+                    {isDeposit && !isImmediateService && (
                       <p className="text-xs text-accent">Le reste sera payé au studio</p>
+                    )}
+                    {isDeposit && isImmediateService && (
+                      <p className="text-xs text-accent">Le reste après la session d'écoute</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -541,19 +684,28 @@ const BookingSection = () => {
                 size="xl" 
                 className="w-full"
                 onClick={handleProceedToPayment}
-                disabled={loadingClientId || availabilityStatus === "checking" || availabilityStatus === "unavailable" || !identityVerified}
+                disabled={
+                  loadingClientId || 
+                  (!isImmediateService && (availabilityStatus === "checking" || availabilityStatus === "unavailable" || !identityVerified)) ||
+                  !formData.name || !formData.email || !formData.phone
+                }
               >
-                {loadingClientId || availabilityStatus === "checking" ? (
+                {loadingClientId ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    {availabilityStatus === "checking" ? "Vérification..." : "Chargement..."}
+                    Chargement...
                   </>
-                ) : availabilityStatus === "unavailable" ? (
+                ) : !isImmediateService && availabilityStatus === "checking" ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Vérification...
+                  </>
+                ) : !isImmediateService && availabilityStatus === "unavailable" ? (
                   <>
                     <XCircle className="w-5 h-5 mr-2" />
                     CRÉNEAU NON DISPONIBLE
                   </>
-                ) : !identityVerified ? (
+                ) : !isImmediateService && !identityVerified ? (
                   <>
                     <AlertCircle className="w-5 h-5 mr-2" />
                     VÉRIFICATION D'IDENTITÉ REQUISE
@@ -573,10 +725,15 @@ const BookingSection = () => {
                     <span className="font-semibold text-foreground">Paiement sécurisé</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {isDeposit 
-                      ? `Acompte de ${paymentAmount}€ pour réserver votre session de ${hours}h (total: ${totalPrice}€)`
-                      : `Paiement complet de ${paymentAmount}€ pour votre location de ${hours}h`
-                    }
+                    {isImmediateService ? (
+                      isDeposit 
+                        ? `Acompte de ${paymentAmount}€ pour votre ${sessionType === "mixing" ? "mixage" : "mastering"} (total: ${totalPrice}€)`
+                        : `Paiement de ${paymentAmount}€ pour votre mastering analogique`
+                    ) : (
+                      isDeposit 
+                        ? `Acompte de ${paymentAmount}€ pour réserver votre session de ${hours}h (total: ${totalPrice}€)`
+                        : `Paiement complet de ${paymentAmount}€ pour votre location de ${hours}h`
+                    )}
                   </p>
                   
                   <div className="space-y-4">
@@ -633,15 +790,17 @@ const BookingSection = () => {
                   className="w-full"
                   onClick={() => setShowPayment(false)}
                 >
-                  ← Modifier ma réservation
+                  ← Modifier ma commande
                 </Button>
               </div>
             )}
 
             <p className="text-xs text-muted-foreground text-center mt-4">
-              {sessionType === "without-engineer" 
-                ? "Paiement complet requis pour la location sèche"
-                : "Acompte de 50% à la réservation, le reste au studio"
+              {sessionType === "without-engineer" || sessionType === "analog-mastering"
+                ? "Paiement complet requis à la réservation"
+                : isImmediateService 
+                  ? "Acompte de 50%, le reste après la session d'écoute"
+                  : "Acompte de 50% à la réservation, le reste au studio"
               }
             </p>
           </div>
