@@ -118,6 +118,7 @@ const PricingSection = () => {
               t("pricing.with_engineer.feature2"),
               t("pricing.with_engineer.feature3"),
               t("pricing.with_engineer.feature4"),
+              "⭐ Dès 5h : 40€/h (déduit sur place)",
             ]}
           />
 
@@ -133,6 +134,7 @@ const PricingSection = () => {
               t("pricing.without_engineer.feature2"),
               t("pricing.without_engineer.feature3"),
               t("pricing.without_engineer.feature4"),
+              "⭐ Dès 5h : 20€/h (déduit sur place)",
             ]}
           />
 
