@@ -434,9 +434,12 @@ const BookingSection = () => {
                   <Clock className="w-5 h-5 text-primary" />
                   <span className="font-semibold text-foreground">Délai de traitement : ~2 semaines</span>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mb-2">
                   Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp 
                   pour vous proposer des dates pour la session d'écoute au studio.
+                </p>
+                <p className="text-sm text-muted-foreground italic">
+                  💬 Si vous souhaitez être présent pendant le mix, envoyez un message sur WhatsApp pour définir une date avec l'ingénieur son.
                 </p>
               </div>
             )}
