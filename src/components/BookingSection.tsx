@@ -327,7 +327,7 @@ const BookingSection = () => {
                 <p className="text-sm text-muted-foreground">
                   Session accompagnée avec un ingénieur son professionnel
                 </p>
-                <p className="text-xs text-accent mt-1">⭐ Dès 5h : 40€/h (déduit du solde)</p>
+                <p className="text-xs text-accent mt-1">⭐ Dès 5h : 40€/h (déduit du solde le jour de la session)</p>
               </button>
 
               <button
@@ -355,7 +355,7 @@ const BookingSection = () => {
                 <p className="text-sm text-muted-foreground">
                   Accès au studio en autonomie (vérification d'identité requise)
                 </p>
-                <p className="text-xs text-primary mt-1">⭐ Dès 5h : 20€/h (déduit du solde)</p>
+                <p className="text-xs text-primary mt-1">⭐ Dès 5h : 20€/h (déduit du solde le jour de la session)</p>
               </button>
             </div>
 
