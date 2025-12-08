@@ -80,6 +80,14 @@
       "feature3": "Chaîne SSL complète",
       "feature4": "Lien Drive envoyé par mail",
       "feature5": "Paiement 100% requis"
+    },
+    "podcast": {
+      "title": "Mixage Podcast",
+      "feature1": "40€ par minute audio",
+      "feature2": "Nettoyage et égalisation",
+      "feature3": "Délai ~2 semaines",
+      "feature4": "Lien Drive envoyé par mail",
+      "feature5": "50% acompte"
     }
   },
   "booking": {

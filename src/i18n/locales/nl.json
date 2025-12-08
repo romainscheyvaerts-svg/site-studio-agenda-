@@ -80,6 +80,14 @@
       "feature3": "Volledige SSL-keten",
       "feature4": "Drive-link per e-mail verzonden",
       "feature5": "100% betaling vereist"
+    },
+    "podcast": {
+      "title": "Podcast Mixing",
+      "feature1": "40€ per audiominuut",
+      "feature2": "Reiniging en egalisatie",
+      "feature3": "~2 weken levertijd",
+      "feature4": "Drive-link per e-mail verzonden",
+      "feature5": "50% aanbetaling"
     }
   },
   "booking": {

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering";
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast";
 
 interface PayPalCheckoutProps {
   amount: number;
@@ -22,6 +22,7 @@ interface PayPalCheckoutProps {
   onSuccess: () => void;
   isDeposit?: boolean;
   totalPrice?: number;
+  podcastMinutes?: number;
 }
 
 // Inner component that uses the PayPal context
@@ -32,7 +33,8 @@ const PayPalButtonWrapper = ({
   formData, 
   onSuccess,
   isDeposit,
-  totalPrice
+  totalPrice,
+  podcastMinutes
 }: Omit<PayPalCheckoutProps, 'clientId'>) => {
   const { toast } = useToast();
   const [{ isPending, isResolved, isRejected }] = usePayPalScriptReducer();
@@ -126,6 +128,7 @@ const PayPalButtonWrapper = ({
               hours,
               totalAmount: amount,
               message: formData.message,
+              podcastMinutes: sessionType === "podcast" ? podcastMinutes : undefined,
             },
           });
 
@@ -178,7 +181,8 @@ const PayPalCheckout = ({
   clientId,
   onSuccess,
   isDeposit,
-  totalPrice
+  totalPrice,
+  podcastMinutes
 }: PayPalCheckoutProps) => {
   console.log("PayPal Checkout rendering with clientId:", clientId ? "present" : "missing");
 
@@ -207,6 +211,7 @@ const PayPalCheckout = ({
           onSuccess={onSuccess}
           isDeposit={isDeposit}
           totalPrice={totalPrice}
+          podcastMinutes={podcastMinutes}
         />
       </div>
     </PayPalScriptProvider>

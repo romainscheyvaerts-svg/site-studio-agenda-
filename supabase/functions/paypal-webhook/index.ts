@@ -19,12 +19,13 @@ interface BookingPayload {
   payerName: string;
   payerEmail: string;
   phone: string;
-  sessionType: "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering";
+  sessionType: "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast";
   date: string;
   time: string;
   hours: number;
   totalAmount: number;
   message?: string;
+  podcastMinutes?: number;
 }
 
 interface CalendarEvent {
@@ -419,9 +420,10 @@ async function scheduleInternalWorkSessions(
   calendarId: string,
   patronCalendarId: string,
   studioCalendarId: string,
-  sessionType: "mixing" | "mastering" | "analog-mastering",
+  sessionType: "mixing" | "mastering" | "analog-mastering" | "podcast",
   clientName: string,
-  orderId: string
+  orderId: string,
+  podcastMinutes?: number
 ): Promise<void> {
   console.log(`[WORK-SESSIONS] Scheduling internal work sessions for ${sessionType}`);
 
@@ -438,6 +440,12 @@ async function scheduleInternalWorkSessions(
     const label = sessionType === "analog-mastering" ? "MASTERING ANALOG" : "MASTERING";
     sessionsToSchedule = [
       { duration: 2, label: label },
+    ];
+  } else if (sessionType === "podcast") {
+    // Podcast: duration based on audio length - roughly 1h per 10 min of audio
+    const estimatedHours = Math.max(1, Math.ceil((podcastMinutes || 1) / 10));
+    sessionsToSchedule = [
+      { duration: estimatedHours, label: `PODCAST MIX (${podcastMinutes}min)` },
     ];
   }
 
@@ -848,14 +856,15 @@ serve(async (req) => {
     console.log("Total Amount:", payload.totalAmount, "€");
     console.log("Message:", payload.message || "N/A");
 
-    const isPostProduction = ["mixing", "mastering", "analog-mastering"].includes(payload.sessionType);
+    const isPostProduction = ["mixing", "mastering", "analog-mastering", "podcast"].includes(payload.sessionType);
     
     let sessionLabel = "";
     if (payload.sessionType === "with-engineer") sessionLabel = "AVEC INGÉNIEUR";
     else if (payload.sessionType === "without-engineer") sessionLabel = "LOCATION SÈCHE";
-    else if (payload.sessionType === "mixing") sessionLabel = "MIXAGE";
+    else if (payload.sessionType === "mixing") sessionLabel = "MIXAGE + MASTERING";
     else if (payload.sessionType === "mastering") sessionLabel = "MASTERING";
     else if (payload.sessionType === "analog-mastering") sessionLabel = "MASTERING ANALOGIQUE";
+    else if (payload.sessionType === "podcast") sessionLabel = "MIXAGE PODCAST";
 
     // Get Google Calendar credentials
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
@@ -877,9 +886,10 @@ serve(async (req) => {
               studioCalendarId,
               patronCalendarId,
               studioCalendarId,
-              payload.sessionType as "mixing" | "mastering" | "analog-mastering",
+              payload.sessionType as "mixing" | "mastering" | "analog-mastering" | "podcast",
               payload.payerName,
-              payload.orderId
+              payload.orderId,
+              payload.podcastMinutes
             );
           } else {
             console.log("[CALENDAR] Missing patron calendar ID, skipping work session scheduling");
