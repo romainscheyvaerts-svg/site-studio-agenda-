@@ -59,6 +59,21 @@ const BookingSection = () => {
     fetchClientId();
   }, [toast]);
 
+  // Listen for chatbot summary event
+  useEffect(() => {
+    const handleChatbotSummary = (event: CustomEvent<string>) => {
+      setFormData((prev) => ({
+        ...prev,
+        message: event.detail,
+      }));
+    };
+
+    window.addEventListener("chatbot-summary", handleChatbotSummary as EventListener);
+    return () => {
+      window.removeEventListener("chatbot-summary", handleChatbotSummary as EventListener);
+    };
+  }, []);
+
   const validateForm = (): boolean => {
     if (!sessionType) {
       toast({
