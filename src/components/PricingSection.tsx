@@ -163,7 +163,6 @@ const PricingSection = () => {
               "Format streaming",
               "Loudness optimisé",
               "Fichiers haute résolution",
-              "Délai ~2 semaines",
             ]}
           />
 
