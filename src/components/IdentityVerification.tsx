@@ -1,7 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Upload, CheckCircle, XCircle, Loader2, Shield, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
 interface IdentityVerificationProps {
@@ -17,6 +16,20 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [extractedName, setExtractedName] = useState<string | null>(initialVerifiedName);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync status with isVerified prop
+  useEffect(() => {
+    if (isVerified && status !== "verified") {
+      setStatus("verified");
+      if (initialVerifiedName) {
+        setExtractedName(initialVerifiedName);
+      }
+    } else if (!isVerified && status === "verified") {
+      setStatus("idle");
+      setPreviewUrl(null);
+      setExtractedName(null);
+    }
+  }, [isVerified, initialVerifiedName]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
