@@ -14,7 +14,7 @@ interface Message {
 const initialMessages: Message[] = [
   {
     id: 1,
-    text: "Salut ! 👋 Je suis l'assistant du studio. Je connais tout notre équipement (le Neumann U87, la chaîne SSL, les Genelec...) et nos tarifs. Comment puis-je t'aider pour ton projet ?",
+    text: "Salut ! 👋 Je suis l'assistant de Make Music, studio d'enregistrement à Bruxelles. Je connais tout notre équipement (le Neumann U87, la chaîne SSL, les Genelec...) et nos tarifs. Comment puis-je t'aider pour ton projet ?",
     isBot: true,
   },
 ];

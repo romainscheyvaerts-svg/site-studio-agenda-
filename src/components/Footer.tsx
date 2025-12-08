@@ -11,7 +11,7 @@ const Footer = () => {
               <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
                 <Mic className="w-5 h-5 text-primary" />
               </div>
-              <span className="font-display text-2xl text-foreground">STUDIO<span className="text-primary">PRO</span></span>
+              <span className="font-display text-2xl text-foreground">MAKE<span className="text-primary">MUSIC</span></span>
             </div>
             <p className="text-muted-foreground text-sm max-w-md mb-4">
               Studio d'enregistrement professionnel équipé du meilleur matériel : 
@@ -45,16 +45,16 @@ const Footer = () => {
           <div>
             <h4 className="font-display text-lg text-foreground mb-4">CONTACT</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>contact@studiopro.fr</li>
-              <li>+33 6 XX XX XX XX</li>
-              <li>Paris, France</li>
+              <li>prod.makemusic@gmail.com</li>
+              <li>+32 476 09 41 72</li>
+              <li>Bruxelles, Belgique</li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            © 2024 StudioPro. Tous droits réservés.
+            © 2024 Make Music. Tous droits réservés.
           </p>
           <div className="flex gap-6 text-xs text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Mentions légales</a>
