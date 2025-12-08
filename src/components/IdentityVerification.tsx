@@ -7,13 +7,15 @@ import { supabase } from "@/integrations/supabase/client";
 interface IdentityVerificationProps {
   formName: string;
   onVerified: (verified: boolean, extractedName?: string) => void;
+  isVerified?: boolean;
+  verifiedName?: string | null;
 }
 
-const IdentityVerification = ({ formName, onVerified }: IdentityVerificationProps) => {
-  const [status, setStatus] = useState<"idle" | "uploading" | "verifying" | "verified" | "failed">("idle");
+const IdentityVerification = ({ formName, onVerified, isVerified = false, verifiedName: initialVerifiedName = null }: IdentityVerificationProps) => {
+  const [status, setStatus] = useState<"idle" | "uploading" | "verifying" | "verified" | "failed">(isVerified ? "verified" : "idle");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [extractedName, setExtractedName] = useState<string | null>(null);
+  const [extractedName, setExtractedName] = useState<string | null>(initialVerifiedName);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
