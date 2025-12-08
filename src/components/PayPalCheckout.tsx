@@ -55,11 +55,11 @@ const PayPalButtonWrapper = ({
     console.error("PayPal SDK failed to load or timed out");
     return (
       <div className="text-center py-3">
-        <p className="text-muted-foreground text-sm mb-2">
+        <p className="text-muted-foreground text-sm mb-3">
           PayPal n'est pas disponible dans cet environnement.
         </p>
         <a
-          href={`https://www.paypal.com/paypalme/makemusicstudio/${amount}EUR`}
+          href={`https://www.paypal.me/CagouleProd/${amount}EUR`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-[#0070ba] hover:bg-[#005ea6] text-white font-semibold rounded-lg transition-colors text-sm"
