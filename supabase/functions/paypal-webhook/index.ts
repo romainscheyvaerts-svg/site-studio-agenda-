@@ -21,6 +21,141 @@ interface BookingPayload {
   message?: string;
 }
 
+// ============ GOOGLE CALENDAR INTEGRATION ============
+
+async function getAccessToken(serviceAccountKey: string): Promise<string> {
+  const key = JSON.parse(serviceAccountKey);
+  
+  const header = {
+    alg: "RS256",
+    typ: "JWT",
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const claim = {
+    iss: key.client_email,
+    scope: "https://www.googleapis.com/auth/calendar",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  
+  const base64UrlEncode = (data: Uint8Array): string => {
+    const base64 = btoa(String.fromCharCode(...data));
+    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+
+  const headerB64 = base64UrlEncode(encoder.encode(JSON.stringify(header)));
+  const claimB64 = base64UrlEncode(encoder.encode(JSON.stringify(claim)));
+  const signatureInput = `${headerB64}.${claimB64}`;
+
+  const pemContents = key.private_key
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\n/g, "");
+  
+  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    encoder.encode(signatureInput)
+  );
+
+  const signatureB64 = base64UrlEncode(new Uint8Array(signature));
+  const jwt = `${signatureInput}.${signatureB64}`;
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+  
+  if (!tokenData.access_token) {
+    console.error("Token response:", tokenData);
+    throw new Error("Failed to get access token");
+  }
+  
+  return tokenData.access_token;
+}
+
+async function createCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  event: {
+    summary: string;
+    description: string;
+    start: string;
+    end: string;
+    attendeeEmail?: string;
+  }
+): Promise<void> {
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+
+  const eventBody: Record<string, unknown> = {
+    summary: event.summary,
+    description: event.description,
+    start: {
+      dateTime: event.start,
+      timeZone: "Europe/Brussels",
+    },
+    end: {
+      dateTime: event.end,
+      timeZone: "Europe/Brussels",
+    },
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: "email", minutes: 60 },
+        { method: "popup", minutes: 30 },
+      ],
+    },
+  };
+
+  // Add attendee if email provided
+  if (event.attendeeEmail) {
+    eventBody.attendees = [{ email: event.attendeeEmail }];
+  }
+
+  console.log(`[CALENDAR] Creating event on calendar: ${calendarId}`);
+  console.log(`[CALENDAR] Event: ${event.summary}`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(eventBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[CALENDAR] Error creating event:`, errorText);
+    throw new Error(`Failed to create calendar event: ${response.status}`);
+  }
+
+  const createdEvent = await response.json();
+  console.log(`[CALENDAR] Event created successfully: ${createdEvent.id}`);
+}
+
+// ============ EMAIL FUNCTIONS ============
+
 const formatDate = (dateStr: string): string => {
   const date = new Date(dateStr);
   return date.toLocaleDateString('fr-FR', {
@@ -155,8 +290,9 @@ const generateConfirmationEmail = (payload: BookingPayload): string => {
   `;
 };
 
+// ============ MAIN HANDLER ============
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -180,7 +316,55 @@ serve(async (req) => {
       ? "AVEC INGÉNIEUR" 
       : "LOCATION SÈCHE";
 
-    // ACTION 1: Send confirmation email to client
+    // Get Google Calendar credentials
+    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+
+    // ACTION 1: Create Google Calendar event
+    if (serviceAccountKey && studioCalendarId) {
+      try {
+        const accessToken = await getAccessToken(serviceAccountKey);
+        
+        // Parse date and time for calendar event
+        const [year, month, day] = payload.date.split("-").map(Number);
+        const [hour, minute] = payload.time.split(":").map(Number);
+        
+        const startDate = new Date(year, month - 1, day, hour, minute);
+        const endDate = new Date(startDate.getTime() + payload.hours * 60 * 60 * 1000);
+        
+        // Format as ISO string with timezone offset
+        const formatForCalendar = (date: Date): string => {
+          return date.toISOString().replace('Z', '+01:00');
+        };
+
+        const eventDescription = [
+          `Client: ${payload.payerName}`,
+          `Email: ${payload.payerEmail}`,
+          `Téléphone: ${payload.phone}`,
+          `Durée: ${payload.hours}h`,
+          `Montant: ${payload.totalAmount}€`,
+          `Référence: ${payload.orderId}`,
+          payload.message ? `Message: ${payload.message}` : '',
+        ].filter(Boolean).join('\n');
+
+        await createCalendarEvent(accessToken, studioCalendarId, {
+          summary: `SESSION ${sessionLabel} - ${payload.payerName}`,
+          description: eventDescription,
+          start: formatForCalendar(startDate),
+          end: formatForCalendar(endDate),
+          attendeeEmail: payload.payerEmail,
+        });
+
+        console.log("[CALENDAR] Event created successfully");
+      } catch (calendarError) {
+        console.error("[CALENDAR] Failed to create event:", calendarError);
+        // Don't fail the whole webhook if calendar fails
+      }
+    } else {
+      console.log("[CALENDAR] Missing calendar configuration, skipping event creation");
+    }
+
+    // ACTION 2: Send confirmation email to client
     console.log("[EMAIL] Sending confirmation email to:", payload.payerEmail);
     
     try {
@@ -198,11 +382,6 @@ serve(async (req) => {
       console.error("[EMAIL] Failed to send confirmation email:", emailError);
       // Don't fail the whole webhook if email fails
     }
-
-    // TODO: ACTION 2 - Google Calendar Integration
-    // Add appointment with title format: "SESSION [TYPE] - [CLIENT]"
-    console.log(`[CALENDAR] Would create event: SESSION ${sessionLabel} - ${payload.payerName}`);
-    console.log(`[CALENDAR] Date: ${payload.date} at ${payload.time} for ${payload.hours}h`);
 
     // TODO: ACTION 3 - Google Drive Integration  
     // Create shared folder for client
