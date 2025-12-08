@@ -253,54 +253,162 @@ async function findAvailableSlots(
   const maxDaysToCheck = 30;
   let daysChecked = 0;
 
-  console.log(`[WORK-SESSIONS] Looking for ${count} slots of ${durationHours}h each`);
+  console.log(`[WORK-SESSIONS] Looking for ${count} slots of ${durationHours}h each (optimized for adjacent booking)`);
 
-  while (slots.length < count && daysChecked < maxDaysToCheck) {
-    const dayStart = new Date(currentDate);
+  // First pass: collect all days with existing studio events
+  const daysWithBookings: { date: Date; events: CalendarEvent[] }[] = [];
+  const daysWithoutBookings: { date: Date; events: CalendarEvent[] }[] = [];
+
+  const tempDate = new Date(currentDate);
+  for (let i = 0; i < maxDaysToCheck; i++) {
+    const dayStart = new Date(tempDate);
     dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(currentDate);
+    const dayEnd = new Date(tempDate);
     dayEnd.setHours(23, 59, 59, 999);
 
-    // Fetch events for this day
     const [patronEvents, studioEvents] = await Promise.all([
       getCalendarEvents(accessToken, patronCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
       getCalendarEvents(accessToken, studioCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
     ]);
 
-    // If patron has all-day event, skip this day entirely
-    if (hasAllDayEvent(patronEvents, currentDate)) {
-      console.log(`[WORK-SESSIONS] ${currentDate.toDateString()} - Patron busy all day, skipping`);
-      currentDate.setDate(currentDate.getDate() + 1);
-      daysChecked++;
+    // Skip if patron has all-day event (Claridge blocks entire day)
+    if (hasAllDayEvent(patronEvents, tempDate)) {
+      console.log(`[WORK-SESSIONS] ${tempDate.toDateString()} - Patron busy all day, skipping`);
+      tempDate.setDate(tempDate.getDate() + 1);
       continue;
     }
 
-    // Combine all events for availability check
     const allEvents = [...patronEvents, ...studioEvents];
+    
+    // Check if there are timed studio events (actual bookings, not all-day)
+    const hasTimedBookings = studioEvents.some(e => e.start.dateTime && !e.start.date);
+    
+    if (hasTimedBookings) {
+      daysWithBookings.push({ date: new Date(tempDate), events: allEvents });
+    } else {
+      daysWithoutBookings.push({ date: new Date(tempDate), events: allEvents });
+    }
 
-    // Check hourly slots from 10:00 to 23:00 - durationHours
+    tempDate.setDate(tempDate.getDate() + 1);
+  }
+
+  console.log(`[WORK-SESSIONS] Found ${daysWithBookings.length} days with existing bookings, ${daysWithoutBookings.length} without`);
+
+  // Helper to find adjacent slots (just before or after existing events)
+  const findAdjacentSlot = (
+    events: CalendarEvent[],
+    date: Date,
+    durationHours: number
+  ): Date | null => {
+    // Get all timed events sorted by start time
+    const timedEvents = events
+      .filter(e => e.start.dateTime)
+      .map(e => ({
+        start: new Date(e.start.dateTime!),
+        end: new Date(e.end.dateTime!)
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    if (timedEvents.length === 0) return null;
+
+    // Try to place work session BEFORE the first booking of the day
+    for (const event of timedEvents) {
+      const slotEnd = new Date(event.start); // End right when the booking starts
+      const slotStart = new Date(slotEnd.getTime() - durationHours * 60 * 60 * 1000);
+      
+      // Check if slot is within working hours (10:00 - 23:00)
+      if (slotStart.getHours() >= 10 && slotEnd.getHours() <= 23) {
+        // Check if this slot is available
+        if (isSlotAvailable(events, slotStart, slotEnd)) {
+          console.log(`[WORK-SESSIONS] Found BEFORE-adjacent slot: ${slotStart.toISOString()}`);
+          return slotStart;
+        }
+      }
+    }
+
+    // Try to place work session AFTER the last booking of the day
+    for (let i = timedEvents.length - 1; i >= 0; i--) {
+      const event = timedEvents[i];
+      const slotStart = new Date(event.end); // Start right when the booking ends
+      const slotEnd = new Date(slotStart.getTime() + durationHours * 60 * 60 * 1000);
+      
+      // Check if slot is within working hours (10:00 - 23:00)
+      if (slotStart.getHours() >= 10 && slotEnd.getHours() <= 23) {
+        // Check if this slot is available
+        if (isSlotAvailable(events, slotStart, slotEnd)) {
+          console.log(`[WORK-SESSIONS] Found AFTER-adjacent slot: ${slotStart.toISOString()}`);
+          return slotStart;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  // Helper to find any available slot in a day
+  const findAnySlot = (
+    events: CalendarEvent[],
+    date: Date,
+    durationHours: number
+  ): Date | null => {
     for (let hour = 10; hour <= 23 - durationHours; hour++) {
-      if (slots.length >= count) break;
-
-      const slotStart = new Date(currentDate);
+      const slotStart = new Date(date);
       slotStart.setHours(hour, 0, 0, 0);
       const slotEnd = new Date(slotStart);
       slotEnd.setHours(hour + durationHours, 0, 0, 0);
 
-      if (isSlotAvailable(allEvents, slotStart, slotEnd)) {
-        slots.push(new Date(slotStart));
-        console.log(`[WORK-SESSIONS] Found slot: ${slotStart.toISOString()}`);
-        
-        // Add this slot to allEvents to prevent overlapping slots
-        allEvents.push({
-          start: { dateTime: slotStart.toISOString() },
-          end: { dateTime: slotEnd.toISOString() }
-        });
+      if (isSlotAvailable(events, slotStart, slotEnd)) {
+        return slotStart;
       }
     }
+    return null;
+  };
 
-    currentDate.setDate(currentDate.getDate() + 1);
-    daysChecked++;
+  // PRIORITY 1: Days with existing bookings - find adjacent slots
+  for (const day of daysWithBookings) {
+    if (slots.length >= count) break;
+
+    const adjacentSlot = findAdjacentSlot(day.events, day.date, durationHours);
+    if (adjacentSlot) {
+      slots.push(adjacentSlot);
+      console.log(`[WORK-SESSIONS] Scheduled adjacent to booking: ${adjacentSlot.toISOString()}`);
+      
+      // Mark this slot as taken for future searches
+      day.events.push({
+        start: { dateTime: adjacentSlot.toISOString() },
+        end: { dateTime: new Date(adjacentSlot.getTime() + durationHours * 60 * 60 * 1000).toISOString() }
+      });
+    }
+  }
+
+  // PRIORITY 2: Days without bookings - use normal slot finding
+  for (const day of daysWithoutBookings) {
+    if (slots.length >= count) break;
+
+    const slot = findAnySlot(day.events, day.date, durationHours);
+    if (slot) {
+      slots.push(slot);
+      console.log(`[WORK-SESSIONS] Scheduled on empty day: ${slot.toISOString()}`);
+      
+      // Mark this slot as taken
+      day.events.push({
+        start: { dateTime: slot.toISOString() },
+        end: { dateTime: new Date(slot.getTime() + durationHours * 60 * 60 * 1000).toISOString() }
+      });
+    }
+  }
+
+  // FALLBACK: If still need slots, search days with bookings for any available slot
+  if (slots.length < count) {
+    for (const day of daysWithBookings) {
+      if (slots.length >= count) break;
+
+      const slot = findAnySlot(day.events, day.date, durationHours);
+      if (slot) {
+        slots.push(slot);
+        console.log(`[WORK-SESSIONS] Fallback slot on booking day: ${slot.toISOString()}`);
+      }
+    }
   }
 
   return slots;
