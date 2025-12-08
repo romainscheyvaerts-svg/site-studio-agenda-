@@ -472,6 +472,8 @@ const BookingSection = () => {
                 <IdentityVerification
                   formName={formData.name}
                   onVerified={handleIdentityVerified}
+                  isVerified={identityVerified}
+                  verifiedName={verifiedName}
                 />
               </div>
             )}
