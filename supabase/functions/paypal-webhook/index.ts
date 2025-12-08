@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,11 @@ const corsHeaders = {
 };
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+// Supabase client with service role for database operations
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface BookingPayload {
   orderId: string;
@@ -156,6 +162,84 @@ async function createCalendarEvent(
 
 // ============ GOOGLE DRIVE INTEGRATION ============
 
+interface ClientDriveFolder {
+  id: string;
+  client_email: string;
+  client_phone: string | null;
+  client_name: string;
+  drive_folder_id: string;
+  drive_folder_link: string;
+}
+
+async function getExistingClientFolder(email: string, phone?: string): Promise<ClientDriveFolder | null> {
+  console.log(`[DRIVE] Checking for existing folder for: ${email} or ${phone}`);
+  
+  // Check by email first
+  const { data: emailFolder, error: emailError } = await supabase
+    .from("client_drive_folders")
+    .select("*")
+    .eq("client_email", email.toLowerCase())
+    .maybeSingle();
+
+  if (emailError) {
+    console.error("[DRIVE] Error checking email folder:", emailError);
+  }
+
+  if (emailFolder) {
+    console.log(`[DRIVE] Found existing folder by email: ${emailFolder.drive_folder_link}`);
+    return emailFolder as ClientDriveFolder;
+  }
+
+  // Check by phone if provided
+  if (phone) {
+    const normalizedPhone = phone.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
+    const { data: phoneFolder, error: phoneError } = await supabase
+      .from("client_drive_folders")
+      .select("*")
+      .eq("client_phone", normalizedPhone)
+      .maybeSingle();
+
+    if (phoneError) {
+      console.error("[DRIVE] Error checking phone folder:", phoneError);
+    }
+
+    if (phoneFolder) {
+      console.log(`[DRIVE] Found existing folder by phone: ${phoneFolder.drive_folder_link}`);
+      return phoneFolder as ClientDriveFolder;
+    }
+  }
+
+  console.log("[DRIVE] No existing folder found for this client");
+  return null;
+}
+
+async function saveClientFolder(
+  email: string,
+  phone: string | undefined,
+  name: string,
+  folderId: string,
+  folderLink: string
+): Promise<void> {
+  const normalizedPhone = phone ? phone.replace(/\s+/g, "").replace(/[^0-9+]/g, "") : null;
+  
+  const { error } = await supabase
+    .from("client_drive_folders")
+    .insert({
+      client_email: email.toLowerCase(),
+      client_phone: normalizedPhone,
+      client_name: name,
+      drive_folder_id: folderId,
+      drive_folder_link: folderLink,
+    });
+
+  if (error) {
+    console.error("[DRIVE] Error saving client folder:", error);
+    throw error;
+  }
+
+  console.log(`[DRIVE] Client folder saved to database`);
+}
+
 async function createDriveFolder(
   accessToken: string,
   folderName: string,
@@ -206,7 +290,7 @@ async function shareDriveFolder(
   };
 
   const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?sendNotificationEmail=true`,
+    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?sendNotificationEmail=false`,
     {
       method: "POST",
       headers: {
@@ -455,23 +539,41 @@ serve(async (req) => {
       console.log("[CALENDAR] Missing calendar configuration, skipping event creation");
     }
 
-    // ACTION 2: Create Google Drive shared folder for client (before email to include link)
+    // ACTION 2: Get or create Google Drive shared folder for client
     let driveFolderLink: string | null = null;
     if (serviceAccountKey) {
       try {
-        const driveToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/drive"]);
+        // Check if client already has a folder
+        const existingFolder = await getExistingClientFolder(payload.payerEmail, payload.phone);
         
-        // Create folder with client name and date
-        const folderName = `${payload.payerName} - ${payload.date}`;
-        const folder = await createDriveFolder(driveToken, folderName);
-        
-        // Share folder with client email
-        await shareDriveFolder(driveToken, folder.id, payload.payerEmail);
-        
-        driveFolderLink = folder.webViewLink;
-        console.log(`[DRIVE] Folder created and shared: ${driveFolderLink}`);
+        if (existingFolder) {
+          // Use existing folder
+          driveFolderLink = existingFolder.drive_folder_link;
+          console.log(`[DRIVE] Using existing folder: ${driveFolderLink}`);
+        } else {
+          // Create new folder
+          const driveToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/drive"]);
+          
+          const folderName = `${payload.payerName} - Make Music Studio`;
+          const folder = await createDriveFolder(driveToken, folderName);
+          
+          // Share folder with client email
+          await shareDriveFolder(driveToken, folder.id, payload.payerEmail);
+          
+          // Save to database for future bookings
+          await saveClientFolder(
+            payload.payerEmail,
+            payload.phone,
+            payload.payerName,
+            folder.id,
+            folder.webViewLink
+          );
+          
+          driveFolderLink = folder.webViewLink;
+          console.log(`[DRIVE] New folder created and shared: ${driveFolderLink}`);
+        }
       } catch (driveError) {
-        console.error("[DRIVE] Failed to create/share folder:", driveError);
+        console.error("[DRIVE] Failed to handle folder:", driveError);
         // Don't fail the whole webhook if Drive fails
       }
     } else {
