@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
+import IdentityVerification from "./IdentityVerification";
 
 type SessionType = "with-engineer" | "without-engineer" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -21,6 +22,8 @@ const BookingSection = () => {
   const [loadingClientId, setLoadingClientId] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("idle");
   const [availabilityMessage, setAvailabilityMessage] = useState("");
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -146,6 +149,16 @@ const BookingSection = () => {
       return false;
     }
 
+    // KYC is required for all session types
+    if (!identityVerified) {
+      toast({
+        title: "Vérification d'identité requise",
+        description: "Veuillez vérifier votre identité avant de procéder au paiement",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     return true;
   };
 
@@ -153,6 +166,33 @@ const BookingSection = () => {
     if (!validateForm()) return;
     setShowPayment(true);
   };
+
+  const handleIdentityVerified = (verified: boolean, extractedName?: string) => {
+    setIdentityVerified(verified);
+    if (extractedName) {
+      setVerifiedName(extractedName);
+    }
+  };
+
+  // Reset identity verification when name changes
+  useEffect(() => {
+    if (identityVerified && formData.name) {
+      // Check if the verified name still matches
+      const normalize = (str: string) => {
+        return str
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+      };
+      
+      if (verifiedName && normalize(verifiedName) !== normalize(formData.name)) {
+        setIdentityVerified(false);
+        setVerifiedName(null);
+      }
+    }
+  }, [formData.name, identityVerified, verifiedName]);
 
   const handlePaymentSuccess = () => {
     setShowPayment(false);
@@ -426,6 +466,16 @@ const BookingSection = () => {
               </div>
             )}
 
+            {/* Identity Verification - Required for all sessions */}
+            {sessionType && formData.name && availabilityStatus === "available" && (
+              <div className="mb-6">
+                <IdentityVerification
+                  formName={formData.name}
+                  onVerified={handleIdentityVerified}
+                />
+              </div>
+            )}
+
             {/* Price display */}
             {sessionType && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
@@ -452,7 +502,7 @@ const BookingSection = () => {
                 size="xl" 
                 className="w-full"
                 onClick={handleProceedToPayment}
-                disabled={loadingClientId || availabilityStatus === "checking" || availabilityStatus === "unavailable"}
+                disabled={loadingClientId || availabilityStatus === "checking" || availabilityStatus === "unavailable" || !identityVerified}
               >
                 {loadingClientId || availabilityStatus === "checking" ? (
                   <>
@@ -463,6 +513,11 @@ const BookingSection = () => {
                   <>
                     <XCircle className="w-5 h-5 mr-2" />
                     CRÉNEAU NON DISPONIBLE
+                  </>
+                ) : !identityVerified ? (
+                  <>
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    VÉRIFICATION D'IDENTITÉ REQUISE
                   </>
                 ) : (
                   <>
