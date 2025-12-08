@@ -3,23 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | null;
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 // Services qui ne nécessitent pas de calendrier ni de vérification d'identité
-const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering"];
+const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast"];
 
 const BookingSection = () => {
   const { toast } = useToast();
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [hours, setHours] = useState(2);
+  const [podcastMinutes, setPodcastMinutes] = useState(1);
   const [showPayment, setShowPayment] = useState(false);
   const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
   const [loadingClientId, setLoadingClientId] = useState(false);
@@ -42,6 +43,7 @@ const BookingSection = () => {
     "mixing": 200,
     "mastering": 60,
     "analog-mastering": 100,
+    "podcast": 40, // par minute
   };
 
   // Pour les services immédiats, pas de notion d'heures
@@ -49,11 +51,14 @@ const BookingSection = () => {
 
   const totalPrice = useMemo(() => {
     if (!sessionType) return 0;
+    if (sessionType === "podcast") {
+      return podcastMinutes * pricing[sessionType];
+    }
     if (isImmediateService) {
       return pricing[sessionType];
     }
     return hours * pricing[sessionType];
-  }, [sessionType, hours, isImmediateService]);
+  }, [sessionType, hours, podcastMinutes, isImmediateService]);
 
   // Location sèche = paiement complet, analog-mastering = 80€ acompte, autres = 50% acompte
   const paymentAmount = useMemo(() => {
@@ -67,7 +72,7 @@ const BookingSection = () => {
     return Math.ceil(totalPrice / 2); // 50% acompte
   }, [sessionType, totalPrice]);
 
-  const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering";
+  const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering" || sessionType === "podcast";
 
   // Fetch PayPal client ID
   useEffect(() => {
@@ -429,6 +434,31 @@ const BookingSection = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">Acompte 80€</p>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionType("podcast");
+                  setShowPayment(false);
+                }}
+                className={cn(
+                  "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                  sessionType === "podcast"
+                    ? "border-primary bg-primary/10 box-glow-cyan"
+                    : "border-border bg-card hover:border-primary/50"
+                )}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Radio className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-display text-lg text-foreground">MIXAGE PODCAST</h4>
+                    <p className="text-primary font-semibold text-sm">40€/min</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">50% acompte</p>
+              </button>
             </div>
           </div>
 
@@ -581,6 +611,45 @@ const BookingSection = () => {
                         +
                       </Button>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Podcast duration - Only for podcast */}
+              {sessionType === "podcast" && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm text-muted-foreground mb-2 block">
+                      Durée de l'audio (en minutes)
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setPodcastMinutes(Math.max(1, podcastMinutes - 1));
+                          setShowPayment(false);
+                        }}
+                      >
+                        -
+                      </Button>
+                      <span className="font-display text-3xl text-foreground w-16 text-center">{podcastMinutes} min</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setPodcastMinutes(podcastMinutes + 1);
+                          setShowPayment(false);
+                        }}
+                      >
+                        +
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {podcastMinutes} minute{podcastMinutes > 1 ? "s" : ""} × 40€ = {podcastMinutes * 40}€
+                    </p>
                   </div>
                 </div>
               )}
@@ -772,6 +841,7 @@ const BookingSection = () => {
                           onSuccess={handlePaymentSuccess}
                           isDeposit={isDeposit}
                           totalPrice={totalPrice}
+                          podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
                         />
                       ) : (
                         <div className="flex items-center justify-center py-4">

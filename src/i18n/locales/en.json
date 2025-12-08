@@ -80,6 +80,14 @@
       "feature3": "Full SSL chain",
       "feature4": "Drive link sent by email",
       "feature5": "100% payment required"
+    },
+    "podcast": {
+      "title": "Podcast Mixing",
+      "feature1": "40€ per audio minute",
+      "feature2": "Cleaning and equalization",
+      "feature3": "~2 weeks delivery",
+      "feature4": "Drive link sent by email",
+      "feature5": "50% deposit"
     }
   },
   "booking": {

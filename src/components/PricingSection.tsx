@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Check, Mic, Building2, Music2, Sparkles, Disc3 } from "lucide-react";
+import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PricingCardProps {
@@ -104,7 +104,7 @@ const PricingSection = () => {
         </div>
 
         {/* Pricing grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-8">
           <PricingCard
             title={t("pricing.with_engineer.title")}
             subtitle="Session accompagnée"
@@ -180,6 +180,25 @@ const PricingSection = () => {
               t("pricing.analog_mastering.feature3"),
               t("pricing.analog_mastering.feature4"),
               t("pricing.analog_mastering.feature5"),
+            ]}
+          />
+        </div>
+
+        {/* Second row - Podcast */}
+        <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+          <PricingCard
+            title={t("pricing.podcast.title")}
+            subtitle="Audio podcast"
+            price="40€"
+            unit="/min"
+            icon={<Radio className="w-6 h-6" />}
+            buttonText={t("pricing.book").toUpperCase()}
+            features={[
+              t("pricing.podcast.feature1"),
+              t("pricing.podcast.feature2"),
+              t("pricing.podcast.feature3"),
+              t("pricing.podcast.feature4"),
+              t("pricing.podcast.feature5"),
             ]}
           />
         </div>

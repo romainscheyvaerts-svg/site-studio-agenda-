@@ -80,6 +80,14 @@
       "feature3": "Cadena SSL completa",
       "feature4": "Enlace Drive enviado por correo",
       "feature5": "100% de pago requerido"
+    },
+    "podcast": {
+      "title": "Mezcla Podcast",
+      "feature1": "40€ por minuto de audio",
+      "feature2": "Limpieza y ecualización",
+      "feature3": "~2 semanas de entrega",
+      "feature4": "Enlace Drive enviado por correo",
+      "feature5": "50% de anticipo"
     }
   },
   "booking": {
