@@ -438,8 +438,17 @@ const BookingSection = () => {
                   Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp 
                   pour vous proposer des dates pour la session d'écoute au studio.
                 </p>
-                <p className="text-sm text-muted-foreground italic">
-                  💬 Si vous souhaitez être présent pendant le mix, envoyez un message sur WhatsApp pour définir une date avec l'ingénieur son.
+                <p className="text-sm text-muted-foreground">
+                  💬 Si vous souhaitez être présent pendant le mix,{" "}
+                  <a 
+                    href="https://wa.me/33612345678?text=Bonjour%2C%20je%20souhaite%20%C3%AAtre%20pr%C3%A9sent%20pendant%20le%20mix%20de%20mon%20projet."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:text-primary/80 transition-colors"
+                  >
+                    contactez-nous sur WhatsApp
+                  </a>
+                  {" "}pour définir une date avec l'ingénieur son.
                 </p>
               </div>
             )}
