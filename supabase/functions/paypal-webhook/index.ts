@@ -19,12 +19,21 @@ interface BookingPayload {
   payerName: string;
   payerEmail: string;
   phone: string;
-  sessionType: "with-engineer" | "without-engineer";
+  sessionType: "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering";
   date: string;
   time: string;
   hours: number;
   totalAmount: number;
   message?: string;
+}
+
+interface CalendarEvent {
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+}
+
+interface CalendarResponse {
+  items?: CalendarEvent[];
 }
 
 // ============ GOOGLE CALENDAR INTEGRATION ============
@@ -158,6 +167,201 @@ async function createCalendarEvent(
 
   const createdEvent = await response.json();
   console.log(`[CALENDAR] Event created successfully: ${createdEvent.id}`);
+}
+
+// ============ CALENDAR AVAILABILITY FOR INTERNAL WORK SESSIONS ============
+
+async function getCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string
+): Promise<CalendarEvent[]> {
+  const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
+  url.searchParams.set("timeMin", timeMin);
+  url.searchParams.set("timeMax", timeMax);
+  url.searchParams.set("singleEvents", "true");
+  url.searchParams.set("orderBy", "startTime");
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[CALENDAR] Error fetching events:`, errorText);
+    return [];
+  }
+
+  const data: CalendarResponse = await response.json();
+  return data.items || [];
+}
+
+function isSlotAvailable(
+  events: CalendarEvent[],
+  slotStart: Date,
+  slotEnd: Date
+): boolean {
+  for (const event of events) {
+    const eventStart = new Date(event.start.dateTime || event.start.date || "");
+    const eventEnd = new Date(event.end.dateTime || event.end.date || "");
+    
+    // Check for overlap
+    if (eventStart < slotEnd && eventEnd > slotStart) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasAllDayEvent(events: CalendarEvent[], date: Date): boolean {
+  const dateStr = date.toISOString().split('T')[0];
+  
+  for (const event of events) {
+    // All-day events have only 'date' property, not 'dateTime'
+    if (event.start.date && !event.start.dateTime) {
+      if (event.start.date === dateStr) {
+        return true;
+      }
+    }
+    // Also check for events that span the whole day
+    if (event.start.dateTime && event.end.dateTime) {
+      const eventStart = new Date(event.start.dateTime);
+      const eventEnd = new Date(event.end.dateTime);
+      const hours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
+      if (hours >= 8) {
+        // Consider it blocks the whole day
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function findAvailableSlots(
+  accessToken: string,
+  patronCalendarId: string,
+  studioCalendarId: string,
+  durationHours: number,
+  count: number
+): Promise<Date[]> {
+  const slots: Date[] = [];
+  const now = new Date();
+  let currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  currentDate.setDate(currentDate.getDate() + 1); // Start from tomorrow
+  
+  const maxDaysToCheck = 30;
+  let daysChecked = 0;
+
+  console.log(`[WORK-SESSIONS] Looking for ${count} slots of ${durationHours}h each`);
+
+  while (slots.length < count && daysChecked < maxDaysToCheck) {
+    const dayStart = new Date(currentDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(currentDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Fetch events for this day
+    const [patronEvents, studioEvents] = await Promise.all([
+      getCalendarEvents(accessToken, patronCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
+      getCalendarEvents(accessToken, studioCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
+    ]);
+
+    // If patron has all-day event, skip this day entirely
+    if (hasAllDayEvent(patronEvents, currentDate)) {
+      console.log(`[WORK-SESSIONS] ${currentDate.toDateString()} - Patron busy all day, skipping`);
+      currentDate.setDate(currentDate.getDate() + 1);
+      daysChecked++;
+      continue;
+    }
+
+    // Combine all events for availability check
+    const allEvents = [...patronEvents, ...studioEvents];
+
+    // Check hourly slots from 10:00 to 23:00 - durationHours
+    for (let hour = 10; hour <= 23 - durationHours; hour++) {
+      if (slots.length >= count) break;
+
+      const slotStart = new Date(currentDate);
+      slotStart.setHours(hour, 0, 0, 0);
+      const slotEnd = new Date(slotStart);
+      slotEnd.setHours(hour + durationHours, 0, 0, 0);
+
+      if (isSlotAvailable(allEvents, slotStart, slotEnd)) {
+        slots.push(new Date(slotStart));
+        console.log(`[WORK-SESSIONS] Found slot: ${slotStart.toISOString()}`);
+        
+        // Add this slot to allEvents to prevent overlapping slots
+        allEvents.push({
+          start: { dateTime: slotStart.toISOString() },
+          end: { dateTime: slotEnd.toISOString() }
+        });
+      }
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1);
+    daysChecked++;
+  }
+
+  return slots;
+}
+
+async function scheduleInternalWorkSessions(
+  accessToken: string,
+  calendarId: string,
+  patronCalendarId: string,
+  studioCalendarId: string,
+  sessionType: "mixing" | "mastering" | "analog-mastering",
+  clientName: string,
+  orderId: string
+): Promise<void> {
+  console.log(`[WORK-SESSIONS] Scheduling internal work sessions for ${sessionType}`);
+
+  let sessionsToSchedule: { duration: number; label: string }[] = [];
+
+  if (sessionType === "mixing") {
+    // Mix: 2 sessions - 3h + 2h
+    sessionsToSchedule = [
+      { duration: 3, label: "MIX Session 1/2" },
+      { duration: 2, label: "MIX Session 2/2" },
+    ];
+  } else if (sessionType === "mastering" || sessionType === "analog-mastering") {
+    // Mastering: 1 session of 2h
+    const label = sessionType === "analog-mastering" ? "MASTERING ANALOG" : "MASTERING";
+    sessionsToSchedule = [
+      { duration: 2, label: label },
+    ];
+  }
+
+  for (const session of sessionsToSchedule) {
+    const slots = await findAvailableSlots(
+      accessToken,
+      patronCalendarId,
+      studioCalendarId,
+      session.duration,
+      1
+    );
+
+    if (slots.length > 0) {
+      const slotStart = slots[0];
+      const slotEnd = new Date(slotStart.getTime() + session.duration * 60 * 60 * 1000);
+
+      const formatForCalendar = (date: Date): string => {
+        return date.toISOString().replace('Z', '+01:00');
+      };
+
+      await createCalendarEvent(accessToken, calendarId, {
+        summary: `🎛️ ${session.label} - ${clientName}`,
+        description: `Session de travail interne\nClient: ${clientName}\nRéférence: ${orderId}\n\n⚠️ Session de travail - Ne pas supprimer`,
+        start: formatForCalendar(slotStart),
+        end: formatForCalendar(slotEnd),
+      });
+
+      console.log(`[WORK-SESSIONS] Created: ${session.label} on ${slotStart.toISOString()}`);
+    } else {
+      console.warn(`[WORK-SESSIONS] Could not find slot for ${session.label}`);
+    }
+  }
 }
 
 // ============ GOOGLE DRIVE INTEGRATION ============
@@ -323,13 +527,30 @@ const formatDate = (dateStr: string): string => {
 };
 
 const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null): string => {
-  const sessionLabel = payload.sessionType === "with-engineer" 
-    ? "Session avec ingénieur son" 
-    : "Location sèche (autonomie)";
+  const isPostProduction = ["mixing", "mastering", "analog-mastering"].includes(payload.sessionType);
   
-  const contactInfo = payload.sessionType === "with-engineer"
-    ? `<p style="margin: 0 0 10px 0;"><strong>Contact ingénieur :</strong> Un ingénieur vous contactera avant votre session.</p>`
-    : `<p style="margin: 0 0 10px 0;"><strong>Contact studio :</strong> Vous recevrez les instructions d'accès par email.</p>`;
+  let sessionLabel = "";
+  let contactInfo = "";
+  
+  if (payload.sessionType === "with-engineer") {
+    sessionLabel = "Session avec ingénieur son";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Contact ingénieur :</strong> Un ingénieur vous contactera avant votre session.</p>`;
+  } else if (payload.sessionType === "without-engineer") {
+    sessionLabel = "Location sèche (autonomie)";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Contact studio :</strong> Vous recevrez les instructions d'accès par email.</p>`;
+  } else if (payload.sessionType === "mixing") {
+    sessionLabel = "Service Mixage";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mixage sera traité dans un délai d'environ 2 semaines.</p>
+                   <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous proposer des dates pour la session d'écoute au studio.</p>`;
+  } else if (payload.sessionType === "mastering") {
+    sessionLabel = "Service Mastering";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mastering sera traité dans un délai d'environ 2 semaines.</p>
+                   <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous proposer des dates pour la session d'écoute au studio.</p>`;
+  } else if (payload.sessionType === "analog-mastering") {
+    sessionLabel = "Service Mastering Analogique";
+    contactInfo = `<p style="margin: 0 0 10px 0;"><strong>Délai :</strong> Votre mastering analogique sera traité dans un délai d'environ 2 semaines.</p>
+                   <p style="margin: 0 0 10px 0;">Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp pour vous proposer des dates pour la session d'écoute au studio.</p>`;
+  }
 
   const driveSection = driveFolderLink ? `
               <!-- Drive Folder -->
@@ -338,54 +559,45 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                   <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(66, 133, 244, 0.1)); border-radius: 12px; padding: 20px; border: 1px solid rgba(66, 133, 244, 0.3);">
                     <h4 style="margin: 0 0 12px 0; color: #fafafa; font-size: 16px;">📁 Votre dossier partagé</h4>
                     <p style="margin: 0 0 16px 0; color: #a1a1aa; font-size: 14px;">
-                      Un dossier Google Drive a été créé pour votre projet. Vous pouvez y déposer vos fichiers et accéder aux enregistrements après la session.
+                      ${isPostProduction 
+                        ? "Un dossier Google Drive a été créé pour votre projet. Veuillez y déposer vos fichiers à traiter."
+                        : "Un dossier Google Drive a été créé pour votre projet. Vous pouvez y déposer vos fichiers et accéder aux enregistrements après la session."
+                      }
                     </p>
                     <a href="${driveFolderLink}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                      Ouvrir le dossier
+                      ${isPostProduction ? "Déposer mes fichiers" : "Ouvrir le dossier"}
                     </a>
                   </div>
                 </td>
               </tr>
   ` : '';
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #0a0a0b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #0a0a0b;">
-        <tr>
-          <td align="center" style="padding: 40px 20px;">
-            <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #111113; border-radius: 16px; border: 1px solid #1e1e21;">
-              
-              <!-- Header -->
+  // For post-production, don't show date/time/duration
+  const bookingDetailsSection = isPostProduction ? `
+              <!-- Booking Details for Post-Production -->
               <tr>
-                <td style="padding: 40px 40px 30px 40px; text-align: center; border-bottom: 1px solid #1e1e21;">
-                  <h1 style="margin: 0; color: #22d3ee; font-size: 28px; font-weight: bold; letter-spacing: 2px;">
-                    MAKE MUSIC STUDIO
-                  </h1>
-                  <p style="margin: 10px 0 0 0; color: #71717a; font-size: 14px;">
-                    Confirmation de réservation
-                  </p>
+                <td style="padding: 0 40px 30px 40px;">
+                  <h3 style="margin: 0 0 20px 0; color: #fafafa; font-size: 18px; border-bottom: 1px solid #1e1e21; padding-bottom: 10px;">
+                    Détails de votre commande
+                  </h3>
+                  
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding: 12px 0; border-bottom: 1px solid #1e1e21;">
+                        <span style="color: #71717a; font-size: 14px;">Service</span><br>
+                        <span style="color: #22d3ee; font-size: 16px; font-weight: 600;">${sessionLabel}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 12px 0;">
+                        <span style="color: #71717a; font-size: 14px;">Montant payé</span><br>
+                        <span style="color: #fbbf24; font-size: 20px; font-weight: bold;">${payload.totalAmount}€</span>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
-
-              <!-- Success Message -->
-              <tr>
-                <td style="padding: 30px 40px;">
-                  <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(251, 191, 36, 0.1)); border-radius: 12px; padding: 24px; text-align: center; border: 1px solid rgba(34, 211, 238, 0.2);">
-                    <div style="width: 60px; height: 60px; background-color: rgba(34, 197, 94, 0.2); border-radius: 50%; margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center;">
-                      <span style="color: #22c55e; font-size: 30px;">✓</span>
-                    </div>
-                    <h2 style="margin: 0 0 8px 0; color: #fafafa; font-size: 22px;">Paiement confirmé !</h2>
-                    <p style="margin: 0; color: #a1a1aa; font-size: 14px;">Votre session est réservée, ${payload.payerName}</p>
-                  </div>
-                </td>
-              </tr>
-
+  ` : `
               <!-- Booking Details -->
               <tr>
                 <td style="padding: 0 40px 30px 40px;">
@@ -427,6 +639,47 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                   </table>
                 </td>
               </tr>
+  `;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #0a0a0b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #0a0a0b;">
+        <tr>
+          <td align="center" style="padding: 40px 20px;">
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #111113; border-radius: 16px; border: 1px solid #1e1e21;">
+              
+              <!-- Header -->
+              <tr>
+                <td style="padding: 40px 40px 30px 40px; text-align: center; border-bottom: 1px solid #1e1e21;">
+                  <h1 style="margin: 0; color: #22d3ee; font-size: 28px; font-weight: bold; letter-spacing: 2px;">
+                    MAKE MUSIC STUDIO
+                  </h1>
+                  <p style="margin: 10px 0 0 0; color: #71717a; font-size: 14px;">
+                    ${isPostProduction ? "Confirmation de commande" : "Confirmation de réservation"}
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Success Message -->
+              <tr>
+                <td style="padding: 30px 40px;">
+                  <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(251, 191, 36, 0.1)); border-radius: 12px; padding: 24px; text-align: center; border: 1px solid rgba(34, 211, 238, 0.2);">
+                    <div style="width: 60px; height: 60px; background-color: rgba(34, 197, 94, 0.2); border-radius: 50%; margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center;">
+                      <span style="color: #22c55e; font-size: 30px;">✓</span>
+                    </div>
+                    <h2 style="margin: 0 0 8px 0; color: #fafafa; font-size: 22px;">Paiement confirmé !</h2>
+                    <p style="margin: 0; color: #a1a1aa; font-size: 14px;">${isPostProduction ? "Votre commande est enregistrée" : "Votre session est réservée"}, ${payload.payerName}</p>
+                  </div>
+                </td>
+              </tr>
+
+              ${bookingDetailsSection}
 
               ${driveSection}
 
@@ -448,7 +701,7 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
               <tr>
                 <td style="padding: 30px 40px; background-color: #09090b; border-radius: 0 0 16px 16px; text-align: center; border-top: 1px solid #1e1e21;">
                   <p style="margin: 0 0 10px 0; color: #71717a; font-size: 14px;">
-                    À très bientôt au studio !
+                    ${isPostProduction ? "Merci pour votre confiance !" : "À très bientôt au studio !"}
                   </p>
                   <p style="margin: 0; color: #52525b; font-size: 12px;">
                     Make Music Studio • Bruxelles • +32 476 09 41 72
@@ -487,50 +740,74 @@ serve(async (req) => {
     console.log("Total Amount:", payload.totalAmount, "€");
     console.log("Message:", payload.message || "N/A");
 
-    const sessionLabel = payload.sessionType === "with-engineer" 
-      ? "AVEC INGÉNIEUR" 
-      : "LOCATION SÈCHE";
+    const isPostProduction = ["mixing", "mastering", "analog-mastering"].includes(payload.sessionType);
+    
+    let sessionLabel = "";
+    if (payload.sessionType === "with-engineer") sessionLabel = "AVEC INGÉNIEUR";
+    else if (payload.sessionType === "without-engineer") sessionLabel = "LOCATION SÈCHE";
+    else if (payload.sessionType === "mixing") sessionLabel = "MIXAGE";
+    else if (payload.sessionType === "mastering") sessionLabel = "MASTERING";
+    else if (payload.sessionType === "analog-mastering") sessionLabel = "MASTERING ANALOGIQUE";
 
     // Get Google Calendar credentials
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+    const patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID");
 
-    // ACTION 1: Create Google Calendar event
+    // ACTION 1: Handle calendar events based on session type
     if (serviceAccountKey && studioCalendarId) {
       try {
         const calendarToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/calendar"]);
         
-        // Parse date and time for calendar event
-        const [year, month, day] = payload.date.split("-").map(Number);
-        const [hour, minute] = payload.time.split(":").map(Number);
-        
-        const startDate = new Date(year, month - 1, day, hour, minute);
-        const endDate = new Date(startDate.getTime() + payload.hours * 60 * 60 * 1000);
-        
-        // Format as ISO string with timezone offset
-        const formatForCalendar = (date: Date): string => {
-          return date.toISOString().replace('Z', '+01:00');
-        };
+        if (isPostProduction) {
+          // For post-production: schedule internal work sessions
+          console.log("[CALENDAR] Scheduling internal work sessions for post-production");
+          
+          if (patronCalendarId) {
+            await scheduleInternalWorkSessions(
+              calendarToken,
+              studioCalendarId,
+              patronCalendarId,
+              studioCalendarId,
+              payload.sessionType as "mixing" | "mastering" | "analog-mastering",
+              payload.payerName,
+              payload.orderId
+            );
+          } else {
+            console.log("[CALENDAR] Missing patron calendar ID, skipping work session scheduling");
+          }
+        } else {
+          // For studio sessions: create client-facing event
+          const [year, month, day] = payload.date.split("-").map(Number);
+          const [hour, minute] = payload.time.split(":").map(Number);
+          
+          const startDate = new Date(year, month - 1, day, hour, minute);
+          const endDate = new Date(startDate.getTime() + payload.hours * 60 * 60 * 1000);
+          
+          const formatForCalendar = (date: Date): string => {
+            return date.toISOString().replace('Z', '+01:00');
+          };
 
-        const eventDescription = [
-          `Client: ${payload.payerName}`,
-          `Email: ${payload.payerEmail}`,
-          `Téléphone: ${payload.phone}`,
-          `Durée: ${payload.hours}h`,
-          `Montant: ${payload.totalAmount}€`,
-          `Référence: ${payload.orderId}`,
-          payload.message ? `Message: ${payload.message}` : '',
-        ].filter(Boolean).join('\n');
+          const eventDescription = [
+            `Client: ${payload.payerName}`,
+            `Email: ${payload.payerEmail}`,
+            `Téléphone: ${payload.phone}`,
+            `Durée: ${payload.hours}h`,
+            `Montant: ${payload.totalAmount}€`,
+            `Référence: ${payload.orderId}`,
+            payload.message ? `Message: ${payload.message}` : '',
+          ].filter(Boolean).join('\n');
 
-        await createCalendarEvent(calendarToken, studioCalendarId, {
-          summary: `SESSION ${sessionLabel} - ${payload.payerName}`,
-          description: eventDescription,
-          start: formatForCalendar(startDate),
-          end: formatForCalendar(endDate),
-          attendeeEmail: payload.payerEmail,
-        });
+          await createCalendarEvent(calendarToken, studioCalendarId, {
+            summary: `SESSION ${sessionLabel} - ${payload.payerName}`,
+            description: eventDescription,
+            start: formatForCalendar(startDate),
+            end: formatForCalendar(endDate),
+            attendeeEmail: payload.payerEmail,
+          });
 
-        console.log("[CALENDAR] Event created successfully");
+          console.log("[CALENDAR] Client session event created successfully");
+        }
       } catch (calendarError) {
         console.error("[CALENDAR] Failed to create event:", calendarError);
         // Don't fail the whole webhook if calendar fails
@@ -586,10 +863,18 @@ serve(async (req) => {
     try {
       const emailHtml = generateConfirmationEmail(payload, driveFolderLink);
       
+      // Adapt email subject based on service type
+      let emailSubject = "";
+      if (isPostProduction) {
+        emailSubject = `✅ Commande confirmée - ${sessionLabel}`;
+      } else {
+        emailSubject = `✅ Réservation confirmée - ${formatDate(payload.date)} à ${payload.time}`;
+      }
+      
       const emailResponse = await resend.emails.send({
         from: "Make Music Studio <onboarding@resend.dev>",
         to: [payload.payerEmail],
-        subject: `✅ Réservation confirmée - ${formatDate(payload.date)} à ${payload.time}`,
+        subject: emailSubject,
         html: emailHtml,
       });
 
