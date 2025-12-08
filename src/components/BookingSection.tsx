@@ -41,7 +41,7 @@ const BookingSection = () => {
     "without-engineer": 22,
     "mixing": 200,
     "mastering": 60,
-    "analog-mastering": 40,
+    "analog-mastering": 100,
   };
 
   // Pour les services immédiats, pas de notion d'heures
@@ -55,16 +55,19 @@ const BookingSection = () => {
     return hours * pricing[sessionType];
   }, [sessionType, hours, isImmediateService]);
 
-  // Location sèche et mastering analogique = paiement complet, autres = 50% acompte
+  // Location sèche = paiement complet, analog-mastering = 80€ acompte, autres = 50% acompte
   const paymentAmount = useMemo(() => {
     if (!sessionType) return 0;
-    if (sessionType === "without-engineer" || sessionType === "analog-mastering") {
+    if (sessionType === "without-engineer") {
       return totalPrice; // Paiement complet
+    }
+    if (sessionType === "analog-mastering") {
+      return 80; // Acompte fixe de 80€
     }
     return Math.ceil(totalPrice / 2); // 50% acompte
   }, [sessionType, totalPrice]);
 
-  const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering";
+  const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering";
 
   // Fetch PayPal client ID
   useEffect(() => {
@@ -414,10 +417,10 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-lg text-foreground">MASTERING ANALOGIQUE</h4>
-                    <p className="text-accent font-semibold text-sm">+40€/titre</p>
+                    <p className="text-accent font-semibold text-sm">100€/titre</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Paiement complet</p>
+                <p className="text-xs text-muted-foreground">Acompte 80€</p>
               </button>
             </div>
           </div>

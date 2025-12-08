@@ -168,8 +168,8 @@ const PricingSection = () => {
 
           <PricingCard
             title="ANALOGIQUE"
-            subtitle="Supplément mastering"
-            price="+40€"
+            subtitle="Mastering premium"
+            price="100€"
             unit="/titre"
             icon={<Disc3 className="w-6 h-6" />}
             buttonText="DEMANDER UN DEVIS"
@@ -178,7 +178,7 @@ const PricingSection = () => {
               "Warmth et caractère",
               "Format CD/Vinyl",
               "Chaîne SSL complète",
-              "En plus du mastering standard",
+              "Acompte 80€",
             ]}
           />
         </div>
@@ -211,10 +211,6 @@ const PricingSection = () => {
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                   Location sèche (22€/h)
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  Option mastering analogique (+40€)
                 </li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2 text-center italic">À régler à la réservation</p>
