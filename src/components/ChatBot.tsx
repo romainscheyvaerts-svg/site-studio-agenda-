@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, X, Send, Mic, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Message {
   id: number;
@@ -18,14 +19,25 @@ const initialMessages: Message[] = [
   },
 ];
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/studio-chat`;
+
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isTyping) return;
 
     const userMessage: Message = {
       id: Date.now(),
@@ -37,38 +49,130 @@ const ChatBot = () => {
     setInput("");
     setIsTyping(true);
 
-    // Simulate bot response (will be replaced with Gemini API)
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: Date.now() + 1,
-        text: getBotResponse(input),
-        isBot: true,
-      };
-      setMessages((prev) => [...prev, botResponse]);
-      setIsTyping(false);
-    }, 1500);
-  };
+    try {
+      // Build conversation history for context
+      const conversationHistory = messages
+        .filter((m) => m.id !== 1) // Exclude initial greeting
+        .map((m) => ({
+          role: m.isBot ? "assistant" : "user",
+          content: m.text,
+        }));
 
-  const getBotResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes("prix") || input.includes("tarif") || input.includes("coût") || input.includes("combien")) {
-      return "Nos tarifs sont très compétitifs ! 🎯\n\n• Session AVEC ingénieur : 45€/h\n• Location sèche (sans ingé) : 22€/h\n• Mixage complet : 200€\n• Mastering : 60€/titre\n\nQuel type de session t'intéresse ?";
+      // Add current user message
+      conversationHistory.push({ role: "user", content: input });
+
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: conversationHistory }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur de connexion");
+      }
+
+      if (!response.body) {
+        throw new Error("Pas de réponse");
+      }
+
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let assistantContent = "";
+      let assistantMessageId = Date.now() + 1;
+
+      // Add empty assistant message
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantMessageId, text: "", isBot: true },
+      ]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, text: assistantContent }
+                    : m
+                )
+              );
+            }
+          } catch {
+            // Incomplete JSON, wait for more data
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Final flush
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, text: assistantContent }
+                    : m
+                )
+              );
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast.error("Impossible de se connecter à l'assistant");
+      
+      // Fallback message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          text: "Désolé, je rencontre un problème technique. Tu peux me reposer ta question ou consulter nos tarifs sur la page ! 🎧",
+          isBot: true,
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
     }
-    
-    if (input.includes("micro") || input.includes("neumann") || input.includes("matos") || input.includes("équipement")) {
-      return "On a du matos de dingue ! 🎤\n\n• Micro Neumann U87 - LA référence mondiale\n• Chaîne SSL (préamp + EQ + compresseur)\n• Écoutes Genelec 8340A avec sub\n• ProTools avec plugins UAD, Waves, Auto-Tune...\n\nC'est l'équipement qu'on retrouve dans les plus grands studios !";
-    }
-    
-    if (input.includes("réserver") || input.includes("dispo") || input.includes("créneau")) {
-      return "Pour réserver, tu peux descendre sur notre formulaire de réservation en bas de page. Dis-moi d'abord quel type de projet tu as ? (enregistrement voix, instrus, podcast...) Je pourrai te conseiller la bonne formule ! 🎧";
-    }
-    
-    if (input.includes("voix") || input.includes("rap") || input.includes("chant") || input.includes("vocal")) {
-      return "Pour les voix, tu seras au top chez nous ! 🔥\n\nLe Neumann U87 combiné à la chaîne SSL, c'est le combo légendaire pour des voix cristallines. Avec notre traitement acoustique, t'auras un son ultra propre.\n\nJe te conseille la session avec ingénieur (45€/h) pour un premier enregistrement, il saura te guider pour le meilleur rendu !";
-    }
-    
-    return "Je suis là pour t'aider ! 🎵\n\nTu peux me poser des questions sur :\n• Nos tarifs et formules\n• Le matériel du studio\n• Comment réserver\n• Quel setup pour ton projet\n\nQu'est-ce qui t'intéresse ?";
   };
 
   return (
@@ -115,7 +219,7 @@ const ChatBot = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[400px]">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -136,8 +240,8 @@ const ChatBot = () => {
               </div>
             </div>
           ))}
-          
-          {isTyping && (
+
+          {isTyping && messages[messages.length - 1]?.text === "" && (
             <div className="flex justify-start">
               <div className="bg-secondary/80 p-3 rounded-2xl rounded-tl-sm">
                 <div className="flex gap-1">
@@ -148,6 +252,7 @@ const ChatBot = () => {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
@@ -156,11 +261,12 @@ const ChatBot = () => {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder="Pose ta question..."
               className="bg-background border-border"
+              disabled={isTyping}
             />
-            <Button onClick={handleSend} size="icon" variant="default">
+            <Button onClick={handleSend} size="icon" variant="default" disabled={isTyping}>
               <Send className="w-4 h-4" />
             </Button>
           </div>
