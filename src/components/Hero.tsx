@@ -1,7 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones, Music } from "lucide-react";
+import { Mic, Headphones } from "lucide-react";
 
 const Hero = () => {
+  const { t } = useTranslation();
+
   const scrollToBooking = () => {
     document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -11,7 +14,7 @@ const Hero = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden noise-bg">
+    <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden noise-bg">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/20 to-background" />
       
@@ -28,32 +31,30 @@ const Hero = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/5 mb-8">
             <span className="w-2 h-2 rounded-full bg-primary animate-glow-pulse" />
-            <span className="text-sm text-primary font-medium tracking-wide">STUDIO PROFESSIONNEL</span>
+            <span className="text-sm text-primary font-medium tracking-wide">{t("hero.badge")}</span>
           </div>
           
           {/* Main title */}
           <h1 className="font-display text-6xl md:text-8xl lg:text-9xl text-foreground mb-6 leading-none">
-            CRÉEZ VOTRE
+            {t("hero.title1")}
             <br />
-            <span className="text-glow-cyan text-primary">SON UNIQUE</span>
+            <span className="text-glow-cyan text-primary">{t("hero.title2")} {t("hero.title3")}</span>
           </h1>
           
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Un studio d'enregistrement haut de gamme équipé du meilleur matériel : 
-            <span className="text-foreground font-medium"> Neumann U87, SSL, Genelec</span>. 
-            Votre vision sonore mérite l'excellence.
+            {t("hero.description")}
           </p>
           
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Button variant="hero" size="xl" onClick={scrollToBooking}>
               <Mic className="w-5 h-5" />
-              RÉSERVER UNE SESSION
+              {t("hero.cta_book").toUpperCase()}
             </Button>
             <Button variant="neon" size="xl" onClick={scrollToGear}>
               <Headphones className="w-5 h-5" />
-              DÉCOUVRIR LE MATÉRIEL
+              {t("hero.cta_discover").toUpperCase()}
             </Button>
           </div>
           
@@ -61,15 +62,15 @@ const Hero = () => {
           <div className="grid grid-cols-3 gap-8 max-w-xl mx-auto">
             <div className="text-center">
               <div className="font-display text-4xl md:text-5xl text-primary text-glow-cyan mb-1">45€</div>
-              <div className="text-sm text-muted-foreground">/heure avec ingé</div>
+              <div className="text-sm text-muted-foreground">{t("pricing.per_hour")} + eng.</div>
             </div>
             <div className="text-center border-x border-border">
               <div className="font-display text-4xl md:text-5xl text-accent text-glow-gold mb-1">22€</div>
-              <div className="text-sm text-muted-foreground">/heure location</div>
+              <div className="text-sm text-muted-foreground">{t("pricing.per_hour")} dry</div>
             </div>
             <div className="text-center">
               <div className="font-display text-4xl md:text-5xl text-foreground mb-1">PRO</div>
-              <div className="text-sm text-muted-foreground">Qualité studio</div>
+              <div className="text-sm text-muted-foreground">Studio quality</div>
             </div>
           </div>
         </div>

@@ -1,0 +1,142 @@
+{
+  "nav": {
+    "home": "Home",
+    "services": "Services",
+    "gear": "Gear",
+    "pricing": "Pricing",
+    "booking": "Booking",
+    "contact": "Contact"
+  },
+  "hero": {
+    "badge": "PROFESSIONAL RECORDING STUDIO",
+    "title1": "CREATE YOUR",
+    "title2": "UNIQUE",
+    "title3": "SOUND",
+    "description": "A creative space equipped with the best technologies to bring your music projects to life.",
+    "cta_book": "Book a session",
+    "cta_discover": "Discover the studio"
+  },
+  "gear": {
+    "badge": "EQUIPMENT",
+    "title": "OUR",
+    "title_highlight": "ARSENAL",
+    "description": "High-end equipment for exceptional sound quality",
+    "microphone": "Microphone",
+    "microphone_desc": "Industry standard for vocals",
+    "preamp": "Preamp",
+    "preamp_desc": "Studio quality SSL preamplification",
+    "interface": "Interface",
+    "interface_desc": "High definition audio conversion",
+    "monitors": "Monitoring",
+    "monitors_desc": "Reference listening with subwoofer",
+    "software": "Software",
+    "software_desc": "Professional audio workstation",
+    "plugins": "Plugins",
+    "plugins_desc": "The best audio processing"
+  },
+  "pricing": {
+    "badge": "PRICING",
+    "title": "OUR",
+    "title_highlight": "PACKAGES",
+    "description": "Solutions adapted to all projects",
+    "per_hour": "/hour",
+    "per_track": "/track",
+    "book": "Book",
+    "deposit_50": "50% deposit",
+    "full_payment": "100% payment required",
+    "with_engineer": {
+      "title": "Session + Engineer",
+      "feature1": "Dedicated sound engineer",
+      "feature2": "Real-time mixing",
+      "feature3": "Artistic advice",
+      "feature4": "Multitrack export"
+    },
+    "without_engineer": {
+      "title": "Dry Rental",
+      "feature1": "Self-service studio",
+      "feature2": "Equipment included",
+      "feature3": "24/7 access possible",
+      "feature4": "Technical support"
+    },
+    "mixing": {
+      "title": "Mixing",
+      "feature1": "Professional mix",
+      "feature2": "Revisions included",
+      "feature3": "Premium plugins",
+      "feature4": "SSL processing",
+      "feature5": "Drive link sent by email"
+    },
+    "mastering": {
+      "title": "Mastering",
+      "feature1": "Digital mastering",
+      "feature2": "Streaming format",
+      "feature3": "Optimized loudness",
+      "feature4": "Drive link sent by email"
+    },
+    "analog_mastering": {
+      "title": "Analog Mastering",
+      "feature1": "Analog processing",
+      "feature2": "Warmth and character",
+      "feature3": "Full SSL chain",
+      "feature4": "Drive link sent by email",
+      "feature5": "100% payment required"
+    }
+  },
+  "booking": {
+    "badge": "BOOKING",
+    "title": "BOOK YOUR",
+    "title_highlight": "SESSION",
+    "description": "Select your session type and time slots. Our system will show you real-time availability.",
+    "select_service": "1. SELECT YOUR SERVICE",
+    "select_service_desc": "Choose the type of service that fits your project",
+    "studio_sessions": "Studio Sessions",
+    "post_production": "Post-Production (~2 weeks delay)",
+    "with_engineer": "WITH ENGINEER",
+    "with_engineer_desc": "Guided session with a professional sound engineer",
+    "without_engineer": "DRY RENTAL",
+    "without_engineer_desc": "Self-service studio access (ID verification required)",
+    "mixing": "MIXING",
+    "mastering": "MASTERING",
+    "analog_mastering": "ANALOG MASTERING",
+    "deposit_50": "50% deposit",
+    "full_payment": "100% required",
+    "form_title": "2. YOUR INFORMATION",
+    "name": "Full name",
+    "name_placeholder": "Your name",
+    "email": "Email",
+    "email_placeholder": "your@email.com",
+    "phone": "Phone",
+    "phone_placeholder": "+32 XXX XX XX XX",
+    "date": "Date",
+    "select_date": "Select a date",
+    "time": "Start time",
+    "duration": "Duration",
+    "hours": "hours",
+    "message": "Message (optional)",
+    "message_placeholder": "Describe your project, your specific needs...",
+    "identity_verification": "Identity Verification",
+    "verify_identity_desc": "For self-service sessions, identity verification is required",
+    "total": "Total",
+    "amount_due": "Amount due",
+    "deposit_info": "(50% deposit)",
+    "proceed_payment": "Proceed to payment",
+    "pay_with_paypal": "Pay with PayPal",
+    "or": "or",
+    "pay_with_revolut": "Pay with Revolut",
+    "checking_availability": "Checking availability...",
+    "available": "This slot is available.",
+    "not_available": "Sorry, this slot is not available.",
+    "fill_all_fields": "Please fill in all required fields"
+  },
+  "chatbot": {
+    "title": "Studio Assistant",
+    "placeholder": "Ask your question...",
+    "greeting": "Hello! I'm the studio assistant. How can I help you?"
+  },
+  "footer": {
+    "description": "Professional recording studio in Brussels",
+    "quick_links": "Quick links",
+    "contact": "Contact",
+    "rights": "All rights reserved"
+  }
+}

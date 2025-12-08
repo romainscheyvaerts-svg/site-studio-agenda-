@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const Navbar = () => {
+  const { t } = useTranslation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -21,10 +24,10 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { label: "Accueil", id: "hero" },
-    { label: "Équipement", id: "gear" },
-    { label: "Tarifs", id: "pricing" },
-    { label: "Réserver", id: "booking" },
+    { label: t("nav.home"), id: "hero" },
+    { label: t("nav.gear"), id: "gear" },
+    { label: t("nav.pricing"), id: "pricing" },
+    { label: t("nav.booking"), id: "booking" },
   ];
 
   return (
@@ -60,20 +63,24 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* CTA */}
-          <div className="hidden md:block">
+          {/* Language switcher & CTA */}
+          <div className="hidden md:flex items-center gap-4">
+            <LanguageSwitcher />
             <Button variant="neon" onClick={() => scrollTo("booking")}>
-              RÉSERVER
+              {t("nav.booking").toUpperCase()}
             </Button>
           </div>
 
           {/* Mobile menu button */}
-          <button
-            className="md:hidden text-foreground"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="md:hidden flex items-center gap-3">
+            <LanguageSwitcher />
+            <button
+              className="text-foreground"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -90,7 +97,7 @@ const Navbar = () => {
                 </button>
               ))}
               <Button variant="neon" className="mt-2" onClick={() => scrollTo("booking")}>
-                RÉSERVER
+                {t("nav.booking").toUpperCase()}
               </Button>
             </div>
           </div>
