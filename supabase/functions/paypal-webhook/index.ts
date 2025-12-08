@@ -23,7 +23,7 @@ interface BookingPayload {
 
 // ============ GOOGLE CALENDAR INTEGRATION ============
 
-async function getAccessToken(serviceAccountKey: string): Promise<string> {
+async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
   
   const header = {
@@ -34,7 +34,7 @@ async function getAccessToken(serviceAccountKey: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const claim = {
     iss: key.client_email,
-    scope: "https://www.googleapis.com/auth/calendar",
+    scope: scopes.join(" "),
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now,
@@ -154,6 +154,78 @@ async function createCalendarEvent(
   console.log(`[CALENDAR] Event created successfully: ${createdEvent.id}`);
 }
 
+// ============ GOOGLE DRIVE INTEGRATION ============
+
+async function createDriveFolder(
+  accessToken: string,
+  folderName: string,
+  parentFolderId?: string
+): Promise<{ id: string; webViewLink: string }> {
+  console.log(`[DRIVE] Creating folder: ${folderName}`);
+
+  const metadata: Record<string, unknown> = {
+    name: folderName,
+    mimeType: "application/vnd.google-apps.folder",
+  };
+
+  if (parentFolderId) {
+    metadata.parents = [parentFolderId];
+  }
+
+  const response = await fetch("https://www.googleapis.com/drive/v3/files?fields=id,webViewLink", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(metadata),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[DRIVE] Error creating folder:", errorText);
+    throw new Error(`Failed to create Drive folder: ${response.status}`);
+  }
+
+  const folder = await response.json();
+  console.log(`[DRIVE] Folder created: ${folder.id}`);
+  return folder;
+}
+
+async function shareDriveFolder(
+  accessToken: string,
+  folderId: string,
+  email: string
+): Promise<void> {
+  console.log(`[DRIVE] Sharing folder ${folderId} with ${email}`);
+
+  const permission = {
+    type: "user",
+    role: "writer",
+    emailAddress: email,
+  };
+
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?sendNotificationEmail=true`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(permission),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[DRIVE] Error sharing folder:", errorText);
+    throw new Error(`Failed to share Drive folder: ${response.status}`);
+  }
+
+  console.log(`[DRIVE] Folder shared successfully with ${email}`);
+}
+
 // ============ EMAIL FUNCTIONS ============
 
 const formatDate = (dateStr: string): string => {
@@ -166,7 +238,7 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
-const generateConfirmationEmail = (payload: BookingPayload): string => {
+const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null): string => {
   const sessionLabel = payload.sessionType === "with-engineer" 
     ? "Session avec ingénieur son" 
     : "Location sèche (autonomie)";
@@ -174,6 +246,23 @@ const generateConfirmationEmail = (payload: BookingPayload): string => {
   const contactInfo = payload.sessionType === "with-engineer"
     ? `<p style="margin: 0 0 10px 0;"><strong>Contact ingénieur :</strong> Un ingénieur vous contactera avant votre session.</p>`
     : `<p style="margin: 0 0 10px 0;"><strong>Contact studio :</strong> Vous recevrez les instructions d'accès par email.</p>`;
+
+  const driveSection = driveFolderLink ? `
+              <!-- Drive Folder -->
+              <tr>
+                <td style="padding: 0 40px 30px 40px;">
+                  <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(66, 133, 244, 0.1)); border-radius: 12px; padding: 20px; border: 1px solid rgba(66, 133, 244, 0.3);">
+                    <h4 style="margin: 0 0 12px 0; color: #fafafa; font-size: 16px;">📁 Votre dossier partagé</h4>
+                    <p style="margin: 0 0 16px 0; color: #a1a1aa; font-size: 14px;">
+                      Un dossier Google Drive a été créé pour votre projet. Vous pouvez y déposer vos fichiers et accéder aux enregistrements après la session.
+                    </p>
+                    <a href="${driveFolderLink}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                      Ouvrir le dossier
+                    </a>
+                  </div>
+                </td>
+              </tr>
+  ` : '';
 
   return `
     <!DOCTYPE html>
@@ -255,6 +344,8 @@ const generateConfirmationEmail = (payload: BookingPayload): string => {
                 </td>
               </tr>
 
+              ${driveSection}
+
               <!-- Contact Info -->
               <tr>
                 <td style="padding: 0 40px 30px 40px;">
@@ -276,7 +367,7 @@ const generateConfirmationEmail = (payload: BookingPayload): string => {
                     À très bientôt au studio !
                   </p>
                   <p style="margin: 0; color: #52525b; font-size: 12px;">
-                    Make Music Studio • Email: prod.makemusic@gmail.com
+                    Make Music Studio • Bruxelles • +32 476 09 41 72
                   </p>
                 </td>
               </tr>
@@ -323,7 +414,7 @@ serve(async (req) => {
     // ACTION 1: Create Google Calendar event
     if (serviceAccountKey && studioCalendarId) {
       try {
-        const accessToken = await getAccessToken(serviceAccountKey);
+        const calendarToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/calendar"]);
         
         // Parse date and time for calendar event
         const [year, month, day] = payload.date.split("-").map(Number);
@@ -347,7 +438,7 @@ serve(async (req) => {
           payload.message ? `Message: ${payload.message}` : '',
         ].filter(Boolean).join('\n');
 
-        await createCalendarEvent(accessToken, studioCalendarId, {
+        await createCalendarEvent(calendarToken, studioCalendarId, {
           summary: `SESSION ${sessionLabel} - ${payload.payerName}`,
           description: eventDescription,
           start: formatForCalendar(startDate),
@@ -364,11 +455,34 @@ serve(async (req) => {
       console.log("[CALENDAR] Missing calendar configuration, skipping event creation");
     }
 
-    // ACTION 2: Send confirmation email to client
+    // ACTION 2: Create Google Drive shared folder for client (before email to include link)
+    let driveFolderLink: string | null = null;
+    if (serviceAccountKey) {
+      try {
+        const driveToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/drive"]);
+        
+        // Create folder with client name and date
+        const folderName = `${payload.payerName} - ${payload.date}`;
+        const folder = await createDriveFolder(driveToken, folderName);
+        
+        // Share folder with client email
+        await shareDriveFolder(driveToken, folder.id, payload.payerEmail);
+        
+        driveFolderLink = folder.webViewLink;
+        console.log(`[DRIVE] Folder created and shared: ${driveFolderLink}`);
+      } catch (driveError) {
+        console.error("[DRIVE] Failed to create/share folder:", driveError);
+        // Don't fail the whole webhook if Drive fails
+      }
+    } else {
+      console.log("[DRIVE] Missing service account, skipping folder creation");
+    }
+
+    // ACTION 3: Send confirmation email to client (with Drive link if available)
     console.log("[EMAIL] Sending confirmation email to:", payload.payerEmail);
     
     try {
-      const emailHtml = generateConfirmationEmail(payload);
+      const emailHtml = generateConfirmationEmail(payload, driveFolderLink);
       
       const emailResponse = await resend.emails.send({
         from: "Make Music Studio <onboarding@resend.dev>",
@@ -382,10 +496,6 @@ serve(async (req) => {
       console.error("[EMAIL] Failed to send confirmation email:", emailError);
       // Don't fail the whole webhook if email fails
     }
-
-    // TODO: ACTION 3 - Google Drive Integration  
-    // Create shared folder for client
-    console.log(`[DRIVE] Would create folder for: ${payload.payerName}`);
 
     return new Response(
       JSON.stringify({
