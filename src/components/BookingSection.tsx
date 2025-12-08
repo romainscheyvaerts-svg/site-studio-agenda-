@@ -174,10 +174,10 @@ const BookingSection = () => {
     }
   };
 
-  // Reset identity verification when name changes
+  // Reset identity verification when name changes significantly
   useEffect(() => {
-    if (identityVerified && formData.name) {
-      // Check if the verified name still matches
+    if (identityVerified && formData.name && verifiedName) {
+      // Use the same flexible matching logic as the backend
       const normalize = (str: string) => {
         return str
           .normalize("NFD")
@@ -187,12 +187,25 @@ const BookingSection = () => {
           .toLowerCase();
       };
       
-      if (verifiedName && normalize(verifiedName) !== normalize(formData.name)) {
+      const normalizedVerified = normalize(verifiedName);
+      const normalizedForm = normalize(formData.name);
+      
+      // Check if names match (both orders, partial match allowed)
+      const verifiedParts = normalizedVerified.split(" ");
+      const formParts = normalizedForm.split(" ");
+      
+      // Check if at least 2 parts match (like the backend does)
+      const matchCount = formParts.filter(part => verifiedParts.includes(part)).length;
+      const isMatch = matchCount >= 2 || 
+                      normalizedVerified.includes(normalizedForm) || 
+                      normalizedForm.includes(normalizedVerified);
+      
+      if (!isMatch) {
         setIdentityVerified(false);
         setVerifiedName(null);
       }
     }
-  }, [formData.name, identityVerified, verifiedName]);
+  }, [formData.name]);
 
   const handlePaymentSuccess = () => {
     setShowPayment(false);
