@@ -18,6 +18,8 @@ interface PayPalCheckoutProps {
   };
   clientId: string;
   onSuccess: () => void;
+  isDeposit?: boolean;
+  totalPrice?: number;
 }
 
 // Inner component that uses the PayPal context
@@ -26,7 +28,9 @@ const PayPalButtonWrapper = ({
   sessionType, 
   hours, 
   formData, 
-  onSuccess 
+  onSuccess,
+  isDeposit,
+  totalPrice
 }: Omit<PayPalCheckoutProps, 'clientId'>) => {
   const { toast } = useToast();
   const [{ isPending, isResolved, isRejected }] = usePayPalScriptReducer();
@@ -137,7 +141,9 @@ const PayPalButtonWrapper = ({
 
           toast({
             title: "Paiement confirmé ! 🎉",
-            description: `Votre session de ${hours}h est réservée. Vous recevrez un email de confirmation.`,
+            description: isDeposit 
+              ? `Acompte de ${amount}€ reçu. Session de ${hours}h réservée (total: ${totalPrice}€).`
+              : `Paiement de ${amount}€ confirmé. Votre location de ${hours}h est réservée.`,
           });
 
           onSuccess();
@@ -168,7 +174,9 @@ const PayPalCheckout = ({
   hours, 
   formData, 
   clientId,
-  onSuccess 
+  onSuccess,
+  isDeposit,
+  totalPrice
 }: PayPalCheckoutProps) => {
   console.log("PayPal Checkout rendering with clientId:", clientId ? "present" : "missing");
 
@@ -195,6 +203,8 @@ const PayPalCheckout = ({
           hours={hours}
           formData={formData}
           onSuccess={onSuccess}
+          isDeposit={isDeposit}
+          totalPrice={totalPrice}
         />
       </div>
     </PayPalScriptProvider>

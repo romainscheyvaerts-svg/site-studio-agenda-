@@ -43,6 +43,17 @@ const BookingSection = () => {
     return hours * pricing[sessionType];
   }, [sessionType, hours]);
 
+  // Location sèche = paiement complet, autres services = 50% acompte
+  const paymentAmount = useMemo(() => {
+    if (!sessionType) return 0;
+    if (sessionType === "without-engineer") {
+      return totalPrice; // Paiement complet
+    }
+    return Math.ceil(totalPrice / 2); // 50% acompte
+  }, [sessionType, totalPrice]);
+
+  const isDeposit = sessionType === "with-engineer";
+
   // Fetch PayPal client ID
   useEffect(() => {
     const fetchClientId = async () => {
@@ -494,16 +505,29 @@ const BookingSection = () => {
             {/* Price display */}
             {sessionType && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total à payer</p>
+                    <p className="text-sm text-muted-foreground">Total session</p>
                     <p className="text-xs text-muted-foreground">
                       {hours}h × {pricing[sessionType]}€
                     </p>
                   </div>
+                  <div className="text-right">
+                    <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {isDeposit ? "Acompte à payer (50%)" : "Montant à payer"}
+                    </p>
+                    {isDeposit && (
+                      <p className="text-xs text-accent">Le reste sera payé au studio</p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Euro className="w-6 h-6 text-primary" />
-                    <span className="font-display text-4xl text-primary text-glow-cyan">{totalPrice}€</span>
+                    <span className="font-display text-4xl text-primary text-glow-cyan">{paymentAmount}€</span>
                   </div>
                 </div>
               </div>
@@ -549,7 +573,10 @@ const BookingSection = () => {
                     <span className="font-semibold text-foreground">Paiement sécurisé</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Finalisez votre réservation de {hours}h pour {totalPrice}€
+                    {isDeposit 
+                      ? `Acompte de ${paymentAmount}€ pour réserver votre session de ${hours}h (total: ${totalPrice}€)`
+                      : `Paiement complet de ${paymentAmount}€ pour votre location de ${hours}h`
+                    }
                   </p>
                   
                   <div className="space-y-4">
@@ -558,12 +585,14 @@ const BookingSection = () => {
                       <p className="text-xs text-muted-foreground mb-2 font-medium">Option 1 : PayPal</p>
                       {paypalClientId ? (
                         <PayPalCheckout
-                          amount={totalPrice}
+                          amount={paymentAmount}
                           sessionType={sessionType!}
                           hours={hours}
                           formData={formData}
                           clientId={paypalClientId}
                           onSuccess={handlePaymentSuccess}
+                          isDeposit={isDeposit}
+                          totalPrice={totalPrice}
                         />
                       ) : (
                         <div className="flex items-center justify-center py-4">
@@ -583,12 +612,12 @@ const BookingSection = () => {
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
                       <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut</p>
                       <a
-                        href={`https://revolut.me/makemusic?amount=${totalPrice}`}
+                        href={`https://revolut.me/makemusic?amount=${paymentAmount}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
                       >
-                        <span>Payer {totalPrice}€ via Revolut</span>
+                        <span>Payer {paymentAmount}€ via Revolut</span>
                         <ExternalLink className="w-4 h-4" />
                       </a>
                       <p className="text-xs text-muted-foreground mt-2 text-center">
@@ -611,8 +640,8 @@ const BookingSection = () => {
 
             <p className="text-xs text-muted-foreground text-center mt-4">
               {sessionType === "without-engineer" 
-                ? "Une vérification d'identité sera requise avant la session"
-                : "Vous recevrez une confirmation par email avec tous les détails"
+                ? "Paiement complet requis pour la location sèche"
+                : "Acompte de 50% à la réservation, le reste au studio"
               }
             </p>
           </div>

@@ -184,14 +184,28 @@ const PricingSection = () => {
           />
         </div>
 
-        {/* Additional info */}
-        <div className="mt-16 text-center">
-          <p className="text-muted-foreground mb-4">
+        {/* Payment info */}
+        <div className="mt-12 max-w-2xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
+            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
+              <p className="text-sm font-semibold text-primary mb-1">Sessions avec ingénieur</p>
+              <p className="text-xs text-muted-foreground">50% d'acompte à la réservation</p>
+              <p className="text-xs text-muted-foreground">Le reste au studio</p>
+            </div>
+            <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 text-center">
+              <p className="text-sm font-semibold text-accent mb-1">Location sèche</p>
+              <p className="text-xs text-muted-foreground">Paiement complet à la réservation</p>
+            </div>
+          </div>
+          
+          <p className="text-muted-foreground text-center mb-4">
             Forfaits et tarifs dégressifs disponibles pour les projets longs
           </p>
-          <Button variant="outline" size="lg">
-            Demander un devis personnalisé
-          </Button>
+          <div className="text-center">
+            <Button variant="outline" size="lg">
+              Demander un devis personnalisé
+            </Button>
+          </div>
         </div>
       </div>
     </section>
