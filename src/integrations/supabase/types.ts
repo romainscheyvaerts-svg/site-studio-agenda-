@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      client_drive_folders: {
+        Row: {
+          client_email: string
+          client_name: string
+          client_phone: string | null
+          created_at: string
+          drive_folder_id: string
+          drive_folder_link: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          client_email: string
+          client_name: string
+          client_phone?: string | null
+          created_at?: string
+          drive_folder_id: string
+          drive_folder_link: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          client_email?: string
+          client_name?: string
+          client_phone?: string | null
+          created_at?: string
+          drive_folder_id?: string
+          drive_folder_link?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
