@@ -1,0 +1,142 @@
+{
+  "nav": {
+    "home": "Home",
+    "services": "Diensten",
+    "gear": "Apparatuur",
+    "pricing": "Tarieven",
+    "booking": "Reserveren",
+    "contact": "Contact"
+  },
+  "hero": {
+    "badge": "PROFESSIONELE OPNAMESTUDIO",
+    "title1": "CREËER JE",
+    "title2": "UNIEKE",
+    "title3": "GELUID",
+    "description": "Een creatieve ruimte uitgerust met de beste technologieën om je muziekprojecten tot leven te brengen.",
+    "cta_book": "Boek een sessie",
+    "cta_discover": "Ontdek de studio"
+  },
+  "gear": {
+    "badge": "APPARATUUR",
+    "title": "ONS",
+    "title_highlight": "ARSENAAL",
+    "description": "Hoogwaardige apparatuur voor uitzonderlijke geluidskwaliteit",
+    "microphone": "Microfoon",
+    "microphone_desc": "Industriestandaard voor zang",
+    "preamp": "Voorversterker",
+    "preamp_desc": "SSL voorversterking van studiokwaliteit",
+    "interface": "Interface",
+    "interface_desc": "High-definition audioconversie",
+    "monitors": "Monitoring",
+    "monitors_desc": "Referentie-luisteren met subwoofer",
+    "software": "Software",
+    "software_desc": "Professioneel audio werkstation",
+    "plugins": "Plugins",
+    "plugins_desc": "De beste audiobewerking"
+  },
+  "pricing": {
+    "badge": "TARIEVEN",
+    "title": "ONZE",
+    "title_highlight": "PAKKETTEN",
+    "description": "Oplossingen aangepast aan alle projecten",
+    "per_hour": "/uur",
+    "per_track": "/nummer",
+    "book": "Boeken",
+    "deposit_50": "50% aanbetaling",
+    "full_payment": "100% betaling vereist",
+    "with_engineer": {
+      "title": "Sessie + Ingenieur",
+      "feature1": "Toegewijde geluidsingenieur",
+      "feature2": "Real-time mixing",
+      "feature3": "Artistiek advies",
+      "feature4": "Multitrack export"
+    },
+    "without_engineer": {
+      "title": "Droge Verhuur",
+      "feature1": "Zelfbediening studio",
+      "feature2": "Apparatuur inbegrepen",
+      "feature3": "24/7 toegang mogelijk",
+      "feature4": "Technische ondersteuning"
+    },
+    "mixing": {
+      "title": "Mixing",
+      "feature1": "Professionele mix",
+      "feature2": "Revisies inbegrepen",
+      "feature3": "Premium plugins",
+      "feature4": "SSL verwerking",
+      "feature5": "Drive-link per e-mail verzonden"
+    },
+    "mastering": {
+      "title": "Mastering",
+      "feature1": "Digitale mastering",
+      "feature2": "Streaming formaat",
+      "feature3": "Geoptimaliseerde loudness",
+      "feature4": "Drive-link per e-mail verzonden"
+    },
+    "analog_mastering": {
+      "title": "Analoge Mastering",
+      "feature1": "Analoge verwerking",
+      "feature2": "Warmte en karakter",
+      "feature3": "Volledige SSL-keten",
+      "feature4": "Drive-link per e-mail verzonden",
+      "feature5": "100% betaling vereist"
+    }
+  },
+  "booking": {
+    "badge": "RESERVEREN",
+    "title": "BOEK JE",
+    "title_highlight": "SESSIE",
+    "description": "Selecteer je sessietype en tijdslots. Ons systeem toont je de beschikbaarheid in real-time.",
+    "select_service": "1. SELECTEER JE DIENST",
+    "select_service_desc": "Kies het type dienst dat bij je project past",
+    "studio_sessions": "Studio Sessies",
+    "post_production": "Post-Productie (~2 weken levertijd)",
+    "with_engineer": "MET INGENIEUR",
+    "with_engineer_desc": "Begeleide sessie met een professionele geluidsingenieur",
+    "without_engineer": "DROGE VERHUUR",
+    "without_engineer_desc": "Zelfbediening studiotoegang (ID-verificatie vereist)",
+    "mixing": "MIXING",
+    "mastering": "MASTERING",
+    "analog_mastering": "ANALOGE MASTERING",
+    "deposit_50": "50% aanbetaling",
+    "full_payment": "100% vereist",
+    "form_title": "2. JE GEGEVENS",
+    "name": "Volledige naam",
+    "name_placeholder": "Je naam",
+    "email": "E-mail",
+    "email_placeholder": "jouw@email.com",
+    "phone": "Telefoon",
+    "phone_placeholder": "+32 XXX XX XX XX",
+    "date": "Datum",
+    "select_date": "Selecteer een datum",
+    "time": "Starttijd",
+    "duration": "Duur",
+    "hours": "uren",
+    "message": "Bericht (optioneel)",
+    "message_placeholder": "Beschrijf je project, je specifieke behoeften...",
+    "identity_verification": "Identiteitsverificatie",
+    "verify_identity_desc": "Voor zelfbediening sessies is identiteitsverificatie vereist",
+    "total": "Totaal",
+    "amount_due": "Te betalen bedrag",
+    "deposit_info": "(50% aanbetaling)",
+    "proceed_payment": "Doorgaan naar betaling",
+    "pay_with_paypal": "Betalen met PayPal",
+    "or": "of",
+    "pay_with_revolut": "Betalen met Revolut",
+    "checking_availability": "Beschikbaarheid controleren...",
+    "available": "Dit tijdslot is beschikbaar.",
+    "not_available": "Sorry, dit tijdslot is niet beschikbaar.",
+    "fill_all_fields": "Vul alle verplichte velden in"
+  },
+  "chatbot": {
+    "title": "Studio Assistent",
+    "placeholder": "Stel je vraag...",
+    "greeting": "Hallo! Ik ben de studio-assistent. Hoe kan ik je helpen?"
+  },
+  "footer": {
+    "description": "Professionele opnamestudio in Brussel",
+    "quick_links": "Snelle links",
+    "contact": "Contact",
+    "rights": "Alle rechten voorbehouden"
+  }
+}

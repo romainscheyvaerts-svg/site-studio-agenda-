@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Check, Mic, Building2, Music2, Sparkles, Disc3 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -81,6 +82,8 @@ const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted
 };
 
 const PricingSection = () => {
+  const { t } = useTranslation();
+
   return (
     <section id="pricing" className="py-24 relative">
       {/* Background */}
@@ -90,95 +93,93 @@ const PricingSection = () => {
         {/* Header */}
         <div className="text-center mb-16">
           <span className="inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-sm font-medium mb-4">
-            TARIFS TRANSPARENTS
+            {t("pricing.badge")}
           </span>
           <h2 className="font-display text-5xl md:text-7xl text-foreground mb-4">
-            NOS <span className="text-accent text-glow-gold">FORMULES</span>
+            {t("pricing.title")} <span className="text-accent text-glow-gold">{t("pricing.title_highlight")}</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Des tarifs adaptés à tous vos projets, du simple enregistrement au mastering professionnel
+            {t("pricing.description")}
           </p>
         </div>
 
         {/* Pricing grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto">
           <PricingCard
-            title="AVEC INGÉNIEUR"
+            title={t("pricing.with_engineer.title")}
             subtitle="Session accompagnée"
             price="45€"
-            unit="/heure"
+            unit={t("pricing.per_hour")}
             icon={<Mic className="w-6 h-6" />}
             highlighted={true}
-            buttonText="RÉSERVER"
+            buttonText={t("pricing.book").toUpperCase()}
             features={[
-              "Ingénieur son dédié",
-              "Setup personnalisé",
-              "Direction artistique",
-              "Édition en temps réel",
-              "Vérification d'identité requise",
+              t("pricing.with_engineer.feature1"),
+              t("pricing.with_engineer.feature2"),
+              t("pricing.with_engineer.feature3"),
+              t("pricing.with_engineer.feature4"),
             ]}
           />
 
           <PricingCard
-            title="LOCATION SÈCHE"
+            title={t("pricing.without_engineer.title")}
             subtitle="Sans ingénieur"
             price="22€"
-            unit="/heure"
+            unit={t("pricing.per_hour")}
             icon={<Building2 className="w-6 h-6" />}
-            buttonText="RÉSERVER"
+            buttonText={t("pricing.book").toUpperCase()}
             features={[
-              "Accès au studio complet",
-              "Tout le matériel inclus",
-              "ProTools installé",
-              "Autonomie totale",
-              "Vérification identité requise",
+              t("pricing.without_engineer.feature1"),
+              t("pricing.without_engineer.feature2"),
+              t("pricing.without_engineer.feature3"),
+              t("pricing.without_engineer.feature4"),
             ]}
           />
 
           <PricingCard
-            title="MIXAGE"
+            title={t("pricing.mixing.title")}
             subtitle="Piste par piste"
             price="200€"
             unit="/projet"
             icon={<Music2 className="w-6 h-6" />}
-            buttonText="RÉSERVER"
+            buttonText={t("pricing.book").toUpperCase()}
             features={[
-              "Mix professionnel",
-              "Révisions incluses",
-              "Plugins premium",
-              "Traitement SSL",
-              "Lien Drive envoyé par mail",
+              t("pricing.mixing.feature1"),
+              t("pricing.mixing.feature2"),
+              t("pricing.mixing.feature3"),
+              t("pricing.mixing.feature4"),
+              t("pricing.mixing.feature5"),
             ]}
           />
 
           <PricingCard
-            title="MASTERING"
+            title={t("pricing.mastering.title")}
             subtitle="Finalisation"
             price="60€"
-            unit="/titre"
+            unit={t("pricing.per_track")}
             icon={<Sparkles className="w-6 h-6" />}
-            buttonText="RÉSERVER"
+            buttonText={t("pricing.book").toUpperCase()}
             features={[
-              "Mastering numérique",
-              "Format streaming",
-              "Loudness optimisé",
-              "Lien Drive envoyé par mail",
+              t("pricing.mastering.feature1"),
+              t("pricing.mastering.feature2"),
+              t("pricing.mastering.feature3"),
+              t("pricing.mastering.feature4"),
             ]}
           />
 
           <PricingCard
-            title="ANALOGIQUE"
+            title={t("pricing.analog_mastering.title")}
             subtitle="Mastering premium"
             price="100€"
-            unit="/titre"
+            unit={t("pricing.per_track")}
             icon={<Disc3 className="w-6 h-6" />}
-            buttonText="RÉSERVER"
+            buttonText={t("pricing.book").toUpperCase()}
             features={[
-              "Traitement analogique",
-              "Warmth et caractère",
-              "Chaîne SSL complète",
-              "Lien Drive envoyé par mail",
-              "Paiement 100% requis",
+              t("pricing.analog_mastering.feature1"),
+              t("pricing.analog_mastering.feature2"),
+              t("pricing.analog_mastering.feature3"),
+              t("pricing.analog_mastering.feature4"),
+              t("pricing.analog_mastering.feature5"),
             ]}
           />
         </div>
@@ -188,29 +189,29 @@ const PricingSection = () => {
           <h3 className="font-display text-xl text-center text-foreground mb-6">MODALITÉS DE PAIEMENT</h3>
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-              <p className="text-sm font-semibold text-primary mb-2 text-center">50% d'acompte</p>
+              <p className="text-sm font-semibold text-primary mb-2 text-center">{t("pricing.deposit_50")}</p>
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Sessions avec ingénieur (45€/h)
+                  {t("pricing.with_engineer.title")} (45€/h)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Mixage (200€/projet)
+                  {t("pricing.mixing.title")} (200€/projet)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Mastering (60€/titre)
+                  {t("pricing.mastering.title")} (60€{t("pricing.per_track")})
                 </li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2 text-center italic">Le reste au studio</p>
             </div>
             <div className="p-4 rounded-xl bg-accent/5 border border-accent/20">
-              <p className="text-sm font-semibold text-accent mb-2 text-center">Paiement complet</p>
+              <p className="text-sm font-semibold text-accent mb-2 text-center">{t("pricing.full_payment")}</p>
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  Location sèche (22€/h)
+                  {t("pricing.without_engineer.title")} (22€/h)
                 </li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2 text-center italic">À régler à la réservation</p>

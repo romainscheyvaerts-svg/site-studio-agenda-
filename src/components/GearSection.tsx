@@ -1,56 +1,58 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface GearItem {
   name: string;
   brand: string;
-  category: string;
-  description: string;
+  categoryKey: string;
+  descriptionKey: string;
   features: string[];
 }
 
-const gearData: GearItem[] = [
-  {
-    name: "U87",
-    brand: "NEUMANN",
-    category: "Microphone",
-    description: "Le micro de référence mondiale pour la voix et les instruments. Utilisé sur 90% des productions professionnelles.",
-    features: ["Large diaphragme", "3 directivités", "Son légendaire"],
-  },
-  {
-    name: "Préamp & Console",
-    brand: "SSL",
-    category: "Préamplification",
-    description: "La chaîne SSL offre une clarté et une chaleur incomparables. Le standard de l'industrie musicale.",
-    features: ["Préamp ultra transparent", "EQ légendaire", "Compression VCA"],
-  },
-  {
-    name: "Interface Audio",
-    brand: "SSL",
-    category: "Conversion",
-    description: "Conversion A/D et D/A de qualité studio. Latence ultra-faible pour un monitoring parfait.",
-    features: ["Conversion 32-bit", "Latence <1ms", "Connexion Thunderbolt"],
-  },
-  {
-    name: "Monitors + Sub Genelec",
-    brand: "GENELEC",
-    category: "Monitoring",
-    description: "Système de monitoring actif avec correction de pièce SAM™. Précision chirurgicale du mix.",
-    features: ["Bi-amplifié", "Correction acoustique", "Réponse plate"],
-  },
-];
-
-const softwareData = [
-  { name: "Pro Tools", type: "DAW" },
-  { name: "UAD", type: "Plugins" },
-  { name: "Waves", type: "Plugins" },
-  { name: "Soundtoys", type: "Plugins" },
-  { name: "Auto-Tune", type: "Antares" },
-  { name: "SSL Native", type: "Plugins" },
-];
-
 const GearSection = () => {
+  const { t } = useTranslation();
   const [activeGear, setActiveGear] = useState(0);
+
+  const gearData: GearItem[] = [
+    {
+      name: "U87",
+      brand: "NEUMANN",
+      categoryKey: "gear.microphone",
+      descriptionKey: "gear.microphone_desc",
+      features: ["Large diaphragme", "3 directivités", "Son légendaire"],
+    },
+    {
+      name: "Préamp & Console",
+      brand: "SSL",
+      categoryKey: "gear.preamp",
+      descriptionKey: "gear.preamp_desc",
+      features: ["Préamp ultra transparent", "EQ légendaire", "Compression VCA"],
+    },
+    {
+      name: "Interface Audio",
+      brand: "SSL",
+      categoryKey: "gear.interface",
+      descriptionKey: "gear.interface_desc",
+      features: ["Conversion 32-bit", "Latence <1ms", "Thunderbolt"],
+    },
+    {
+      name: "Monitors + Sub",
+      brand: "GENELEC",
+      categoryKey: "gear.monitors",
+      descriptionKey: "gear.monitors_desc",
+      features: ["Bi-amplifié", "Correction acoustique", "Réponse plate"],
+    },
+  ];
+
+  const softwareData = [
+    { name: "Pro Tools", type: "DAW" },
+    { name: "UAD", type: "Plugins" },
+    { name: "Waves", type: "Plugins" },
+    { name: "Soundtoys", type: "Plugins" },
+    { name: "Auto-Tune", type: "Antares" },
+    { name: "SSL Native", type: "Plugins" },
+  ];
 
   return (
     <section id="gear" className="py-24 relative overflow-hidden">
@@ -61,13 +63,13 @@ const GearSection = () => {
         {/* Section header */}
         <div className="text-center mb-16">
           <span className="inline-block px-4 py-1 rounded-full border border-accent/30 bg-accent/5 text-accent text-sm font-medium mb-4">
-            ÉQUIPEMENT PREMIUM
+            {t("gear.badge")}
           </span>
           <h2 className="font-display text-5xl md:text-7xl text-foreground mb-4">
-            NOTRE <span className="text-primary text-glow-cyan">ARSENAL</span>
+            {t("gear.title")} <span className="text-primary text-glow-cyan">{t("gear.title_highlight")}</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Du matériel haut de gamme pour une qualité sonore irréprochable
+            {t("gear.description")}
           </p>
         </div>
 
@@ -87,13 +89,13 @@ const GearSection = () => {
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-primary font-medium tracking-wider">{item.category}</span>
+                  <span className="text-xs text-primary font-medium tracking-wider">{t(item.categoryKey)}</span>
                   <span className="text-sm text-muted-foreground">{item.brand}</span>
                 </div>
                 <h3 className="font-display text-2xl text-foreground mb-2">{item.brand} {item.name}</h3>
                 {activeGear === index && (
                   <div className="animate-fade-in">
-                    <p className="text-muted-foreground text-sm mb-4">{item.description}</p>
+                    <p className="text-muted-foreground text-sm mb-4">{t(item.descriptionKey)}</p>
                     <div className="flex flex-wrap gap-2">
                       {item.features.map((feature, i) => (
                         <span key={i} className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs">
@@ -115,7 +117,7 @@ const GearSection = () => {
               
               {/* Center display */}
               <div className="absolute inset-8 rounded-2xl border border-primary/30 bg-card/50 backdrop-blur-sm flex flex-col items-center justify-center gradient-border">
-                <span className="text-sm text-primary mb-2">{gearData[activeGear].category}</span>
+                <span className="text-sm text-primary mb-2">{t(gearData[activeGear].categoryKey)}</span>
                 <span className="font-display text-5xl text-foreground mb-1">{gearData[activeGear].brand}</span>
                 <span className="font-display text-3xl text-primary text-glow-cyan">{gearData[activeGear].name}</span>
               </div>
@@ -133,7 +135,7 @@ const GearSection = () => {
 
         {/* Software section */}
         <div className="border-t border-border pt-12">
-          <h3 className="font-display text-2xl text-center text-foreground mb-8">LOGICIELS & PLUGINS</h3>
+          <h3 className="font-display text-2xl text-center text-foreground mb-8">{t("gear.software")} & {t("gear.plugins")}</h3>
           <div className="flex flex-wrap justify-center gap-4">
             {softwareData.map((soft, index) => (
               <div

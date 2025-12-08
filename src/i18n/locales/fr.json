@@ -1,0 +1,142 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "services": "Services",
+    "gear": "Équipement",
+    "pricing": "Tarifs",
+    "booking": "Réservation",
+    "contact": "Contact"
+  },
+  "hero": {
+    "badge": "STUDIO D'ENREGISTREMENT PROFESSIONNEL",
+    "title1": "CRÉEZ VOTRE",
+    "title2": "SON",
+    "title3": "UNIQUE",
+    "description": "Un espace créatif équipé des meilleures technologies pour donner vie à vos projets musicaux.",
+    "cta_book": "Réserver une session",
+    "cta_discover": "Découvrir le studio"
+  },
+  "gear": {
+    "badge": "ÉQUIPEMENT",
+    "title": "NOTRE",
+    "title_highlight": "ARSENAL",
+    "description": "Du matériel haut de gamme pour une qualité sonore exceptionnelle",
+    "microphone": "Microphone",
+    "microphone_desc": "Le standard de l'industrie pour les voix",
+    "preamp": "Préampli",
+    "preamp_desc": "Préamplification SSL de qualité studio",
+    "interface": "Interface",
+    "interface_desc": "Conversion audio haute définition",
+    "monitors": "Monitoring",
+    "monitors_desc": "Écoute de référence avec sub",
+    "software": "Logiciel",
+    "software_desc": "Station de travail audio professionnelle",
+    "plugins": "Plugins",
+    "plugins_desc": "Les meilleurs traitements audio"
+  },
+  "pricing": {
+    "badge": "TARIFS",
+    "title": "NOS",
+    "title_highlight": "OFFRES",
+    "description": "Des formules adaptées à tous les projets",
+    "per_hour": "/heure",
+    "per_track": "/titre",
+    "book": "Réserver",
+    "deposit_50": "50% d'acompte",
+    "full_payment": "Paiement 100% requis",
+    "with_engineer": {
+      "title": "Session + Ingénieur",
+      "feature1": "Ingénieur son dédié",
+      "feature2": "Mix en temps réel",
+      "feature3": "Conseils artistiques",
+      "feature4": "Export multipistes"
+    },
+    "without_engineer": {
+      "title": "Location Sèche",
+      "feature1": "Studio en autonomie",
+      "feature2": "Équipement inclus",
+      "feature3": "Accès 24/7 possible",
+      "feature4": "Support technique"
+    },
+    "mixing": {
+      "title": "Mixage",
+      "feature1": "Mix professionnel",
+      "feature2": "Révisions incluses",
+      "feature3": "Plugins premium",
+      "feature4": "Traitement SSL",
+      "feature5": "Lien Drive envoyé par mail"
+    },
+    "mastering": {
+      "title": "Mastering",
+      "feature1": "Mastering numérique",
+      "feature2": "Format streaming",
+      "feature3": "Loudness optimisé",
+      "feature4": "Lien Drive envoyé par mail"
+    },
+    "analog_mastering": {
+      "title": "Mastering Analogique",
+      "feature1": "Traitement analogique",
+      "feature2": "Warmth et caractère",
+      "feature3": "Chaîne SSL complète",
+      "feature4": "Lien Drive envoyé par mail",
+      "feature5": "Paiement 100% requis"
+    }
+  },
+  "booking": {
+    "badge": "RÉSERVATION",
+    "title": "BOOKEZ VOTRE",
+    "title_highlight": "SESSION",
+    "description": "Sélectionnez votre type de session et vos créneaux. Notre système vous indiquera les disponibilités en temps réel.",
+    "select_service": "1. SÉLECTIONNEZ VOTRE SERVICE",
+    "select_service_desc": "Choisissez le type de prestation qui correspond à votre projet",
+    "studio_sessions": "Sessions Studio",
+    "post_production": "Post-Production (délai ~2 semaines)",
+    "with_engineer": "AVEC INGÉNIEUR",
+    "with_engineer_desc": "Session accompagnée avec un ingénieur son professionnel",
+    "without_engineer": "LOCATION SÈCHE",
+    "without_engineer_desc": "Accès au studio en autonomie (vérification d'identité requise)",
+    "mixing": "MIXAGE",
+    "mastering": "MASTERING",
+    "analog_mastering": "MASTERING ANALOGIQUE",
+    "deposit_50": "50% acompte",
+    "full_payment": "100% requis",
+    "form_title": "2. VOS INFORMATIONS",
+    "name": "Nom complet",
+    "name_placeholder": "Votre nom",
+    "email": "Email",
+    "email_placeholder": "votre@email.com",
+    "phone": "Téléphone",
+    "phone_placeholder": "+32 XXX XX XX XX",
+    "date": "Date",
+    "select_date": "Sélectionner une date",
+    "time": "Heure de début",
+    "duration": "Durée",
+    "hours": "heures",
+    "message": "Message (optionnel)",
+    "message_placeholder": "Décrivez votre projet, vos besoins spécifiques...",
+    "identity_verification": "Vérification d'identité",
+    "verify_identity_desc": "Pour les sessions en autonomie, une vérification d'identité est requise",
+    "total": "Total",
+    "amount_due": "Montant à payer",
+    "deposit_info": "(50% acompte)",
+    "proceed_payment": "Procéder au paiement",
+    "pay_with_paypal": "Payer avec PayPal",
+    "or": "ou",
+    "pay_with_revolut": "Payer avec Revolut",
+    "checking_availability": "Vérification de la disponibilité...",
+    "available": "Ce créneau est disponible.",
+    "not_available": "Désolé, ce créneau n'est pas disponible.",
+    "fill_all_fields": "Veuillez remplir tous les champs requis"
+  },
+  "chatbot": {
+    "title": "Assistant Studio",
+    "placeholder": "Posez votre question...",
+    "greeting": "Bonjour ! Je suis l'assistant du studio. Comment puis-je vous aider ?"
+  },
+  "footer": {
+    "description": "Studio d'enregistrement professionnel à Bruxelles",
+    "quick_links": "Liens rapides",
+    "contact": "Contact",
+    "rights": "Tous droits réservés"
+  }
+}

@@ -1,6 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { Mic, Instagram, Youtube, Music } from "lucide-react";
 
 const Footer = () => {
+  const { t } = useTranslation();
+
   return (
     <footer className="py-12 border-t border-border bg-secondary/20">
       <div className="container mx-auto px-6">
@@ -14,8 +17,7 @@ const Footer = () => {
               <span className="font-display text-2xl text-foreground">MAKE<span className="text-primary">MUSIC</span></span>
             </div>
             <p className="text-muted-foreground text-sm max-w-md mb-4">
-              Studio d'enregistrement professionnel équipé du meilleur matériel : 
-              Neumann U87, SSL, Genelec. Votre son mérite l'excellence.
+              {t("footer.description")}
             </p>
             <div className="flex gap-4">
               <a href="#" className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
@@ -32,18 +34,18 @@ const Footer = () => {
 
           {/* Services */}
           <div>
-            <h4 className="font-display text-lg text-foreground mb-4">SERVICES</h4>
+            <h4 className="font-display text-lg text-foreground mb-4">{t("nav.services").toUpperCase()}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Enregistrement</li>
-              <li>Mixage</li>
-              <li>Mastering</li>
-              <li>Location Studio</li>
+              <li>{t("pricing.with_engineer.title")}</li>
+              <li>{t("pricing.mixing.title")}</li>
+              <li>{t("pricing.mastering.title")}</li>
+              <li>{t("pricing.without_engineer.title")}</li>
             </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h4 className="font-display text-lg text-foreground mb-4">CONTACT</h4>
+            <h4 className="font-display text-lg text-foreground mb-4">{t("footer.contact").toUpperCase()}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>prod.makemusic@gmail.com</li>
               <li>+32 476 09 41 72</li>
@@ -54,7 +56,7 @@ const Footer = () => {
 
         <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            © 2024 Make Music. Tous droits réservés.
+            © 2024 Make Music. {t("footer.rights")}.
           </p>
           <div className="flex gap-6 text-xs text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Mentions légales</a>
