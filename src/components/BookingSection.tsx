@@ -1,11 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2 } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import PayPalCheckout from "./PayPalCheckout";
 
 type SessionType = "with-engineer" | "without-engineer" | null;
 
@@ -13,6 +15,9 @@ const BookingSection = () => {
   const { toast } = useToast();
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [hours, setHours] = useState(2);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
+  const [loadingClientId, setLoadingClientId] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,21 +37,66 @@ const BookingSection = () => {
     return hours * pricing[sessionType];
   }, [sessionType, hours]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  // Fetch PayPal client ID
+  useEffect(() => {
+    const fetchClientId = async () => {
+      setLoadingClientId(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("get-paypal-client-id");
+        if (error) throw error;
+        setPaypalClientId(data.clientId);
+      } catch (err) {
+        console.error("Failed to fetch PayPal client ID:", err);
+        toast({
+          title: "Erreur de configuration",
+          description: "Impossible de charger le système de paiement.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingClientId(false);
+      }
+    };
+    fetchClientId();
+  }, [toast]);
+
+  const validateForm = (): boolean => {
     if (!sessionType) {
       toast({
         title: "Type de session requis",
         description: "Veuillez sélectionner un type de session",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
-    toast({
-      title: "Demande envoyée !",
-      description: "Nous vous recontacterons rapidement pour confirmer votre réservation.",
+    if (!formData.name || !formData.email || !formData.phone || !formData.date || !formData.time) {
+      toast({
+        title: "Formulaire incomplet",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleProceedToPayment = () => {
+    if (!validateForm()) return;
+    setShowPayment(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPayment(false);
+    setSessionType(null);
+    setHours(2);
+    setFormData({
+      name: "",
+      email: "",
+      phone: "",
+      date: "",
+      time: "",
+      message: "",
     });
   };
 
@@ -78,7 +128,10 @@ const BookingSection = () => {
             <div className="grid md:grid-cols-2 gap-4">
               <button
                 type="button"
-                onClick={() => setSessionType("with-engineer")}
+                onClick={() => {
+                  setSessionType("with-engineer");
+                  setShowPayment(false);
+                }}
                 className={cn(
                   "p-6 rounded-xl border-2 text-left transition-all duration-300",
                   sessionType === "with-engineer"
@@ -102,7 +155,10 @@ const BookingSection = () => {
 
               <button
                 type="button"
-                onClick={() => setSessionType("without-engineer")}
+                onClick={() => {
+                  setSessionType("without-engineer");
+                  setShowPayment(false);
+                }}
                 className={cn(
                   "p-6 rounded-xl border-2 text-left transition-all duration-300",
                   sessionType === "without-engineer"
@@ -127,7 +183,7 @@ const BookingSection = () => {
           </div>
 
           {/* Booking form */}
-          <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-8">
+          <div className="bg-card rounded-2xl border border-border p-8">
             <div className="grid md:grid-cols-2 gap-6 mb-6">
               {/* Personal info */}
               <div className="space-y-4">
@@ -138,7 +194,10 @@ const BookingSection = () => {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      setShowPayment(false);
+                    }}
                     placeholder="Votre nom"
                     className="bg-secondary/50 border-border"
                     required
@@ -153,7 +212,10 @@ const BookingSection = () => {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value });
+                      setShowPayment(false);
+                    }}
                     placeholder="votre@email.com"
                     className="bg-secondary/50 border-border"
                     required
@@ -168,7 +230,10 @@ const BookingSection = () => {
                     id="phone"
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, phone: e.target.value });
+                      setShowPayment(false);
+                    }}
                     placeholder="06 12 34 56 78"
                     className="bg-secondary/50 border-border"
                     required
@@ -186,7 +251,10 @@ const BookingSection = () => {
                     id="date"
                     type="date"
                     value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, date: e.target.value });
+                      setShowPayment(false);
+                    }}
                     className="bg-secondary/50 border-border"
                     required
                   />
@@ -200,7 +268,10 @@ const BookingSection = () => {
                     id="time"
                     type="time"
                     value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, time: e.target.value });
+                      setShowPayment(false);
+                    }}
                     className="bg-secondary/50 border-border"
                     required
                   />
@@ -213,7 +284,10 @@ const BookingSection = () => {
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={() => setHours(Math.max(1, hours - 1))}
+                      onClick={() => {
+                        setHours(Math.max(1, hours - 1));
+                        setShowPayment(false);
+                      }}
                     >
                       -
                     </Button>
@@ -222,7 +296,10 @@ const BookingSection = () => {
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={() => setHours(Math.min(12, hours + 1))}
+                      onClick={() => {
+                        setHours(Math.min(12, hours + 1));
+                        setShowPayment(false);
+                      }}
                     >
                       +
                     </Button>
@@ -250,7 +327,7 @@ const BookingSection = () => {
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total estimé</p>
+                    <p className="text-sm text-muted-foreground">Total à payer</p>
                     <p className="text-xs text-muted-foreground">
                       {hours}h × {pricing[sessionType]}€
                     </p>
@@ -263,10 +340,65 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Submit */}
-            <Button type="submit" variant="hero" size="xl" className="w-full">
-              CONFIRMER LA RÉSERVATION
-            </Button>
+            {/* Payment section */}
+            {!showPayment ? (
+              <Button 
+                type="button" 
+                variant="hero" 
+                size="xl" 
+                className="w-full"
+                onClick={handleProceedToPayment}
+                disabled={loadingClientId}
+              >
+                {loadingClientId ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Chargement...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-5 h-5 mr-2" />
+                    PROCÉDER AU PAIEMENT
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-accent/10 border border-accent/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="w-5 h-5 text-accent" />
+                    <span className="font-semibold text-foreground">Paiement sécurisé</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Finalisez votre réservation de {hours}h pour {totalPrice}€ via PayPal
+                  </p>
+                  
+                  {paypalClientId ? (
+                    <PayPalCheckout
+                      amount={totalPrice}
+                      sessionType={sessionType!}
+                      hours={hours}
+                      formData={formData}
+                      clientId={paypalClientId}
+                      onSuccess={handlePaymentSuccess}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  )}
+                </div>
+
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="w-full"
+                  onClick={() => setShowPayment(false)}
+                >
+                  ← Modifier ma réservation
+                </Button>
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground text-center mt-4">
               {sessionType === "without-engineer" 
@@ -274,7 +406,7 @@ const BookingSection = () => {
                 : "Vous recevrez une confirmation par email avec tous les détails"
               }
             </p>
-          </form>
+          </div>
         </div>
       </div>
     </section>
