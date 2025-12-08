@@ -185,16 +185,40 @@ const PricingSection = () => {
         </div>
 
         {/* Payment info */}
-        <div className="mt-12 max-w-2xl mx-auto">
+        <div className="mt-12 max-w-3xl mx-auto">
+          <h3 className="font-display text-xl text-center text-foreground mb-6">MODALITÉS DE PAIEMENT</h3>
           <div className="grid md:grid-cols-2 gap-4 mb-8">
-            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
-              <p className="text-sm font-semibold text-primary mb-1">Sessions avec ingénieur</p>
-              <p className="text-xs text-muted-foreground">50% d'acompte à la réservation</p>
-              <p className="text-xs text-muted-foreground">Le reste au studio</p>
+            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+              <p className="text-sm font-semibold text-primary mb-2 text-center">50% d'acompte</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Sessions avec ingénieur (45€/h)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Mixage (200€/projet)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Mastering (60€/titre)
+                </li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2 text-center italic">Le reste au studio</p>
             </div>
-            <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 text-center">
-              <p className="text-sm font-semibold text-accent mb-1">Location sèche</p>
-              <p className="text-xs text-muted-foreground">Paiement complet à la réservation</p>
+            <div className="p-4 rounded-xl bg-accent/5 border border-accent/20">
+              <p className="text-sm font-semibold text-accent mb-2 text-center">Paiement complet</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  Location sèche (22€/h)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  Option mastering analogique (+40€)
+                </li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2 text-center italic">À régler à la réservation</p>
             </div>
           </div>
           
