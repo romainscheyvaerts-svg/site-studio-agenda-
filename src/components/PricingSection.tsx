@@ -115,7 +115,7 @@ const PricingSection = () => {
               "Setup personnalisé",
               "Direction artistique",
               "Édition en temps réel",
-              "Export multipistes",
+              "Vérification d'identité requise",
             ]}
           />
 
