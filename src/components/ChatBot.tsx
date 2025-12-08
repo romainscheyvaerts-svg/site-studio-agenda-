@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, X, Send, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -254,6 +254,37 @@ const ChatBot = () => {
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Send to booking button */}
+        {messages.length > 2 && (
+          <div className="px-4 py-2 border-t border-border bg-accent/10">
+            <Button
+              onClick={() => {
+                // Create summary from conversation
+                const conversationSummary = messages
+                  .filter((m) => m.id !== 1)
+                  .map((m) => `${m.isBot ? "Assistant" : "Client"}: ${m.text}`)
+                  .join("\n\n");
+                
+                // Dispatch custom event with summary
+                window.dispatchEvent(
+                  new CustomEvent("chatbot-summary", { detail: conversationSummary })
+                );
+                
+                // Scroll to booking section
+                document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+                setIsOpen(false);
+                toast.success("Résumé envoyé au formulaire !");
+              }}
+              variant="outline"
+              size="sm"
+              className="w-full border-accent text-accent hover:bg-accent/20"
+            >
+              <ArrowRight className="w-4 h-4 mr-2" />
+              Envoyer vers la réservation
+            </Button>
+          </div>
+        )}
 
         {/* Input */}
         <div className="p-4 border-t border-border bg-secondary/30">
