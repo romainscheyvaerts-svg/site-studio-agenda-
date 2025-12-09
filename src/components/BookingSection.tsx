@@ -1,15 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
+import { useAuth } from "@/hooks/useAuth";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -30,6 +32,8 @@ type PromoEffects = {
 
 const BookingSection = () => {
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [hours, setHours] = useState(2);
   const [podcastMinutes, setPodcastMinutes] = useState(1);
@@ -485,7 +489,33 @@ const BookingSection = () => {
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative">
+          {/* Login Required Overlay */}
+          {!authLoading && !user && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-2xl">
+              <div className="text-center p-8 max-w-md">
+                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Lock className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="font-display text-2xl text-foreground mb-4">
+                  CONNEXION REQUISE
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Pour réserver une session, vous devez être connecté à votre compte Make Music.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <Button 
+                    variant="neon" 
+                    onClick={() => navigate("/auth")}
+                    className="w-full"
+                  >
+                    Se connecter / Créer un compte
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* VIP Access Banner - shown when skipFormFields is active */}
           {combinedPromoEffects.skipFormFields && (
             <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-accent/20 via-primary/20 to-accent/20 border-2 border-accent/50 box-glow-gold">
