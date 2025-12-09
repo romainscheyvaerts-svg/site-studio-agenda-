@@ -1494,6 +1494,7 @@ const BookingSection = () => {
               </div>
             )}
 
+            {!isAdmin && (
             <p className="text-xs text-muted-foreground text-center mt-4">
               {skipPayment 
                 ? "Réservation VIP sans paiement requis"
@@ -1504,6 +1505,7 @@ const BookingSection = () => {
                     : "Acompte de 50% à la réservation, le reste au studio"
               }
             </p>
+            )}
           </div>
         </div>
       </div>
