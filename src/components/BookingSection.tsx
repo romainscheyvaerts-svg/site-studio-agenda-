@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
+import VIPCalendar from "./VIPCalendar";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -650,7 +651,7 @@ const BookingSection = () => {
               </div>
 
               {/* Date and time - Only for studio sessions */}
-              {!isImmediateService && (
+              {!isImmediateService && !activePromo?.fullCalendarVisibility && (
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="date" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
@@ -756,6 +757,33 @@ const BookingSection = () => {
                 </div>
               )}
             </div>
+
+            {/* VIP Calendar - Only for full calendar visibility promo codes */}
+            {!isImmediateService && activePromo?.fullCalendarVisibility && sessionType && (
+              <div className="mb-6">
+                <VIPCalendar
+                  onSelectSlot={(date, time, duration) => {
+                    setFormData({ ...formData, date, time });
+                    setHours(duration);
+                    setShowPayment(false);
+                    toast({
+                      title: "Créneau sélectionné",
+                      description: `${date} à ${time} pour ${duration}h`,
+                    });
+                  }}
+                  selectedDate={formData.date}
+                  selectedTime={formData.time}
+                />
+                {formData.date && formData.time && (
+                  <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                    <p className="text-sm text-green-500 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Créneau sélectionné : {formData.date} à {formData.time} ({hours}h)
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Message */}
             <div className="mb-6">

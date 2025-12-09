@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.studio-chat]
 verify_jwt = false
+
+[functions.check-availability]
+verify_jwt = false
+
+[functions.verify-identity]
+verify_jwt = false
+
+[functions.get-weekly-availability]
+verify_jwt = false
