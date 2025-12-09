@@ -885,8 +885,60 @@ const BookingSection = () => {
                       description: `${date} à ${time} pour ${duration}h`,
                     });
                   }}
+                  onConfirmBooking={async (date, time, duration) => {
+                    // Update form data first
+                    const updatedFormData = { ...formData, date, time };
+                    setFormData(updatedFormData);
+                    setHours(duration);
+                    
+                    // Call the booking function
+                    setCashOnlyLoading(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("paypal-webhook", {
+                        body: {
+                          orderId: `VIP-${Date.now()}`,
+                          payerName: updatedFormData.name || "Client VIP",
+                          payerEmail: updatedFormData.email || "vip@makemusicstudio.be",
+                          phone: updatedFormData.phone || "",
+                          sessionType: sessionType,
+                          date: date,
+                          time: time,
+                          hours: duration,
+                          totalAmount: duration * (pricing[sessionType!] || 0),
+                          message: updatedFormData.message || "",
+                          isCashPayment: true,
+                        },
+                      });
+                      
+                      if (error) throw error;
+                      
+                      toast({
+                        title: "Réservation VIP confirmée ! 🎉",
+                        description: `Votre session du ${date} à ${time} (${duration}h) a été ajoutée au calendrier.`,
+                      });
+                      
+                      // Reset form
+                      setShowVIPCalendar(false);
+                      setShowPayment(false);
+                      setSessionType(null);
+                      setFormData({ name: "", email: "", phone: "", date: "", time: "", message: "" });
+                      setActivePromos([]);
+                      setPromoCode("");
+                    } catch (err) {
+                      console.error("VIP booking error:", err);
+                      toast({
+                        title: "Erreur de réservation",
+                        description: "Une erreur est survenue. Veuillez réessayer.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setCashOnlyLoading(false);
+                    }
+                  }}
                   selectedDate={formData.date}
                   selectedTime={formData.time}
+                  showConfirmButton={true}
+                  confirmLoading={cashOnlyLoading}
                 />
                 {formData.date && formData.time && (
                   <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
@@ -895,31 +947,6 @@ const BookingSection = () => {
                       Créneau sélectionné : {formData.date} à {formData.time} ({hours}h)
                     </p>
                   </div>
-                )}
-                
-                {/* Confirm booking button */}
-                {formData.date && formData.time && formData.name && formData.email && formData.phone && (
-                  <Button 
-                    type="button" 
-                    variant="hero" 
-                    size="xl" 
-                    className="w-full mt-4"
-                    onClick={() => {
-                      toast({
-                        title: "Réservation VIP confirmée !",
-                        description: `Votre session du ${formData.date} à ${formData.time} (${hours}h) a été réservée gratuitement.`,
-                      });
-                      setShowVIPCalendar(false);
-                      setShowPayment(false);
-                      setSessionType(null);
-                      setFormData({ name: "", email: "", phone: "", date: "", time: "", message: "" });
-                      setActivePromos([]);
-                      setPromoCode("");
-                    }}
-                  >
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    CONFIRMER LA RÉSERVATION VIP GRATUITE
-                  </Button>
                 )}
 
                 <Button 

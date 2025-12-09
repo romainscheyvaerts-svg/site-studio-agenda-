@@ -19,11 +19,14 @@ interface DayAvailability {
 
 interface VIPCalendarProps {
   onSelectSlot: (date: string, time: string, duration: number) => void;
+  onConfirmBooking?: (date: string, time: string, duration: number) => void;
   selectedDate?: string;
   selectedTime?: string;
+  showConfirmButton?: boolean;
+  confirmLoading?: boolean;
 }
 
-const VIPCalendar = ({ onSelectSlot, selectedDate, selectedTime }: VIPCalendarProps) => {
+const VIPCalendar = ({ onSelectSlot, onConfirmBooking, selectedDate, selectedTime, showConfirmButton = false, confirmLoading = false }: VIPCalendarProps) => {
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,7 +237,7 @@ const VIPCalendar = ({ onSelectSlot, selectedDate, selectedTime }: VIPCalendarPr
           {/* Selection summary and confirm */}
           {selectedDay && selectedHour !== null && (
             <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Créneau sélectionné</p>
                   <p className="font-display text-xl text-foreground">
@@ -244,10 +247,31 @@ const VIPCalendar = ({ onSelectSlot, selectedDate, selectedTime }: VIPCalendarPr
                     {formatHour(selectedHour)} - {formatHour(selectedHour + duration)} ({duration}h)
                   </p>
                 </div>
-                <Button variant="hero" onClick={handleConfirmSelection}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  SÉLECTIONNER CE CRÉNEAU
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleConfirmSelection}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    SÉLECTIONNER
+                  </Button>
+                  {showConfirmButton && onConfirmBooking && (
+                    <Button 
+                      variant="hero" 
+                      onClick={() => onConfirmBooking(selectedDay, `${selectedHour.toString().padStart(2, "0")}:00`, duration)}
+                      disabled={confirmLoading}
+                    >
+                      {confirmLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Validation...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          VALIDER LA RÉSERVATION
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}
