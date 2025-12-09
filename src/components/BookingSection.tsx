@@ -23,6 +23,8 @@ type PromoCode = {
   fullCalendarVisibility: boolean;
   skipPayment: boolean; // Only for without-engineer
   skipIdentityVerification: boolean;
+  skipFormFields: boolean; // Skip name, email, phone fields
+  autoSelectService: SessionType; // Auto-select this service type
   discounts: {
     "with-engineer"?: number; // percentage
     "without-engineer"?: number;
@@ -39,6 +41,8 @@ const PROMO_CODES: PromoCode[] = [
     fullCalendarVisibility: true,
     skipPayment: true,
     skipIdentityVerification: true,
+    skipFormFields: false,
+    autoSelectService: null,
     discounts: {},
   },
   {
@@ -46,6 +50,8 @@ const PROMO_CODES: PromoCode[] = [
     fullCalendarVisibility: false,
     skipPayment: false,
     skipIdentityVerification: false,
+    skipFormFields: false,
+    autoSelectService: null,
     discounts: {
       "with-engineer": 40,
       "without-engineer": 15,
@@ -60,6 +66,8 @@ const PROMO_CODES: PromoCode[] = [
     fullCalendarVisibility: false,
     skipPayment: false,
     skipIdentityVerification: true,
+    skipFormFields: false,
+    autoSelectService: null,
     discounts: {
       "with-engineer": 40,
       "without-engineer": 15,
@@ -72,8 +80,28 @@ const PROMO_CODES: PromoCode[] = [
   {
     code: "cashonly777",
     fullCalendarVisibility: false,
-    skipPayment: true, // Skip deposit payment, pay cash at studio
+    skipPayment: true,
     skipIdentityVerification: false,
+    skipFormFields: false,
+    autoSelectService: null,
+    discounts: {},
+  },
+  {
+    code: "Kazam1040",
+    fullCalendarVisibility: true,
+    skipPayment: true,
+    skipIdentityVerification: true,
+    skipFormFields: true,
+    autoSelectService: "without-engineer",
+    discounts: {},
+  },
+  {
+    code: "lennon77723",
+    fullCalendarVisibility: true,
+    skipPayment: true,
+    skipIdentityVerification: true,
+    skipFormFields: true,
+    autoSelectService: "without-engineer",
     discounts: {},
   },
 ];
@@ -105,10 +133,13 @@ const BookingSection = () => {
 
   // Combined promo effects from all active promos
   const combinedPromoEffects = useMemo(() => {
+    const autoService = activePromos.find(p => p.autoSelectService !== null)?.autoSelectService || null;
     return {
       fullCalendarVisibility: activePromos.some(p => p.fullCalendarVisibility),
       skipPayment: activePromos.some(p => p.skipPayment),
       skipIdentityVerification: activePromos.some(p => p.skipIdentityVerification),
+      skipFormFields: activePromos.some(p => p.skipFormFields),
+      autoSelectService: autoService,
       discounts: activePromos.reduce((acc, promo) => {
         Object.entries(promo.discounts).forEach(([key, value]) => {
           const currentDiscount = acc[key as keyof typeof acc] || 0;
@@ -133,9 +164,17 @@ const BookingSection = () => {
       setActivePromos([...activePromos, foundPromo]);
       setPromoCode(""); // Clear input for next code
       setPromoError("");
+      
+      // Auto-select service if specified
+      if (foundPromo.autoSelectService) {
+        setSessionType(foundPromo.autoSelectService);
+      }
+      
       toast({
         title: "Code promo appliqué !",
-        description: foundPromo.fullCalendarVisibility 
+        description: foundPromo.skipFormFields
+          ? "Accès VIP complet - réservation simplifiée activée."
+          : foundPromo.fullCalendarVisibility 
           ? "Vous avez accès à la visibilité complète de l'agenda."
           : foundPromo.skipPayment
           ? "Paiement en espèces activé - pas d'acompte requis."
@@ -305,6 +344,20 @@ const BookingSection = () => {
       return false;
     }
 
+    // For VIP codes with skipFormFields, only date/time is required (no personal info)
+    if (combinedPromoEffects.skipFormFields) {
+      // Only need date/time if not using VIP calendar
+      if (!combinedPromoEffects.fullCalendarVisibility && (!formData.date || !formData.time)) {
+        toast({
+          title: "Créneau requis",
+          description: "Veuillez sélectionner une date et une heure",
+          variant: "destructive",
+        });
+        return false;
+      }
+      return true;
+    }
+
     // Pour les services immédiats, seuls nom, email et téléphone sont requis
     if (isImmediateService) {
       if (!formData.name || !formData.email || !formData.phone) {
@@ -432,7 +485,22 @@ const BookingSection = () => {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          {/* Session type selector */}
+          {/* VIP Access Banner - shown when skipFormFields is active */}
+          {combinedPromoEffects.skipFormFields && (
+            <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-accent/20 via-primary/20 to-accent/20 border-2 border-accent/50 box-glow-gold">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl">👑</span>
+                <h3 className="font-display text-2xl text-accent">ACCÈS VIP ACTIVÉ</h3>
+              </div>
+              <p className="text-muted-foreground">
+                Réservation simplifiée : sélectionnez directement votre créneau dans l'agenda.
+                Service : <span className="text-accent font-semibold">Location sèche (gratuit)</span>
+              </p>
+            </div>
+          )}
+
+          {/* Session type selector - Hidden when autoSelectService is active */}
+          {!combinedPromoEffects.autoSelectService && (
           <div className="mb-10">
             <div className="mb-6">
               <h3 className="font-display text-2xl text-foreground mb-2">
@@ -607,6 +675,7 @@ const BookingSection = () => {
               </button>
             </div>
           </div>
+          )}
 
           {/* Booking form */}
           <div className="bg-card rounded-2xl border border-border p-8">
@@ -637,61 +706,63 @@ const BookingSection = () => {
             )}
 
             <div className={cn("grid gap-6 mb-6", isImmediateService ? "md:grid-cols-1" : "md:grid-cols-2")}>
-              {/* Personal info */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                    <User className="w-4 h-4" /> Nom complet
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => {
-                      setFormData({ ...formData, name: e.target.value });
-                      setShowPayment(false);
-                    }}
-                    placeholder="Votre nom"
-                    className="bg-secondary/50 border-border"
-                    required
-                  />
-                </div>
+              {/* Personal info - Hidden when skipFormFields is active */}
+              {!combinedPromoEffects.skipFormFields && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                      <User className="w-4 h-4" /> Nom complet
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        setShowPayment(false);
+                      }}
+                      placeholder="Votre nom"
+                      className="bg-secondary/50 border-border"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="email" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                    <Mail className="w-4 h-4" /> Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => {
-                      setFormData({ ...formData, email: e.target.value });
-                      setShowPayment(false);
-                    }}
-                    placeholder="votre@email.com"
-                    className="bg-secondary/50 border-border"
-                    required
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="email" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        setShowPayment(false);
+                      }}
+                      placeholder="votre@email.com"
+                      className="bg-secondary/50 border-border"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="phone" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                    <Phone className="w-4 h-4" /> Téléphone
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => {
-                      setFormData({ ...formData, phone: e.target.value });
-                      setShowPayment(false);
-                    }}
-                    placeholder="06 12 34 56 78"
-                    className="bg-secondary/50 border-border"
-                    required
-                  />
+                  <div>
+                    <Label htmlFor="phone" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                      <Phone className="w-4 h-4" /> Téléphone
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        setShowPayment(false);
+                      }}
+                      placeholder="06 12 34 56 78"
+                      className="bg-secondary/50 border-border"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Date and time - Only for studio sessions */}
               {!isImmediateService && !combinedPromoEffects.fullCalendarVisibility && (
@@ -1141,7 +1212,7 @@ const BookingSection = () => {
                     console.log("Opening VIP Calendar...");
                     setShowVIPCalendar(true);
                   }}
-                  disabled={!formData.name || !formData.email || !formData.phone || !sessionType}
+                  disabled={!sessionType || (!combinedPromoEffects.skipFormFields && (!formData.name || !formData.email || !formData.phone))}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
                   RÉSERVER (Ouvrir l'agenda VIP)
@@ -1158,7 +1229,7 @@ const BookingSection = () => {
                     loadingClientId || 
                     (!isImmediateService && (availabilityStatus === "checking" || availabilityStatus === "unavailable")) ||
                     (!isImmediateService && !skipIdentityVerification && !identityVerified) ||
-                    !formData.name || !formData.email || !formData.phone
+                    (!combinedPromoEffects.skipFormFields && (!formData.name || !formData.email || !formData.phone))
                   }
                 >
                   {loadingClientId ? (
