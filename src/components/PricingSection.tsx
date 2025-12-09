@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
+import QuoteRequestDialog from "./QuoteRequestDialog";
 
 interface PricingCardProps {
   title: string;
@@ -243,9 +244,7 @@ const PricingSection = () => {
             Forfaits et tarifs dégressifs disponibles pour les projets longs
           </p>
           <div className="text-center">
-            <Button variant="outline" size="lg">
-              Demander un devis personnalisé
-            </Button>
+            <QuoteRequestDialog />
           </div>
         </div>
       </div>

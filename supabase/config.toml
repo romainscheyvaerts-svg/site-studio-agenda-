@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.create-admin-event]
 verify_jwt = false
+
+[functions.generate-invoice]
+verify_jwt = false
+
+[functions.send-quote-request]
+verify_jwt = false
+
+[functions.quote-assistant]
+verify_jwt = false

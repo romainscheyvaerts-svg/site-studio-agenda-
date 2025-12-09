@@ -12,6 +12,7 @@ import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
 import AdminEventCreator from "./AdminEventCreator";
+import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -550,7 +551,10 @@ const BookingSection = () => {
                   <Shield className="w-8 h-8 text-green-500" />
                   <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
                 </div>
-                <AdminEventCreator />
+                <div className="flex gap-2">
+                  <AdminInvoiceGenerator />
+                  <AdminEventCreator />
+                </div>
               </div>
               <p className="text-muted-foreground">
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
