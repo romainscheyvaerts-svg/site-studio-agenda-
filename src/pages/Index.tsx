@@ -5,8 +5,12 @@ import PricingSection from "@/components/PricingSection";
 import BookingSection from "@/components/BookingSection";
 import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
+import AdminPanel from "@/components/AdminPanel";
+import { useAdmin } from "@/hooks/useAdmin";
 
 const Index = () => {
+  const { isAdmin } = useAdmin();
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
@@ -18,6 +22,7 @@ const Index = () => {
       <BookingSection />
       <Footer />
       <ChatBot />
+      {isAdmin && <AdminPanel />}
     </main>
   );
 };

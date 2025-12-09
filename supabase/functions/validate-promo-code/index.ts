@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,16 +7,6 @@ const corsHeaders = {
 };
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
-
-type PromoCodeConfig = {
-  code: string;
-  fullCalendarVisibility: boolean;
-  skipPayment: boolean;
-  skipIdentityVerification: boolean;
-  skipFormFields: boolean;
-  autoSelectService: SessionType;
-  discounts: Record<string, number>;
-};
 
 type PromoEffects = {
   valid: boolean;
@@ -43,52 +34,65 @@ serve(async (req) => {
       );
     }
 
-    // Get promo codes from secrets
-    const promoCodesJson = Deno.env.get('PROMO_CODES_CONFIG');
-    
-    if (!promoCodesJson) {
-      console.error('PROMO_CODES_CONFIG secret not configured');
-      return new Response(
-        JSON.stringify({ valid: false, error: 'Configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let promoCodes: PromoCodeConfig[];
-    try {
-      promoCodes = JSON.parse(promoCodesJson);
-    } catch (e) {
-      console.error('Failed to parse PROMO_CODES_CONFIG:', e);
-      return new Response(
-        JSON.stringify({ valid: false, error: 'Configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Find matching code (case-insensitive)
+    // Find matching code in database (case-insensitive, must be active)
     const normalizedCode = code.trim().toLowerCase();
-    const foundPromo = promoCodes.find(p => p.code.toLowerCase() === normalizedCode);
+    
+    const { data: promoData, error: dbError } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .ilike('code', normalizedCode)
+      .eq('is_active', true)
+      .maybeSingle();
 
-    if (!foundPromo) {
-      console.log(`Invalid promo code attempted: ${code}`);
+    if (dbError) {
+      console.error('Database error:', dbError);
       return new Response(
-        JSON.stringify({ valid: false, error: 'Code promo invalide' }),
+        JSON.stringify({ valid: false, error: 'Erreur de validation' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!promoData) {
+      console.log(`Invalid or inactive promo code attempted: ${code}`);
+      return new Response(
+        JSON.stringify({ valid: false, error: 'Code promo invalide ou inactif' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Build discounts object
+    const discounts: Record<string, number> = {};
+    if (promoData.discount_recording > 0) {
+      discounts['with-engineer'] = promoData.discount_recording;
+    }
+    if (promoData.discount_rental > 0) {
+      discounts['without-engineer'] = promoData.discount_rental;
+    }
+    if (promoData.discount_mixing > 0) {
+      discounts['mixing'] = promoData.discount_mixing;
+    }
+    if (promoData.discount_mastering > 0) {
+      discounts['mastering'] = promoData.discount_mastering;
+      discounts['analog-mastering'] = promoData.discount_mastering;
     }
 
     // Return only the effects, never the code list
     const effects: PromoEffects = {
       valid: true,
-      fullCalendarVisibility: foundPromo.fullCalendarVisibility,
-      skipPayment: foundPromo.skipPayment,
-      skipIdentityVerification: foundPromo.skipIdentityVerification,
-      skipFormFields: foundPromo.skipFormFields,
-      autoSelectService: foundPromo.autoSelectService,
-      discounts: foundPromo.discounts,
+      fullCalendarVisibility: promoData.full_calendar_visibility,
+      skipPayment: promoData.skip_payment,
+      skipIdentityVerification: promoData.skip_identity_verification,
+      skipFormFields: promoData.skip_form_fields,
+      autoSelectService: promoData.auto_select_service as SessionType,
+      discounts,
     };
 
-    console.log(`Valid promo code applied: ${foundPromo.code}`);
+    console.log(`Valid promo code applied: ${promoData.code}`);
     return new Response(
       JSON.stringify(effects),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
