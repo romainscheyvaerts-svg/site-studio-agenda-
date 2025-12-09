@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.get-weekly-availability]
 verify_jwt = false
+
+[functions.validate-promo-code]
+verify_jwt = false

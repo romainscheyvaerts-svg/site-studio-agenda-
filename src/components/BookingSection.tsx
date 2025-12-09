@@ -17,94 +17,16 @@ type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "e
 // Services qui ne nécessitent pas de calendrier ni de vérification d'identité
 const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast"];
 
-// Promo code configuration
-type PromoCode = {
-  code: string;
+// Promo code effects returned from server (no codes stored client-side)
+type PromoEffects = {
+  code: string; // Only stored after validation, for display/removal purposes
   fullCalendarVisibility: boolean;
-  skipPayment: boolean; // Only for without-engineer
+  skipPayment: boolean;
   skipIdentityVerification: boolean;
-  skipFormFields: boolean; // Skip name, email, phone fields
-  autoSelectService: SessionType; // Auto-select this service type
-  discounts: {
-    "with-engineer"?: number; // percentage
-    "without-engineer"?: number;
-    "mixing"?: number;
-    "mastering"?: number;
-    "analog-mastering"?: number;
-    "podcast"?: number;
-  };
+  skipFormFields: boolean;
+  autoSelectService: SessionType;
+  discounts: Record<string, number>;
 };
-
-const PROMO_CODES: PromoCode[] = [
-  {
-    code: "vip777",
-    fullCalendarVisibility: true,
-    skipPayment: true,
-    skipIdentityVerification: true,
-    skipFormFields: false,
-    autoSelectService: null,
-    discounts: {},
-  },
-  {
-    code: "gold50",
-    fullCalendarVisibility: false,
-    skipPayment: false,
-    skipIdentityVerification: false,
-    skipFormFields: false,
-    autoSelectService: null,
-    discounts: {
-      "with-engineer": 40,
-      "without-engineer": 15,
-      "mixing": 50,
-      "mastering": 50,
-      "analog-mastering": 50,
-      "podcast": 50,
-    },
-  },
-  {
-    code: "vip50",
-    fullCalendarVisibility: false,
-    skipPayment: false,
-    skipIdentityVerification: true,
-    skipFormFields: false,
-    autoSelectService: null,
-    discounts: {
-      "with-engineer": 40,
-      "without-engineer": 15,
-      "mixing": 50,
-      "mastering": 50,
-      "analog-mastering": 50,
-      "podcast": 50,
-    },
-  },
-  {
-    code: "cashonly777",
-    fullCalendarVisibility: false,
-    skipPayment: true,
-    skipIdentityVerification: false,
-    skipFormFields: false,
-    autoSelectService: null,
-    discounts: {},
-  },
-  {
-    code: "Kazam1040",
-    fullCalendarVisibility: true,
-    skipPayment: true,
-    skipIdentityVerification: true,
-    skipFormFields: true,
-    autoSelectService: "without-engineer",
-    discounts: {},
-  },
-  {
-    code: "lennon77723",
-    fullCalendarVisibility: true,
-    skipPayment: true,
-    skipIdentityVerification: true,
-    skipFormFields: true,
-    autoSelectService: "without-engineer",
-    discounts: {},
-  },
-];
 
 const BookingSection = () => {
   const { toast } = useToast();
@@ -119,8 +41,9 @@ const BookingSection = () => {
   const [identityVerified, setIdentityVerified] = useState(false);
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState("");
-  const [activePromos, setActivePromos] = useState<PromoCode[]>([]);
+  const [activePromos, setActivePromos] = useState<PromoEffects[]>([]);
   const [promoError, setPromoError] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
   const [showVIPCalendar, setShowVIPCalendar] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -143,45 +66,73 @@ const BookingSection = () => {
       discounts: activePromos.reduce((acc, promo) => {
         Object.entries(promo.discounts).forEach(([key, value]) => {
           const currentDiscount = acc[key as keyof typeof acc] || 0;
-          acc[key as keyof typeof acc] = Math.max(currentDiscount, value || 0);
+          acc[key as keyof typeof acc] = Math.max(currentDiscount, value as number || 0);
         });
         return acc;
       }, {} as Record<string, number>),
     };
   }, [activePromos]);
 
-  // Validate promo code
-  const handleApplyPromoCode = () => {
-    const normalizedCode = promoCode.trim().toLowerCase();
-    const foundPromo = PROMO_CODES.find(p => p.code.toLowerCase() === normalizedCode);
+  // Validate promo code via server
+  const handleApplyPromoCode = async () => {
+    const normalizedCode = promoCode.trim();
+    if (!normalizedCode) return;
     
-    if (foundPromo) {
-      // Check if already applied
-      if (activePromos.some(p => p.code.toLowerCase() === normalizedCode)) {
-        setPromoError("Ce code est déjà appliqué");
+    // Check if already applied
+    if (activePromos.some(p => p.code.toLowerCase() === normalizedCode.toLowerCase())) {
+      setPromoError("Ce code est déjà appliqué");
+      return;
+    }
+    
+    setPromoLoading(true);
+    setPromoError("");
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("validate-promo-code", {
+        body: { code: normalizedCode },
+      });
+      
+      if (error) throw error;
+      
+      if (!data.valid) {
+        setPromoError(data.error || "Code promo invalide");
         return;
       }
-      setActivePromos([...activePromos, foundPromo]);
-      setPromoCode(""); // Clear input for next code
-      setPromoError("");
+      
+      // Store the validated promo with its code for display
+      const validatedPromo: PromoEffects = {
+        code: normalizedCode,
+        fullCalendarVisibility: data.fullCalendarVisibility,
+        skipPayment: data.skipPayment,
+        skipIdentityVerification: data.skipIdentityVerification,
+        skipFormFields: data.skipFormFields,
+        autoSelectService: data.autoSelectService,
+        discounts: data.discounts || {},
+      };
+      
+      setActivePromos([...activePromos, validatedPromo]);
+      setPromoCode("");
       
       // Auto-select service if specified
-      if (foundPromo.autoSelectService) {
-        setSessionType(foundPromo.autoSelectService);
+      if (validatedPromo.autoSelectService) {
+        setSessionType(validatedPromo.autoSelectService);
       }
       
       toast({
         title: "Code promo appliqué !",
-        description: foundPromo.skipFormFields
+        description: validatedPromo.skipFormFields
           ? "Accès VIP complet - réservation simplifiée activée."
-          : foundPromo.fullCalendarVisibility 
+          : validatedPromo.fullCalendarVisibility 
           ? "Vous avez accès à la visibilité complète de l'agenda."
-          : foundPromo.skipPayment
+          : validatedPromo.skipPayment
           ? "Paiement en espèces activé - pas d'acompte requis."
           : "Réductions appliquées à votre réservation.",
       });
-    } else if (normalizedCode) {
-      setPromoError("Code promo invalide");
+    } catch (err) {
+      console.error("Promo code validation error:", err);
+      setPromoError("Erreur de validation. Réessayez.");
+    } finally {
+      setPromoLoading(false);
     }
   };
 
@@ -967,9 +918,9 @@ const BookingSection = () => {
                   variant="outline"
                   onClick={handleApplyPromoCode}
                   className="shrink-0"
-                  disabled={!promoCode.trim()}
+                  disabled={!promoCode.trim() || promoLoading}
                 >
-                  Appliquer
+                  {promoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Appliquer"}
                 </Button>
               </div>
               {promoError && (
