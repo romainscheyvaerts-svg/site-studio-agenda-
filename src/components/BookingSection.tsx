@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock, Shield } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock, Shield, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
 import AdminEventCreator from "./AdminEventCreator";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
+import AdminPriceCalculator from "./AdminPriceCalculator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -545,7 +546,7 @@ const BookingSection = () => {
 
           {/* Admin Access Banner */}
           {isAdmin && (
-            <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border-2 border-green-500/50">
+            <div className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border-2 border-green-500/50">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <Shield className="w-8 h-8 text-green-500" />
@@ -559,6 +560,34 @@ const BookingSection = () => {
               <p className="text-muted-foreground">
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
               </p>
+            </div>
+          )}
+
+          {/* Admin Price Calculator - shown only for admin */}
+          {isAdmin && (
+            <div className="mb-10 p-6 rounded-2xl bg-card border border-border">
+              <h3 className="font-display text-xl text-foreground mb-4 flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-primary" />
+                CALCULATEUR DE PRIX ADMIN
+              </h3>
+              <AdminPriceCalculator
+                onPriceCalculated={(data) => {
+                  // Set the session type and form data based on admin selection
+                  setSessionType(data.sessionType);
+                  setHours(data.hours);
+                  if (data.date && data.time) {
+                    setFormData(prev => ({
+                      ...prev,
+                      date: data.date!,
+                      time: data.time!,
+                    }));
+                  }
+                  toast({
+                    title: "Prix calculé",
+                    description: `${data.finalPrice}€ (remise ${data.discountPercent}% appliquée)`,
+                  });
+                }}
+              />
             </div>
           )}
 
