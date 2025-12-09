@@ -21,9 +21,16 @@ interface CalendarResponse {
   items?: CalendarEvent[];
 }
 
+interface ICalEvent {
+  start: Date;
+  end: Date;
+  isAllDay: boolean;
+}
+
 interface TimeSlot {
   hour: number;
   available: boolean;
+  status: "available" | "unavailable" | "on-request";
 }
 
 interface DayAvailability {
@@ -128,7 +135,94 @@ async function getCalendarEvents(
   return data.items || [];
 }
 
-function isSlotAvailable(
+// Parse iCal date format (YYYYMMDD or YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ)
+function parseICalDate(dateStr: string): Date {
+  // Remove any timezone suffix for simplicity
+  const cleanStr = dateStr.replace(/Z$/, "");
+  
+  if (cleanStr.includes("T")) {
+    // DateTime format: YYYYMMDDTHHMMSS
+    const year = parseInt(cleanStr.substring(0, 4));
+    const month = parseInt(cleanStr.substring(4, 6)) - 1;
+    const day = parseInt(cleanStr.substring(6, 8));
+    const hour = parseInt(cleanStr.substring(9, 11));
+    const minute = parseInt(cleanStr.substring(11, 13));
+    const second = parseInt(cleanStr.substring(13, 15)) || 0;
+    return new Date(year, month, day, hour, minute, second);
+  } else {
+    // Date only format: YYYYMMDD
+    const year = parseInt(cleanStr.substring(0, 4));
+    const month = parseInt(cleanStr.substring(4, 6)) - 1;
+    const day = parseInt(cleanStr.substring(6, 8));
+    return new Date(year, month, day);
+  }
+}
+
+// Fetch and parse iCal from webcal URL
+async function fetchICalEvents(icalUrl: string, startDate: Date, endDate: Date): Promise<ICalEvent[]> {
+  try {
+    // Convert webcal:// to https://
+    const httpsUrl = icalUrl.replace("webcal://", "https://");
+    console.log(`Fetching iCal from: ${httpsUrl}`);
+    
+    const response = await fetch(httpsUrl);
+    if (!response.ok) {
+      console.error(`Failed to fetch iCal: ${response.status}`);
+      return [];
+    }
+    
+    const icalData = await response.text();
+    const events: ICalEvent[] = [];
+    
+    // Simple iCal parser - extract VEVENT blocks
+    const eventBlocks = icalData.split("BEGIN:VEVENT");
+    
+    for (let i = 1; i < eventBlocks.length; i++) {
+      const block = eventBlocks[i].split("END:VEVENT")[0];
+      
+      let dtstart = "";
+      let dtend = "";
+      let isAllDay = false;
+      
+      const lines = block.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.startsWith("DTSTART")) {
+          // Check if it's a date-only (all-day) event
+          if (line.includes("VALUE=DATE:") || (!line.includes("T") && line.match(/:\d{8}$/))) {
+            isAllDay = true;
+          }
+          const match = line.match(/:(\d{8}(?:T\d{6}Z?)?)/);
+          if (match) {
+            dtstart = match[1];
+          }
+        } else if (line.startsWith("DTEND")) {
+          const match = line.match(/:(\d{8}(?:T\d{6}Z?)?)/);
+          if (match) {
+            dtend = match[1];
+          }
+        }
+      }
+      
+      if (dtstart) {
+        const eventStart = parseICalDate(dtstart);
+        const eventEnd = dtend ? parseICalDate(dtend) : new Date(eventStart.getTime() + 3600000); // Default 1 hour
+        
+        // Only include events that overlap with our date range
+        if (eventEnd >= startDate && eventStart <= endDate) {
+          events.push({ start: eventStart, end: eventEnd, isAllDay });
+        }
+      }
+    }
+    
+    console.log(`Parsed ${events.length} iCal events from Claridge calendar`);
+    return events;
+  } catch (error) {
+    console.error("Error fetching iCal:", error);
+    return [];
+  }
+}
+
+function isSlotAvailableInGoogle(
   events: CalendarEvent[],
   slotStart: Date,
   slotEnd: Date
@@ -139,7 +233,6 @@ function isSlotAvailable(
     
     // Check for all-day events
     if (event.start.date && !event.start.dateTime) {
-      // All-day event - blocks the entire day
       const eventDate = event.start.date;
       const slotDate = slotStart.toISOString().split("T")[0];
       if (eventDate === slotDate) {
@@ -153,6 +246,29 @@ function isSlotAvailable(
     }
   }
   return true;
+}
+
+function isSlotBusyInICal(
+  events: ICalEvent[],
+  slotStart: Date,
+  slotEnd: Date
+): boolean {
+  for (const event of events) {
+    // Check for all-day events
+    if (event.isAllDay) {
+      const eventDate = event.start.toISOString().split("T")[0];
+      const slotDate = slotStart.toISOString().split("T")[0];
+      if (eventDate === slotDate) {
+        return true;
+      }
+    }
+    
+    // Check for overlap
+    if (event.start < slotEnd && event.end > slotStart) {
+      return true;
+    }
+  }
+  return false;
 }
 
 serve(async (req) => {
@@ -186,6 +302,7 @@ serve(async (req) => {
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     const patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID");
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+    const claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL");
 
     if (!serviceAccountKey || !patronCalendarId || !studioCalendarId) {
       throw new Error("Missing calendar configuration");
@@ -197,14 +314,17 @@ serve(async (req) => {
 
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch events from both calendars for the entire period
-    const [patronEvents, studioEvents] = await Promise.all([
+    // Fetch events from all calendars
+    const [patronEvents, studioEvents, claridgeEvents] = await Promise.all([
       getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString()),
       getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString()),
+      claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
     ]);
 
-    const allEvents = [...patronEvents, ...studioEvents];
-    console.log(`Total events found: ${allEvents.length}`);
+    // Studio events = patron + studio calendar (main availability)
+    const studioMainEvents = [...patronEvents, ...studioEvents];
+    console.log(`Total main events found: ${studioMainEvents.length}`);
+    console.log(`Claridge events found: ${claridgeEvents.length}`);
 
     // Generate availability for each day
     const availability: DayAvailability[] = [];
@@ -227,12 +347,28 @@ serve(async (req) => {
         // Check if slot is in the past
         const now = new Date();
         if (slotStart < now) {
-          slots.push({ hour, available: false });
+          slots.push({ hour, available: false, status: "unavailable" });
           continue;
         }
 
-        const available = isSlotAvailable(allEvents, slotStart, slotEnd);
-        slots.push({ hour, available });
+        // Check main studio availability (patron + studio calendars)
+        const isMainAvailable = isSlotAvailableInGoogle(studioMainEvents, slotStart, slotEnd);
+        
+        if (!isMainAvailable) {
+          // Studio is booked - unavailable
+          slots.push({ hour, available: false, status: "unavailable" });
+        } else {
+          // Studio is free, check if patron is busy in personal/Claridge calendars
+          const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
+          
+          if (isPatronBusyInClaridge) {
+            // Patron busy in Claridge but studio is free - show "on request"
+            slots.push({ hour, available: true, status: "on-request" });
+          } else {
+            // Fully available
+            slots.push({ hour, available: true, status: "available" });
+          }
+        }
       }
 
       availability.push({ date: dateStr, slots });

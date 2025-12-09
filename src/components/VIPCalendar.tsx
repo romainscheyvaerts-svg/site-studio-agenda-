@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface TimeSlot {
   hour: number;
   available: boolean;
+  status: "available" | "unavailable" | "on-request";
 }
 
 interface DayAvailability {
@@ -87,17 +88,60 @@ const VIPCalendar = ({ onSelectSlot, onConfirmBooking, selectedDate, selectedTim
     return `${hour.toString().padStart(2, "0")}:00`;
   };
 
-  // Check if a consecutive block of hours is available
+  // Check if a consecutive block of hours is available (available or on-request)
   const isBlockAvailable = (daySlots: TimeSlot[], startHour: number, blockSize: number): boolean => {
     for (let i = 0; i < blockSize; i++) {
       const slot = daySlots.find(s => s.hour === startHour + i);
-      if (!slot || !slot.available) return false;
+      if (!slot || slot.status === "unavailable") return false;
     }
     return true;
   };
 
+  // Check if any slot in block is on-request
+  const isBlockOnRequest = (daySlots: TimeSlot[], startHour: number, blockSize: number): boolean => {
+    for (let i = 0; i < blockSize; i++) {
+      const slot = daySlots.find(s => s.hour === startHour + i);
+      if (slot?.status === "on-request") return true;
+    }
+    return false;
+  };
+
+  // Get status for a slot considering the block
+  const getSlotDisplayStatus = (daySlots: TimeSlot[], hour: number): "available" | "unavailable" | "on-request" => {
+    const slot = daySlots.find(s => s.hour === hour);
+    if (!slot) return "unavailable";
+    
+    // Check if the block starting at this hour is available
+    if (!isBlockAvailable(daySlots, hour, duration)) {
+      return "unavailable";
+    }
+    
+    // If block is available, check if any slot is on-request
+    if (isBlockOnRequest(daySlots, hour, duration)) {
+      return "on-request";
+    }
+    
+    return "available";
+  };
+
+  const openWhatsApp = () => {
+    const phoneNumber = "+32476094172";
+    const message = selectedDay && selectedHour !== null 
+      ? `Bonjour, je souhaite réserver le studio le ${format(new Date(selectedDay), "EEEE d MMMM yyyy", { locale: fr })} de ${formatHour(selectedHour)} à ${formatHour(selectedHour + duration)}. Ce créneau est-il disponible ?`
+      : "Bonjour, je souhaite vérifier la disponibilité du studio.";
+    window.open(`https://wa.me/${phoneNumber.replace("+", "")}?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
   // Get the 7 days to display
   const displayDays = availability.slice(0, 7);
+
+  // Check if selected slot is on-request
+  const selectedSlotOnRequest = selectedDay && selectedHour !== null 
+    ? (() => {
+        const dayData = availability.find(d => d.date === selectedDay);
+        return dayData ? isBlockOnRequest(dayData.slots, selectedHour, duration) : false;
+      })()
+    : false;
 
   return (
     <div className="bg-card rounded-2xl border border-primary/30 p-6 box-glow-cyan">
@@ -125,10 +169,14 @@ const VIPCalendar = ({ onSelectSlot, onConfirmBooking, selectedDate, selectedTim
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mb-4 text-xs">
+      <div className="flex items-center gap-4 mb-4 text-xs flex-wrap">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded bg-green-500" />
           <span className="text-muted-foreground">Disponible</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-amber-500" />
+          <span className="text-muted-foreground">Sur demande</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded bg-destructive" />
@@ -198,29 +246,39 @@ const VIPCalendar = ({ onSelectSlot, onConfirmBooking, selectedDate, selectedTim
                       {formatHour(hour)}
                     </div>
                     {displayDays.map((day) => {
-                      const slot = day.slots.find((s) => s.hour === hour);
-                      const isAvailable = slot?.available && isBlockAvailable(day.slots, hour, duration);
+                      const displayStatus = getSlotDisplayStatus(day.slots, hour);
+                      const isClickable = displayStatus !== "unavailable";
                       const isSelected = selectedDay === day.date && selectedHour === hour;
 
                       return (
                         <button
                           key={`${day.date}-${hour}`}
-                          onClick={() => isAvailable && handleSelectSlot(day.date, hour)}
-                          disabled={!isAvailable}
+                          onClick={() => isClickable && handleSelectSlot(day.date, hour)}
+                          disabled={!isClickable}
                           className={cn(
                             "p-2 rounded text-xs transition-all duration-200",
-                            isAvailable
+                            displayStatus === "available"
                               ? isSelected
                                 ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
                                 : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
-                              : "bg-destructive/20 text-destructive cursor-not-allowed"
+                              : displayStatus === "on-request"
+                                ? isSelected
+                                  ? "bg-primary text-primary-foreground ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+                                  : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
+                                : "bg-destructive/20 text-destructive cursor-not-allowed"
                           )}
                         >
-                          {isAvailable ? (
+                          {displayStatus === "available" ? (
                             isSelected ? (
                               <CheckCircle className="w-3 h-3 mx-auto" />
                             ) : (
                               <span className="opacity-70">✓</span>
+                            )
+                          ) : displayStatus === "on-request" ? (
+                            isSelected ? (
+                              <MessageCircle className="w-3 h-3 mx-auto" />
+                            ) : (
+                              <span className="opacity-70">?</span>
                             )
                           ) : (
                             <X className="w-3 h-3 mx-auto opacity-50" />
@@ -236,40 +294,67 @@ const VIPCalendar = ({ onSelectSlot, onConfirmBooking, selectedDate, selectedTim
 
           {/* Selection summary and confirm */}
           {selectedDay && selectedHour !== null && (
-            <div className="mt-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
+            <div className={cn(
+              "mt-6 p-4 rounded-xl border",
+              selectedSlotOnRequest 
+                ? "bg-amber-500/10 border-amber-500/30" 
+                : "bg-primary/10 border-primary/30"
+            )}>
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Créneau sélectionné</p>
                   <p className="font-display text-xl text-foreground">
                     {format(new Date(selectedDay), "EEEE d MMMM yyyy", { locale: fr })}
                   </p>
-                  <p className="text-primary font-semibold">
+                  <p className={cn(
+                    "font-semibold",
+                    selectedSlotOnRequest ? "text-amber-500" : "text-primary"
+                  )}>
                     {formatHour(selectedHour)} - {formatHour(selectedHour + duration)} ({duration}h)
                   </p>
+                  {selectedSlotOnRequest && (
+                    <p className="text-sm text-amber-500 mt-2 flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4" />
+                      Ce créneau est sur demande. Contactez le studio pour confirmer.
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleConfirmSelection}>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    SÉLECTIONNER
-                  </Button>
-                  {showConfirmButton && onConfirmBooking && (
+                <div className="flex gap-2 flex-wrap">
+                  {selectedSlotOnRequest ? (
                     <Button 
-                      variant="hero" 
-                      onClick={() => onConfirmBooking(selectedDay, `${selectedHour.toString().padStart(2, "0")}:00`, duration)}
-                      disabled={confirmLoading}
+                      variant="outline" 
+                      onClick={openWhatsApp}
+                      className="border-amber-500 text-amber-500 hover:bg-amber-500/10"
                     >
-                      {confirmLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Validation...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          VALIDER LA RÉSERVATION
-                        </>
-                      )}
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      CONTACTER VIA WHATSAPP
                     </Button>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={handleConfirmSelection}>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        SÉLECTIONNER
+                      </Button>
+                      {showConfirmButton && onConfirmBooking && (
+                        <Button 
+                          variant="hero" 
+                          onClick={() => onConfirmBooking(selectedDay, `${selectedHour.toString().padStart(2, "0")}:00`, duration)}
+                          disabled={confirmLoading}
+                        >
+                          {confirmLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Validation...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              VALIDER LA RÉSERVATION
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
