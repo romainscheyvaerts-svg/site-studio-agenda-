@@ -139,6 +139,20 @@ const BookingSection = () => {
 
   // Pour les services immédiats, pas de notion d'heures
   const isImmediateService = sessionType && IMMEDIATE_SERVICES.includes(sessionType);
+  
+  // Check if VIP calendar should be available (vip777 with full calendar visibility)
+  const showVIPCalendarButton = activePromo?.fullCalendarVisibility && !isImmediateService;
+  
+  // Debug logging
+  console.log("VIP Debug:", { 
+    activePromo: activePromo?.code, 
+    fullCalendarVisibility: activePromo?.fullCalendarVisibility,
+    sessionType,
+    isImmediateService,
+    showVIPCalendarButton,
+    skipPayment,
+    showVIPCalendar
+  });
 
   const totalPrice = useMemo(() => {
     if (!sessionType) return 0;
@@ -1080,18 +1094,21 @@ const BookingSection = () => {
 
             {/* Payment section - Hidden when VIP calendar is shown */}
             {!showVIPCalendar && !showPayment ? (
-              skipPayment ? (
+              showVIPCalendarButton ? (
                 /* VIP777 - Show "Reserve" button that opens calendar */
                 <Button 
                   type="button" 
                   variant="hero" 
                   size="xl" 
                   className="w-full"
-                  onClick={() => setShowVIPCalendar(true)}
+                  onClick={() => {
+                    console.log("Opening VIP Calendar...");
+                    setShowVIPCalendar(true);
+                  }}
                   disabled={!formData.name || !formData.email || !formData.phone || !sessionType}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
-                  RÉSERVER (Ouvrir l'agenda)
+                  RÉSERVER (Ouvrir l'agenda VIP)
                 </Button>
               ) : (
                 /* Regular payment button */
