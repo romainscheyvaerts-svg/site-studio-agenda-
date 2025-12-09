@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Mic } from "lucide-react";
+import { Menu, X, Mic, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
-
+import { useAuth } from "@/hooks/useAuth";
 const Navbar = () => {
   const { t } = useTranslation();
+  const { user, signOut } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -69,6 +69,16 @@ const Navbar = () => {
             <Button variant="neon" onClick={() => scrollTo("booking")}>
               {t("nav.booking").toUpperCase()}
             </Button>
+            {user && (
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={signOut}
+                title="Déconnexion"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -99,6 +109,16 @@ const Navbar = () => {
               <Button variant="neon" className="mt-2" onClick={() => scrollTo("booking")}>
                 {t("nav.booking").toUpperCase()}
               </Button>
+              {user && (
+                <Button 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={signOut}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Déconnexion
+                </Button>
+              )}
             </div>
           </div>
         )}
