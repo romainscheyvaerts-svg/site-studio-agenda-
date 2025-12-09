@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
+import AdminEventCreator from "./AdminEventCreator";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -544,9 +545,12 @@ const BookingSection = () => {
           {/* Admin Access Banner */}
           {isAdmin && (
             <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border-2 border-green-500/50">
-              <div className="flex items-center gap-3 mb-2">
-                <Shield className="w-8 h-8 text-green-500" />
-                <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Shield className="w-8 h-8 text-green-500" />
+                  <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
+                </div>
+                <AdminEventCreator />
               </div>
               <p className="text-muted-foreground">
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
