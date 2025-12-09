@@ -1,9 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema
+const AvailabilityRequestSchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
+  days: z.number().int().min(1).max(30).default(14),
+});
 
 interface CalendarEvent {
   start: { dateTime?: string; date?: string };
@@ -154,7 +161,25 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, days = 14 } = await req.json();
+    // Parse and validate input
+    const rawBody = await req.json();
+    const validationResult = AvailabilityRequestSchema.safeParse(rawBody);
+    
+    if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid input", 
+          details: validationResult.error.errors.map(e => e.message) 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const { startDate, days } = validationResult.data;
     
     console.log(`Fetching weekly availability starting from: ${startDate} for ${days} days`);
 
