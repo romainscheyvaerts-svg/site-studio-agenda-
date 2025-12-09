@@ -1032,7 +1032,8 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Message */}
+            {/* Message - Hidden for admin */}
+            {!isAdmin && (
             <div className="mb-6">
               <Label htmlFor="message" className="text-sm text-muted-foreground mb-2 block">
                 Décrivez votre projet (optionnel)
@@ -1045,6 +1046,7 @@ const BookingSection = () => {
                 className="bg-secondary/50 border-border min-h-[100px]"
               />
             </div>
+            )}
 
             {/* Promo Code Input - Hidden for admin */}
             {!isAdmin && (
@@ -1164,8 +1166,8 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Price display - Hidden for VIP codes that skip payment */}
-            {sessionType && !skipPayment && (
+            {/* Price display - Hidden for admin and VIP codes that skip payment */}
+            {sessionType && !skipPayment && !isAdmin && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
                 {!isImmediateService && (
                   <>
@@ -1295,15 +1297,15 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Last-minute booking disclaimer - only for studio sessions */}
-            {sessionType && !isImmediateService && (
+            {/* Last-minute booking disclaimer - only for studio sessions, hidden for admin */}
+            {sessionType && !isImmediateService && !isAdmin && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm">
                 ⚠️ Pour les réservations moins de 24h à l'avance, le studio se réserve le droit d'annuler et de rembourser intégralement.
               </div>
             )}
 
-            {/* Payment section - Hidden when VIP calendar is shown */}
-            {!showVIPCalendar && !showPayment ? (
+            {/* Payment section - Hidden for admin and when VIP calendar is shown */}
+            {!isAdmin && !showVIPCalendar && !showPayment ? (
               showVIPCalendarButton ? (
                 /* VIP777 - Show "Reserve" button that opens calendar */
                 <Button 
@@ -1412,7 +1414,7 @@ const BookingSection = () => {
                   )}
                 </Button>
               )
-            ) : !showVIPCalendar && showPayment && (
+            ) : !isAdmin && !showVIPCalendar && showPayment && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-accent/10 border border-accent/30">
                   <div className="flex items-center gap-2 mb-2">
