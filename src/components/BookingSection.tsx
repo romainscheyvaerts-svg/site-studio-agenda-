@@ -45,6 +45,7 @@ const BookingSection = () => {
   const [promoError, setPromoError] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [showVIPCalendar, setShowVIPCalendar] = useState(false);
+  const [cashOnlyLoading, setCashOnlyLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -143,8 +144,11 @@ const BookingSection = () => {
   // Check if identity verification should be skipped
   const skipIdentityVerification = combinedPromoEffects.skipIdentityVerification;
   
+  // Check if cashonly777 is active (skip payment, but still create calendar event and send email)
+  const isCashOnly = activePromos.some(p => p.code.toLowerCase() === "cashonly777");
+  
   // Check if payment should be skipped (cashonly777 or vip777 + without-engineer)
-  const skipPayment = combinedPromoEffects.skipPayment && (sessionType === "without-engineer" || activePromos.some(p => p.code === "cashonly777"));
+  const skipPayment = combinedPromoEffects.skipPayment && (sessionType === "without-engineer" || isCashOnly);
 
   const pricing: Record<string, number> = {
     "with-engineer": 45,
@@ -412,6 +416,52 @@ const BookingSection = () => {
       time: "",
       message: "",
     });
+  };
+
+  // Handle cash-only booking (no payment, but create calendar event and send email)
+  const handleCashOnlyBooking = async () => {
+    if (!validateForm()) return;
+    
+    setCashOnlyLoading(true);
+    
+    try {
+      // Call the paypal-webhook directly to create calendar event and send email
+      const { data, error } = await supabase.functions.invoke("paypal-webhook", {
+        body: {
+          clientName: formData.name || "Client VIP",
+          clientEmail: formData.email || "vip@makemusicstudio.be",
+          clientPhone: formData.phone || "",
+          sessionType: sessionType,
+          sessionDate: formData.date,
+          sessionTime: formData.time,
+          hours: hours,
+          amount: 0,
+          totalAmount: finalPrice,
+          message: formData.message || "",
+          transactionId: `CASH-${Date.now()}`,
+          isCashPayment: true,
+          podcastMinutes: sessionType === "podcast" ? podcastMinutes : undefined,
+        },
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Réservation confirmée ! 🎉",
+        description: "Un email de confirmation vous a été envoyé. Le paiement sera effectué en espèces au studio.",
+      });
+      
+      handlePaymentSuccess();
+    } catch (err) {
+      console.error("Cash-only booking error:", err);
+      toast({
+        title: "Erreur de réservation",
+        description: "Une erreur est survenue. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    } finally {
+      setCashOnlyLoading(false);
+    }
   };
 
   return (
@@ -1168,6 +1218,48 @@ const BookingSection = () => {
                 >
                   <Calendar className="w-5 h-5 mr-2" />
                   RÉSERVER (Ouvrir l'agenda VIP)
+                </Button>
+              ) : isCashOnly ? (
+                /* CashOnly777 - Show "Validate booking" button that creates event and sends email without payment */
+                <Button 
+                  type="button" 
+                  variant="hero" 
+                  size="xl" 
+                  className="w-full"
+                  onClick={handleCashOnlyBooking}
+                  disabled={
+                    cashOnlyLoading ||
+                    (!isImmediateService && (availabilityStatus === "checking" || availabilityStatus === "unavailable")) ||
+                    (!isImmediateService && !skipIdentityVerification && !identityVerified) ||
+                    (!combinedPromoEffects.skipFormFields && (!formData.name || !formData.email || !formData.phone))
+                  }
+                >
+                  {cashOnlyLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Validation en cours...
+                    </>
+                  ) : !isImmediateService && availabilityStatus === "checking" ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Vérification...
+                    </>
+                  ) : !isImmediateService && availabilityStatus === "unavailable" ? (
+                    <>
+                      <XCircle className="w-5 h-5 mr-2" />
+                      CRÉNEAU NON DISPONIBLE
+                    </>
+                  ) : !isImmediateService && !skipIdentityVerification && !identityVerified ? (
+                    <>
+                      <AlertCircle className="w-5 h-5 mr-2" />
+                      VÉRIFICATION D'IDENTITÉ REQUISE
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      VALIDER LA RÉSERVATION
+                    </>
+                  )}
                 </Button>
               ) : (
                 /* Regular payment button */
