@@ -426,19 +426,19 @@ const BookingSection = () => {
     
     try {
       // Call the paypal-webhook directly to create calendar event and send email
+      // Use the same field names as PayPal webhook expects
       const { data, error } = await supabase.functions.invoke("paypal-webhook", {
         body: {
-          clientName: formData.name || "Client VIP",
-          clientEmail: formData.email || "vip@makemusicstudio.be",
-          clientPhone: formData.phone || "",
+          orderId: `CASH-${Date.now()}`,
+          payerName: formData.name || "Client VIP",
+          payerEmail: formData.email || "vip@makemusicstudio.be",
+          phone: formData.phone || "",
           sessionType: sessionType,
-          sessionDate: formData.date,
-          sessionTime: formData.time,
+          date: formData.date,
+          time: formData.time,
           hours: hours,
-          amount: 0,
           totalAmount: finalPrice,
           message: formData.message || "",
-          transactionId: `CASH-${Date.now()}`,
           isCashPayment: true,
           podcastMinutes: sessionType === "podcast" ? podcastMinutes : undefined,
         },
