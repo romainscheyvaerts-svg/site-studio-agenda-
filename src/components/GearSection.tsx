@@ -2,9 +2,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
-// Import brand logos PNG
-import brandLogos from "@/assets/logos/brand-logos.png";
-
 interface GearItem {
   name: string;
   brand: string;
@@ -75,23 +72,6 @@ const GearSection = () => {
           <p className="text-muted-foreground max-w-xl mx-auto">
             {t("gear.description")}
           </p>
-        </div>
-
-        {/* Brand Logos Banner */}
-        <div className="mb-16">
-          <h4 className="text-center text-sm text-muted-foreground mb-8 uppercase tracking-widest">
-            {t("gear.hardware_partners", "Nos Partenaires Premium")}
-          </h4>
-          <div className="flex justify-center">
-            <div className="relative p-8 rounded-2xl bg-card/30 border border-border backdrop-blur-sm">
-              <img
-                src={brandLogos}
-                alt="Neumann, SSL, Slate Digital, Waves, Universal Audio"
-                className="h-32 md:h-40 lg:h-48 w-auto object-contain"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 rounded-2xl pointer-events-none" />
-            </div>
-          </div>
         </div>
 
         {/* Gear grid */}
