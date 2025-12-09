@@ -134,6 +134,7 @@
     "checking_availability": "Verificando disponibilidad...",
     "available": "Este horario está disponible.",
     "not_available": "Lo sentimos, este horario no está disponible.",
+    "last_minute_disclaimer": "⚠️ Para reservas realizadas con menos de 24 horas de antelación, el estudio se reserva el derecho de cancelar y reembolsar íntegramente.",
     "fill_all_fields": "Por favor complete todos los campos requeridos"
   },
   "chatbot": {

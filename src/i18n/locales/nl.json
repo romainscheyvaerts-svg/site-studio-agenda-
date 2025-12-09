@@ -134,6 +134,7 @@
     "checking_availability": "Beschikbaarheid controleren...",
     "available": "Dit tijdslot is beschikbaar.",
     "not_available": "Sorry, dit tijdslot is niet beschikbaar.",
+    "last_minute_disclaimer": "⚠️ Voor reserveringen minder dan 24 uur van tevoren, behoudt de studio het recht om te annuleren en volledig terug te betalen.",
     "fill_all_fields": "Vul alle verplichte velden in"
   },
   "chatbot": {

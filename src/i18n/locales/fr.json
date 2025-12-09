@@ -134,6 +134,7 @@
     "checking_availability": "Vérification de la disponibilité...",
     "available": "Ce créneau est disponible.",
     "not_available": "Désolé, ce créneau n'est pas disponible.",
+    "last_minute_disclaimer": "⚠️ Pour les réservations moins de 24h à l'avance, le studio se réserve le droit d'annuler et de rembourser intégralement.",
     "fill_all_fields": "Veuillez remplir tous les champs requis"
   },
   "chatbot": {
