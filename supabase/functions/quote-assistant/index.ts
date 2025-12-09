@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,14 +10,25 @@ const corsHeaders = {
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+// Input validation schema
+const MessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(10000),
+});
 
-interface QuoteAssistantRequest {
-  messages: Message[];
-}
+const QuoteAssistantRequestSchema = z.object({
+  messages: z.array(MessageSchema).min(1).max(50),
+});
+
+type Message = z.infer<typeof MessageSchema>;
+
+// Escape HTML to prevent XSS in emails
+const escapeHtml = (str: string) => str
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 const SYSTEM_PROMPT = `Tu es l'assistant devis de Make Music Studio, un studio d'enregistrement professionnel à Bruxelles.
 
@@ -50,7 +62,19 @@ serve(async (req) => {
   }
 
   try {
-    const { messages }: QuoteAssistantRequest = await req.json();
+    // Parse and validate input
+    const rawBody = await req.json();
+    const validationResult = QuoteAssistantRequestSchema.safeParse(rawBody);
+    
+    if (!validationResult.success) {
+      console.error("[QUOTE-ASSISTANT] Validation error:", validationResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: "Invalid request data", details: validationResult.error.errors }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { messages } = validationResult.data;
     
     console.log("[QUOTE-ASSISTANT] Processing chat with", messages.length, "messages");
 
@@ -112,13 +136,13 @@ serve(async (req) => {
           await resend.emails.send({
             from: "Make Music <onboarding@resend.dev>",
             to: ["prod.makemusic@gmail.com"],
-            subject: `🤖 Devis généré par assistant - ${quoteData.clientProject || "Nouveau projet"}`,
+            subject: `🤖 Devis généré par assistant - ${escapeHtml(quoteData.clientProject || "Nouveau projet")}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
                 <h2 style="color: #22d3ee;">Devis généré par l'assistant IA</h2>
                 
                 <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                  <h3 style="color: #fafafa; margin-top: 0;">Projet : ${quoteData.clientProject}</h3>
+                  <h3 style="color: #fafafa; margin-top: 0;">Projet : ${escapeHtml(quoteData.clientProject || "")}</h3>
                   
                   <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
                     <thead>
@@ -131,7 +155,7 @@ serve(async (req) => {
                     <tbody>
                       ${quoteData.items.map((item: any) => `
                         <tr style="border-bottom: 1px solid #333;">
-                          <td style="padding: 10px;">${item.description}</td>
+                          <td style="padding: 10px;">${escapeHtml(String(item.description || ""))}</td>
                           <td style="padding: 10px; text-align: center;">${item.quantity}</td>
                           <td style="padding: 10px; text-align: right;">${(item.quantity * item.unitPrice).toFixed(2)} €</td>
                         </tr>
@@ -143,7 +167,7 @@ serve(async (req) => {
                     </tbody>
                   </table>
                   
-                  ${quoteData.notes ? `<p style="margin-top: 15px; color: #a1a1aa;"><strong>Notes :</strong> ${quoteData.notes}</p>` : ''}
+                  ${quoteData.notes ? `<p style="margin-top: 15px; color: #a1a1aa;"><strong>Notes :</strong> ${escapeHtml(String(quoteData.notes))}</p>` : ''}
                 </div>
 
                 <h3 style="color: #fafafa;">Conversation complète</h3>
@@ -151,7 +175,7 @@ serve(async (req) => {
                   ${messages.map((msg: Message) => `
                     <div style="margin-bottom: 15px; padding: 10px; border-radius: 8px; ${msg.role === 'user' ? 'background: #22d3ee; color: #0a0a0a; margin-left: 20%;' : 'background: #333; margin-right: 20%;'}">
                       <strong>${msg.role === 'user' ? 'Client' : 'Assistant'} :</strong><br>
-                      ${msg.content}
+                      ${escapeHtml(msg.content)}
                     </div>
                   `).join('')}
                 </div>

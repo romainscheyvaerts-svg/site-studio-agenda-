@@ -25,7 +25,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-invoice]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-quote-request]
 verify_jwt = false

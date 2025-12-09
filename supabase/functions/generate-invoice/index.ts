@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,28 +10,30 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
-interface InvoiceItem {
-  description: string;
-  quantity: number;
-  unitPrice: number;
-}
+// Input validation schema
+const InvoiceItemSchema = z.object({
+  description: z.string().min(1).max(500),
+  quantity: z.number().positive().max(1000),
+  unitPrice: z.number().min(0).max(100000),
+});
 
-interface InvoiceRequest {
-  invoiceNumber: string;
-  date: string;
-  dueDate?: string;
-  clientName: string;
-  clientEmail: string;
-  clientAddress?: string;
-  items: InvoiceItem[];
-  notes?: string;
-  sendEmail: boolean;
-  // For automatic invoice from booking
-  sessionType?: string;
-  hours?: number;
-  totalAmount?: number;
-  orderId?: string;
-}
+const InvoiceRequestSchema = z.object({
+  invoiceNumber: z.string().min(1).max(50),
+  date: z.string().min(1).max(20),
+  dueDate: z.string().max(20).optional(),
+  clientName: z.string().min(1).max(200),
+  clientEmail: z.string().email().max(255),
+  clientAddress: z.string().max(500).optional(),
+  items: z.array(InvoiceItemSchema).min(1).max(50),
+  notes: z.string().max(2000).optional(),
+  sendEmail: z.boolean(),
+  sessionType: z.string().max(100).optional(),
+  hours: z.number().positive().max(100).optional(),
+  totalAmount: z.number().min(0).max(1000000).optional(),
+  orderId: z.string().max(100).optional(),
+});
+
+type InvoiceRequest = z.infer<typeof InvoiceRequestSchema>;
 
 const LOGO_BASE64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCAyMDAgNTAiPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iNTAiIGZpbGw9IiMwYTBhMGEiLz48dGV4dCB4PSIxMCIgeT0iMzUiIGZvbnQtZmFtaWx5PSJBcmlhbCBCbGFjayIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzIyZDNlZSI+TUFLRSBNU1VTSUMgwq48L3RleHQ+PC9zdmc+";
 
@@ -44,9 +48,17 @@ function generateInvoiceHtml(data: InvoiceRequest): string {
     ? new Date(data.dueDate).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
+  // Escape HTML to prevent XSS
+  const escapeHtml = (str: string) => str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
   const itemsHtml = data.items.map(item => `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #333;">${item.description}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #333;">${escapeHtml(item.description)}</td>
       <td style="padding: 12px; border-bottom: 1px solid #333; text-align: center;">${item.quantity}</td>
       <td style="padding: 12px; border-bottom: 1px solid #333; text-align: right;">${item.unitPrice.toFixed(2)} €</td>
       <td style="padding: 12px; border-bottom: 1px solid #333; text-align: right;">${(item.quantity * item.unitPrice).toFixed(2)} €</td>
@@ -58,7 +70,7 @@ function generateInvoiceHtml(data: InvoiceRequest): string {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Facture ${data.invoiceNumber} - Make Music</title>
+  <title>Facture ${escapeHtml(data.invoiceNumber)} - Make Music</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #fafafa; margin: 0; padding: 40px; }
@@ -96,7 +108,7 @@ function generateInvoiceHtml(data: InvoiceRequest): string {
       <div class="logo">MAKE MUSIC 🎵</div>
       <div class="invoice-title">
         <h1>FACTURE</h1>
-        <p>N° ${data.invoiceNumber}</p>
+        <p>N° ${escapeHtml(data.invoiceNumber)}</p>
         <p>Date : ${formattedDate}</p>
         ${formattedDueDate ? `<p>Échéance : ${formattedDueDate}</p>` : ''}
       </div>
@@ -114,9 +126,9 @@ function generateInvoiceHtml(data: InvoiceRequest): string {
       </div>
       <div class="address-block" style="text-align: right;">
         <h3>Client</h3>
-        <p><strong>${data.clientName}</strong></p>
-        <p>${data.clientEmail}</p>
-        ${data.clientAddress ? `<p>${data.clientAddress.replace(/\n/g, '<br>')}</p>` : ''}
+        <p><strong>${escapeHtml(data.clientName)}</strong></p>
+        <p>${escapeHtml(data.clientEmail)}</p>
+        ${data.clientAddress ? `<p>${escapeHtml(data.clientAddress).replace(/\n/g, '<br>')}</p>` : ''}
       </div>
     </div>
 
@@ -141,7 +153,7 @@ function generateInvoiceHtml(data: InvoiceRequest): string {
     ${data.notes ? `
     <div class="notes">
       <h4>Notes</h4>
-      <p>${data.notes}</p>
+      <p>${escapeHtml(data.notes)}</p>
     </div>
     ` : ''}
 
@@ -161,9 +173,56 @@ serve(async (req) => {
   }
 
   try {
-    const body: InvoiceRequest = await req.json();
+    // Verify authentication - only admin can generate invoices
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("[INVOICE] No authorization header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("[INVOICE] Auth error:", authError?.message);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if user is admin
+    if (user.email !== "prod.makemusic@gmail.com") {
+      console.error("[INVOICE] Non-admin user attempted to generate invoice:", user.email);
+      return new Response(
+        JSON.stringify({ error: "Forbidden - Admin access required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse and validate input
+    const rawBody = await req.json();
+    const validationResult = InvoiceRequestSchema.safeParse(rawBody);
     
-    console.log("[INVOICE] Generating invoice:", body.invoiceNumber);
+    if (!validationResult.success) {
+      console.error("[INVOICE] Validation error:", validationResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: "Invalid request data", details: validationResult.error.errors }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const body = validationResult.data;
+    
+    console.log("[INVOICE] Generating invoice:", body.invoiceNumber, "by admin:", user.email);
 
     const invoiceHtml = generateInvoiceHtml(body);
 
