@@ -790,6 +790,44 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
+// Generate Google Calendar URL for adding event
+const generateGoogleCalendarUrl = (payload: BookingPayload): string => {
+  const [year, month, day] = payload.date.split("-").map(Number);
+  const [hour, minute] = payload.time.split(":").map(Number);
+  
+  // Create start and end dates
+  const startDate = new Date(year, month - 1, day, hour, minute);
+  const endDate = new Date(startDate.getTime() + payload.hours * 60 * 60 * 1000);
+  
+  // Format dates for Google Calendar (YYYYMMDDTHHmmss)
+  const formatForGcal = (date: Date): string => {
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  };
+  
+  let sessionLabel = "";
+  if (payload.sessionType === "with-engineer") {
+    sessionLabel = "Session avec ingénieur";
+  } else if (payload.sessionType === "without-engineer") {
+    sessionLabel = "Location studio";
+  }
+  
+  const title = encodeURIComponent(`🎤 ${sessionLabel} - Make Music Studio`);
+  const location = encodeURIComponent("Rue du Sceptre 22, 1050 Ixelles, Bruxelles");
+  const details = encodeURIComponent(
+    `Session au Make Music Studio\n\n` +
+    `Type: ${sessionLabel}\n` +
+    `Durée: ${payload.hours}h\n` +
+    `Référence: ${payload.orderId}\n\n` +
+    `📍 Adresse: Rue du Sceptre 22, 1050 Ixelles, Bruxelles\n` +
+    `📞 Contact: +32 476 09 41 72\n` +
+    `✉️ Email: prod.makemusic@gmail.com`
+  );
+  
+  const dates = `${formatForGcal(startDate)}/${formatForGcal(endDate)}`;
+  
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&location=${location}&details=${details}`;
+};
+
 const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null, delayWeeks: number = 2): string => {
   const isPostProduction = ["mixing", "mastering", "analog-mastering", "podcast"].includes(payload.sessionType);
   const delayText = delayWeeks === 4 ? "environ 1 mois" : "environ 2 semaines";
@@ -835,6 +873,26 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                     </p>
                     <a href="${driveFolderLink}" style="display: inline-block; background-color: #4285f4; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
                       ${isPostProduction ? "Déposer mes fichiers" : "Ouvrir le dossier"}
+                    </a>
+                  </div>
+                </td>
+              </tr>
+  ` : '';
+
+  // Generate Google Calendar link for studio sessions
+  const googleCalendarUrl = !isPostProduction ? generateGoogleCalendarUrl(payload) : '';
+  
+  const addToCalendarSection = !isPostProduction ? `
+              <!-- Add to Google Calendar -->
+              <tr>
+                <td style="padding: 0 40px 30px 40px;">
+                  <div style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 211, 238, 0.1)); border-radius: 12px; padding: 20px; border: 1px solid rgba(34, 197, 94, 0.3); text-align: center;">
+                    <h4 style="margin: 0 0 12px 0; color: #fafafa; font-size: 16px;">📅 Ajouter à votre calendrier</h4>
+                    <p style="margin: 0 0 16px 0; color: #a1a1aa; font-size: 14px;">
+                      Ne manquez pas votre session ! Ajoutez-la directement à votre calendrier Google.
+                    </p>
+                    <a href="${googleCalendarUrl}" target="_blank" style="display: inline-block; background-color: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                      📅 Ajouter à Google Calendar
                     </a>
                   </div>
                 </td>
@@ -949,6 +1007,8 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
               </tr>
 
               ${bookingDetailsSection}
+
+              ${addToCalendarSection}
 
               ${driveSection}
 
