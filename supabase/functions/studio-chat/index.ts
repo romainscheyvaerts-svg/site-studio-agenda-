@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const chatMessageSchema = z.object({
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string().min(1).max(10000, "Message content too long"),
+});
+
+const chatRequestSchema = z.object({
+  messages: z.array(chatMessageSchema).min(1).max(50, "Too many messages in conversation"),
+});
 
 const SYSTEM_PROMPT = `Tu es l'assistant expert du studio d'enregistrement haut de gamme. Tu es passionné, professionnel et chaleureux.
 
@@ -73,7 +84,25 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const rawBody = await req.json();
+    
+    // Validate input
+    const parseResult = chatRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      console.error("[VALIDATION] Invalid input:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid request format",
+          details: parseResult.error.errors.map(e => e.message),
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const { messages } = parseResult.data;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {

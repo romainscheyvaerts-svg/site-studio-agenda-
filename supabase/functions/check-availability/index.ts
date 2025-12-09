@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema
+const availabilitySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+  duration: z.number().int().min(1).max(12),
+  sessionType: z.enum(["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast"]),
+});
 
 interface CalendarEvent {
   start: { dateTime?: string; date?: string };
@@ -140,7 +149,26 @@ serve(async (req) => {
   }
 
   try {
-    const { date, time, duration, sessionType } = await req.json();
+    const rawBody = await req.json();
+    
+    // Validate input
+    const parseResult = availabilitySchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      console.error("[VALIDATION] Invalid input:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid input", 
+          details: parseResult.error.errors.map(e => e.message),
+          available: false 
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const { date, time, duration, sessionType } = parseResult.data;
     
     console.log(`Checking availability for: ${date} at ${time}, duration: ${duration}h, type: ${sessionType}`);
 
