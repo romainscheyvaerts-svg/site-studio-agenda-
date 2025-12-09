@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -33,6 +34,7 @@ type PromoEffects = {
 const BookingSection = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [hours, setHours] = useState(2);
@@ -70,8 +72,20 @@ const BookingSection = () => {
     }
   }, [user]);
 
-  // Combined promo effects from all active promos
+  // Combined promo effects from all active promos + admin override
   const combinedPromoEffects = useMemo(() => {
+    // Admin gets all VIP privileges automatically
+    if (isAdmin) {
+      return {
+        fullCalendarVisibility: true,
+        skipPayment: true,
+        skipIdentityVerification: true,
+        skipFormFields: false, // Admin still fills form for proper booking records
+        autoSelectService: null as SessionType,
+        discounts: {} as Record<string, number>,
+      };
+    }
+    
     const autoService = activePromos.find(p => p.autoSelectService !== null)?.autoSelectService || null;
     return {
       fullCalendarVisibility: activePromos.some(p => p.fullCalendarVisibility),
@@ -87,7 +101,7 @@ const BookingSection = () => {
         return acc;
       }, {} as Record<string, number>),
     };
-  }, [activePromos]);
+  }, [activePromos, isAdmin]);
 
   // Validate promo code via server
   const handleApplyPromoCode = async () => {
@@ -527,8 +541,21 @@ const BookingSection = () => {
             </div>
           )}
 
+          {/* Admin Access Banner */}
+          {isAdmin && (
+            <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border-2 border-green-500/50">
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="w-8 h-8 text-green-500" />
+                <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
+              </div>
+              <p className="text-muted-foreground">
+                Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
+              </p>
+            </div>
+          )}
+
           {/* VIP Access Banner - shown when skipFormFields is active */}
-          {combinedPromoEffects.skipFormFields && (
+          {!isAdmin && combinedPromoEffects.skipFormFields && (
             <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-accent/20 via-primary/20 to-accent/20 border-2 border-accent/50 box-glow-gold">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-3xl">👑</span>
