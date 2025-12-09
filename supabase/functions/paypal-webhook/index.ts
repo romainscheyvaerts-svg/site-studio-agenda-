@@ -1248,6 +1248,7 @@ serve(async (req) => {
       
       const emailResponse = await resend.emails.send({
         from: "Make Music Studio <onboarding@resend.dev>",
+        reply_to: "prod.makemusic@gmail.com",
         to: [payload.payerEmail],
         subject: emailSubject,
         html: emailHtml,
