@@ -134,6 +134,7 @@
     "checking_availability": "Checking availability...",
     "available": "This slot is available.",
     "not_available": "Sorry, this slot is not available.",
+    "last_minute_disclaimer": "⚠️ For bookings made less than 24 hours in advance, the studio reserves the right to cancel and provide a full refund.",
     "fill_all_fields": "Please fill in all required fields"
   },
   "chatbot": {

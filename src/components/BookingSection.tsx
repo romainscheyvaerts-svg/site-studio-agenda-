@@ -1121,6 +1121,13 @@ const BookingSection = () => {
               </div>
             )}
 
+            {/* Last-minute booking disclaimer - only for studio sessions */}
+            {sessionType && !isImmediateService && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm">
+                ⚠️ Pour les réservations moins de 24h à l'avance, le studio se réserve le droit d'annuler et de rembourser intégralement.
+              </div>
+            )}
+
             {/* Payment section - Hidden when VIP calendar is shown */}
             {!showVIPCalendar && !showPayment ? (
               showVIPCalendarButton ? (
