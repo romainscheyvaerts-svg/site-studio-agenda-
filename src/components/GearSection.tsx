@@ -2,12 +2,24 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
+// Import brand logos
+import neumannLogo from "@/assets/logos/neumann-logo.svg";
+import sslLogo from "@/assets/logos/ssl-logo.svg";
+import genelecLogo from "@/assets/logos/genelec-logo.svg";
+import protoolsLogo from "@/assets/logos/protools-logo.svg";
+import uadLogo from "@/assets/logos/uad-logo.svg";
+import wavesLogo from "@/assets/logos/waves-logo.svg";
+import soundtoysLogo from "@/assets/logos/soundtoys-logo.svg";
+import antaresLogo from "@/assets/logos/antares-logo.svg";
+import slateLogo from "@/assets/logos/slate-logo.svg";
+
 interface GearItem {
   name: string;
   brand: string;
   categoryKey: string;
   descriptionKey: string;
   features: string[];
+  logo: string;
 }
 
 const GearSection = () => {
@@ -21,6 +33,7 @@ const GearSection = () => {
       categoryKey: "gear.microphone",
       descriptionKey: "gear.microphone_desc",
       features: ["Large diaphragme", "3 directivités", "Son légendaire"],
+      logo: neumannLogo,
     },
     {
       name: "Préamp & Console",
@@ -28,6 +41,7 @@ const GearSection = () => {
       categoryKey: "gear.preamp",
       descriptionKey: "gear.preamp_desc",
       features: ["Préamp ultra transparent", "EQ légendaire", "Compression VCA"],
+      logo: sslLogo,
     },
     {
       name: "Interface Audio",
@@ -35,6 +49,7 @@ const GearSection = () => {
       categoryKey: "gear.interface",
       descriptionKey: "gear.interface_desc",
       features: ["Conversion 32-bit", "Latence <1ms", "Thunderbolt"],
+      logo: sslLogo,
     },
     {
       name: "Monitors + Sub",
@@ -42,17 +57,18 @@ const GearSection = () => {
       categoryKey: "gear.monitors",
       descriptionKey: "gear.monitors_desc",
       features: ["Bi-amplifié", "Correction acoustique", "Réponse plate"],
+      logo: genelecLogo,
     },
   ];
 
   const softwareData = [
-    { name: "Pro Tools", type: "DAW" },
-    { name: "UAD", type: "Plugins" },
-    { name: "Waves", type: "Plugins" },
-    { name: "Soundtoys", type: "Plugins" },
-    { name: "Slate Digital", type: "Plugins" },
-    { name: "Auto-Tune", type: "Antares" },
-    { name: "SSL Native", type: "Plugins" },
+    { name: "Pro Tools", type: "DAW", logo: protoolsLogo },
+    { name: "UAD", type: "Plugins", logo: uadLogo },
+    { name: "Waves", type: "Plugins", logo: wavesLogo },
+    { name: "Soundtoys", type: "Plugins", logo: soundtoysLogo },
+    { name: "Slate Digital", type: "Plugins", logo: slateLogo },
+    { name: "Auto-Tune", type: "Antares", logo: antaresLogo },
+    { name: "SSL Native", type: "Plugins", logo: sslLogo },
   ];
 
   return (
@@ -74,6 +90,32 @@ const GearSection = () => {
           </p>
         </div>
 
+        {/* Hardware Brand Logos Marquee */}
+        <div className="mb-12">
+          <h4 className="text-center text-sm text-muted-foreground mb-6 uppercase tracking-widest">
+            {t("gear.hardware_partners", "Matériel Premium")}
+          </h4>
+          <div className="flex justify-center items-center gap-8 md:gap-16 flex-wrap">
+            {[
+              { logo: neumannLogo, name: "Neumann" },
+              { logo: sslLogo, name: "SSL" },
+              { logo: genelecLogo, name: "Genelec" },
+            ].map((brand, index) => (
+              <div
+                key={index}
+                className="group relative px-6 py-4 rounded-xl bg-card/50 border border-border hover:border-primary/50 transition-all duration-300 hover:scale-105"
+              >
+                <img
+                  src={brand.logo}
+                  alt={brand.name}
+                  className="h-8 md:h-10 w-auto opacity-70 group-hover:opacity-100 transition-opacity filter brightness-0 invert"
+                />
+                <div className="absolute inset-0 bg-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Gear grid */}
         <div className="grid lg:grid-cols-2 gap-8 mb-16">
           {/* Left: Gear selector */}
@@ -91,7 +133,11 @@ const GearSection = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-primary font-medium tracking-wider">{t(item.categoryKey)}</span>
-                  <span className="text-sm text-muted-foreground">{item.brand}</span>
+                  <img 
+                    src={item.logo} 
+                    alt={item.brand}
+                    className="h-5 w-auto opacity-60 filter brightness-0 invert"
+                  />
                 </div>
                 <h3 className="font-display text-2xl text-foreground mb-2">{item.brand} {item.name}</h3>
                 {activeGear === index && (
@@ -116,11 +162,16 @@ const GearSection = () => {
               {/* Glow effect */}
               <div className="absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent animate-pulse-slow" />
               
-              {/* Center display */}
+              {/* Center display with logo */}
               <div className="absolute inset-8 rounded-2xl border border-primary/30 bg-card/50 backdrop-blur-sm flex flex-col items-center justify-center gradient-border">
+                <img 
+                  src={gearData[activeGear].logo} 
+                  alt={gearData[activeGear].brand}
+                  className="h-16 md:h-20 w-auto mb-4 filter brightness-0 invert opacity-90"
+                />
                 <span className="text-sm text-primary mb-2">{t(gearData[activeGear].categoryKey)}</span>
-                <span className="font-display text-5xl text-foreground mb-1">{gearData[activeGear].brand}</span>
-                <span className="font-display text-3xl text-primary text-glow-cyan">{gearData[activeGear].name}</span>
+                <span className="font-display text-4xl md:text-5xl text-foreground mb-1">{gearData[activeGear].brand}</span>
+                <span className="font-display text-2xl md:text-3xl text-primary text-glow-cyan">{gearData[activeGear].name}</span>
               </div>
 
               {/* Orbiting elements */}
@@ -134,17 +185,28 @@ const GearSection = () => {
           </div>
         </div>
 
-        {/* Software section */}
+        {/* Software section with logos */}
         <div className="border-t border-border pt-12">
-          <h3 className="font-display text-2xl text-center text-foreground mb-8">{t("gear.software")} & {t("gear.plugins")}</h3>
-          <div className="flex flex-wrap justify-center gap-4">
+          <h3 className="font-display text-2xl text-center text-foreground mb-4">{t("gear.software")} & {t("gear.plugins")}</h3>
+          <p className="text-center text-muted-foreground text-sm mb-8 max-w-xl mx-auto">
+            {t("gear.plugins_desc", "Les meilleurs plugins de l'industrie pour un son professionnel")}
+          </p>
+          
+          {/* Plugin logos grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
             {softwareData.map((soft, index) => (
               <div
                 key={index}
-                className="px-6 py-3 rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors"
+                className="group flex flex-col items-center justify-center p-4 rounded-xl bg-secondary/30 border border-border hover:border-primary/50 hover:bg-card/50 transition-all duration-300"
               >
-                <span className="font-medium text-foreground">{soft.name}</span>
-                <span className="text-xs text-muted-foreground ml-2">({soft.type})</span>
+                <img 
+                  src={soft.logo} 
+                  alt={soft.name}
+                  className="h-8 w-auto mb-2 opacity-60 group-hover:opacity-100 transition-opacity filter brightness-0 invert"
+                />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors text-center">
+                  {soft.type}
+                </span>
               </div>
             ))}
           </div>
