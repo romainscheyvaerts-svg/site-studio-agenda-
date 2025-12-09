@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Mic, LogOut } from "lucide-react";
+import { Menu, X, Mic, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
+
 const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   useEffect(() => {
@@ -63,21 +66,37 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Language switcher & CTA */}
+          {/* Language switcher & Auth/CTA */}
           <div className="hidden md:flex items-center gap-4">
             <LanguageSwitcher />
-            <Button variant="neon" onClick={() => scrollTo("booking")}>
-              {t("nav.booking").toUpperCase()}
-            </Button>
-            {user && (
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={signOut}
-                title="Déconnexion"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
+            {user ? (
+              <>
+                <Button variant="neon" onClick={() => scrollTo("booking")}>
+                  {t("nav.booking").toUpperCase()}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={signOut}
+                  title="Déconnexion"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate("/auth")}
+                  className="flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Connexion
+                </Button>
+                <Button variant="neon" onClick={() => scrollTo("booking")}>
+                  {t("nav.booking").toUpperCase()}
+                </Button>
+              </>
             )}
           </div>
 
@@ -109,7 +128,7 @@ const Navbar = () => {
               <Button variant="neon" className="mt-2" onClick={() => scrollTo("booking")}>
                 {t("nav.booking").toUpperCase()}
               </Button>
-              {user && (
+              {user ? (
                 <Button 
                   variant="outline" 
                   className="mt-2"
@@ -117,6 +136,18 @@ const Navbar = () => {
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Déconnexion
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={() => {
+                    navigate("/auth");
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Connexion / Inscription
                 </Button>
               )}
             </div>
