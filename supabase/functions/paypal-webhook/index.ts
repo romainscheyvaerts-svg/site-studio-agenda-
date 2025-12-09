@@ -118,7 +118,7 @@ async function createCalendarEvent(
     description: string;
     start: string;
     end: string;
-    attendeeEmail?: string;
+    attendeeEmail?: string; // Kept for interface compatibility but not used
   }
 ): Promise<void> {
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
@@ -143,10 +143,9 @@ async function createCalendarEvent(
     },
   };
 
-  // Add attendee if email provided
-  if (event.attendeeEmail) {
-    eventBody.attendees = [{ email: event.attendeeEmail }];
-  }
+  // NOTE: Attendees removed - Service accounts cannot invite attendees 
+  // without Domain-Wide Delegation of Authority (not available for personal Gmail)
+  // The client email is included in the event description instead
 
   console.log(`[CALENDAR] Creating event on calendar: ${calendarId}`);
   console.log(`[CALENDAR] Event: ${event.summary}`);
