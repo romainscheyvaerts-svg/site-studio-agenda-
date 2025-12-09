@@ -59,6 +59,17 @@ const BookingSection = () => {
     message: "",
   });
 
+  // Pre-fill form with user data when logged in
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || prev.email,
+        name: user.user_metadata?.full_name || user.user_metadata?.name || prev.name,
+      }));
+    }
+  }, [user]);
+
   // Combined promo effects from all active promos
   const combinedPromoEffects = useMemo(() => {
     const autoService = activePromos.find(p => p.autoSelectService !== null)?.autoSelectService || null;
@@ -742,7 +753,7 @@ const BookingSection = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="name" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <User className="w-4 h-4" /> Nom complet
+                      <User className="w-4 h-4" /> Nom complet <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
                     </Label>
                     <Input
                       id="name"
@@ -759,7 +770,7 @@ const BookingSection = () => {
 
                   <div>
                     <Label htmlFor="email" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Mail className="w-4 h-4" /> Email
+                      <Mail className="w-4 h-4" /> Email <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
                     </Label>
                     <Input
                       id="email"
@@ -777,7 +788,7 @@ const BookingSection = () => {
 
                   <div>
                     <Label htmlFor="phone" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Phone className="w-4 h-4" /> Téléphone
+                      <Phone className="w-4 h-4" /> Téléphone <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
                     </Label>
                     <Input
                       id="phone"
@@ -800,7 +811,7 @@ const BookingSection = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="date" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4" /> Date souhaitée
+                      <Calendar className="w-4 h-4" /> Date souhaitée <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
                     </Label>
                     <Input
                       id="date"
@@ -817,7 +828,7 @@ const BookingSection = () => {
 
                   <div>
                     <Label htmlFor="time" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Clock className="w-4 h-4" /> Heure de début
+                      <Clock className="w-4 h-4" /> Heure de début <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
                     </Label>
                     <Input
                       id="time"
