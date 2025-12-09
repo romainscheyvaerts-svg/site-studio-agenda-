@@ -23,6 +23,12 @@ interface CalendarResponse {
   items?: CalendarEvent[];
 }
 
+interface ICalEvent {
+  start: Date;
+  end: Date;
+  isAllDay: boolean;
+}
+
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
   
@@ -125,6 +131,86 @@ async function getCalendarEvents(
   return data.items || [];
 }
 
+// Parse iCal date format (YYYYMMDD or YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ)
+function parseICalDate(dateStr: string): Date {
+  const cleanStr = dateStr.replace(/Z$/, "");
+  
+  if (cleanStr.includes("T")) {
+    const year = parseInt(cleanStr.substring(0, 4));
+    const month = parseInt(cleanStr.substring(4, 6)) - 1;
+    const day = parseInt(cleanStr.substring(6, 8));
+    const hour = parseInt(cleanStr.substring(9, 11));
+    const minute = parseInt(cleanStr.substring(11, 13));
+    const second = parseInt(cleanStr.substring(13, 15)) || 0;
+    return new Date(year, month, day, hour, minute, second);
+  } else {
+    const year = parseInt(cleanStr.substring(0, 4));
+    const month = parseInt(cleanStr.substring(4, 6)) - 1;
+    const day = parseInt(cleanStr.substring(6, 8));
+    return new Date(year, month, day);
+  }
+}
+
+// Fetch and parse iCal from webcal URL
+async function fetchICalEvents(icalUrl: string, startDate: Date, endDate: Date): Promise<ICalEvent[]> {
+  try {
+    const httpsUrl = icalUrl.replace("webcal://", "https://");
+    console.log(`Fetching iCal from: ${httpsUrl}`);
+    
+    const response = await fetch(httpsUrl);
+    if (!response.ok) {
+      console.error(`Failed to fetch iCal: ${response.status}`);
+      return [];
+    }
+    
+    const icalData = await response.text();
+    const events: ICalEvent[] = [];
+    
+    const eventBlocks = icalData.split("BEGIN:VEVENT");
+    
+    for (let i = 1; i < eventBlocks.length; i++) {
+      const block = eventBlocks[i].split("END:VEVENT")[0];
+      
+      let dtstart = "";
+      let dtend = "";
+      let isAllDay = false;
+      
+      const lines = block.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.startsWith("DTSTART")) {
+          if (line.includes("VALUE=DATE:") || (!line.includes("T") && line.match(/:\d{8}$/))) {
+            isAllDay = true;
+          }
+          const match = line.match(/:(\d{8}(?:T\d{6}Z?)?)/);
+          if (match) {
+            dtstart = match[1];
+          }
+        } else if (line.startsWith("DTEND")) {
+          const match = line.match(/:(\d{8}(?:T\d{6}Z?)?)/);
+          if (match) {
+            dtend = match[1];
+          }
+        }
+      }
+      
+      if (dtstart) {
+        const eventStart = parseICalDate(dtstart);
+        const eventEnd = dtend ? parseICalDate(dtend) : new Date(eventStart.getTime() + 3600000);
+        
+        if (eventEnd >= startDate && eventStart <= endDate) {
+          events.push({ start: eventStart, end: eventEnd, isAllDay });
+        }
+      }
+    }
+    
+    console.log(`Parsed ${events.length} iCal events`);
+    return events;
+  } catch (error) {
+    console.error("Error fetching iCal:", error);
+    return [];
+  }
+}
+
 function hasOverlap(
   events: CalendarEvent[],
   requestedStart: Date,
@@ -134,9 +220,30 @@ function hasOverlap(
     const eventStart = new Date(event.start.dateTime || event.start.date || "");
     const eventEnd = new Date(event.end.dateTime || event.end.date || "");
     
-    // Check for overlap: event starts before requested ends AND event ends after requested starts
     if (eventStart < requestedEnd && eventEnd > requestedStart) {
       console.log(`Overlap found: ${eventStart.toISOString()} - ${eventEnd.toISOString()}`);
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasICalOverlap(
+  events: ICalEvent[],
+  requestedStart: Date,
+  requestedEnd: Date
+): boolean {
+  for (const event of events) {
+    if (event.isAllDay) {
+      const eventDate = event.start.toISOString().split("T")[0];
+      const requestedDate = requestedStart.toISOString().split("T")[0];
+      if (eventDate === requestedDate) {
+        return true;
+      }
+    }
+    
+    if (event.start < requestedEnd && event.end > requestedStart) {
+      console.log(`iCal overlap found: ${event.start.toISOString()} - ${event.end.toISOString()}`);
       return true;
     }
   }
@@ -175,6 +282,7 @@ serve(async (req) => {
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     const patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID");
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+    const claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL");
 
     if (!serviceAccountKey || !patronCalendarId || !studioCalendarId) {
       throw new Error("Missing calendar configuration");
@@ -188,42 +296,58 @@ serve(async (req) => {
     const requestedEnd = new Date(requestedStart.getTime() + duration * 60 * 60 * 1000);
 
     // Get time range for the day (with buffer)
-    const dayStart = new Date(year, month - 1, day, 0, 0).toISOString();
-    const dayEnd = new Date(year, month - 1, day, 23, 59).toISOString();
+    const dayStart = new Date(year, month - 1, day, 0, 0);
+    const dayEnd = new Date(year, month - 1, day, 23, 59);
 
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch events from both calendars
-    const [patronEvents, studioEvents] = await Promise.all([
-      getCalendarEvents(accessToken, patronCalendarId, dayStart, dayEnd),
-      getCalendarEvents(accessToken, studioCalendarId, dayStart, dayEnd),
+    // Fetch events from all calendars
+    const [patronEvents, studioEvents, claridgeEvents] = await Promise.all([
+      getCalendarEvents(accessToken, patronCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
+      getCalendarEvents(accessToken, studioCalendarId, dayStart.toISOString(), dayEnd.toISOString()),
+      claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, dayStart, dayEnd) : Promise.resolve([]),
     ]);
 
     let isAvailable = false;
     let message = "";
+    let status: "available" | "unavailable" | "on-request" = "unavailable";
 
     if (sessionType === "with-engineer" || sessionType === "without-engineer") {
-      // Check both calendars - if either has an event, studio is not available
+      // Check main studio calendars
       const patronBusy = hasOverlap(patronEvents, requestedStart, requestedEnd);
       const studioBusy = hasOverlap(studioEvents, requestedStart, requestedEnd);
       
       if (!patronBusy && !studioBusy) {
-        isAvailable = true;
-        message = "Ce créneau est disponible.";
+        // Studio is available, now check Claridge calendar
+        const claridgeBusy = hasICalOverlap(claridgeEvents, requestedStart, requestedEnd);
+        
+        if (claridgeBusy) {
+          // Patron busy in Claridge but studio is free - on request
+          isAvailable = true;
+          status = "on-request";
+          message = "Ce créneau est sur demande. Veuillez contacter le studio via WhatsApp pour vérifier la disponibilité.";
+        } else {
+          // Fully available
+          isAvailable = true;
+          status = "available";
+          message = "Ce créneau est disponible.";
+        }
       } else {
         isAvailable = false;
+        status = "unavailable";
         message = "Désolé, ce créneau n'est pas disponible.";
       }
     } else {
       // Mixing/Mastering - always available (async work)
       isAvailable = true;
+      status = "available";
       message = "Votre demande de mixage/mastering peut être traitée.";
     }
 
-    console.log(`Availability result: ${isAvailable} - ${message}`);
+    console.log(`Availability result: ${isAvailable} - ${status} - ${message}`);
 
     return new Response(
-      JSON.stringify({ available: isAvailable, message }),
+      JSON.stringify({ available: isAvailable, message, status }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
