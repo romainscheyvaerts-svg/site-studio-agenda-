@@ -605,8 +605,8 @@ const BookingSection = () => {
             </div>
           )}
 
-          {/* Session type selector - Hidden when autoSelectService is active */}
-          {!combinedPromoEffects.autoSelectService && (
+          {/* Session type selector - Hidden when autoSelectService is active or in admin mode */}
+          {!isAdmin && !combinedPromoEffects.autoSelectService && (
           <div className="mb-10">
             <div className="mb-6">
               <h3 className="font-display text-2xl text-foreground mb-2">
@@ -783,7 +783,8 @@ const BookingSection = () => {
           </div>
           )}
 
-          {/* Booking form */}
+          {/* Booking form - Hidden in admin mode */}
+          {!isAdmin && (
           <div className="bg-card rounded-2xl border border-border p-8">
             {/* Info message for immediate services */}
             {isImmediateService && (
@@ -1540,6 +1541,7 @@ const BookingSection = () => {
             </p>
             )}
           </div>
+          )}
         </div>
       </div>
     </section>
