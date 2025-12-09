@@ -14,6 +14,69 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// PayPal API credentials for webhook validation
+const PAYPAL_CLIENT_ID = Deno.env.get("PAYPAL_CLIENT_ID")!;
+const PAYPAL_CLIENT_SECRET = Deno.env.get("PAYPAL_CLIENT_SECRET")!;
+const PAYPAL_API_BASE = "https://api-m.paypal.com"; // Use sandbox URL for testing: https://api-m.sandbox.paypal.com
+
+// Get PayPal access token for API calls
+async function getPayPalAccessToken(): Promise<string> {
+  const auth = btoa(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`);
+  
+  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("[PAYPAL] Failed to get access token:", error);
+    throw new Error("Failed to authenticate with PayPal");
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Verify PayPal order by fetching order details from PayPal API
+async function verifyPayPalOrder(orderId: string): Promise<{ verified: boolean; orderDetails: Record<string, unknown> | null }> {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    
+    const response = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders/${orderId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[PAYPAL] Order verification failed: ${response.status}`);
+      return { verified: false, orderDetails: null };
+    }
+
+    const orderDetails = await response.json();
+    
+    // Verify the order status is COMPLETED or APPROVED
+    const validStatuses = ["COMPLETED", "APPROVED"];
+    if (!validStatuses.includes(orderDetails.status)) {
+      console.error(`[PAYPAL] Invalid order status: ${orderDetails.status}`);
+      return { verified: false, orderDetails };
+    }
+
+    console.log(`[PAYPAL] Order ${orderId} verified successfully. Status: ${orderDetails.status}`);
+    return { verified: true, orderDetails };
+  } catch (error) {
+    console.error("[PAYPAL] Order verification error:", error);
+    return { verified: false, orderDetails: null };
+  }
+}
+
 interface BookingPayload {
   orderId: string;
   payerName: string;
@@ -931,6 +994,26 @@ serve(async (req) => {
     console.log("Duration:", payload.hours, "hours");
     console.log("Total Amount:", payload.totalAmount, "€");
     console.log("Message:", payload.message || "N/A");
+
+    // SECURITY: Verify the PayPal order is legitimate
+    console.log("[SECURITY] Verifying PayPal order...");
+    const { verified, orderDetails } = await verifyPayPalOrder(payload.orderId);
+    
+    if (!verified) {
+      console.error("[SECURITY] PayPal order verification FAILED - rejecting request");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Payment verification failed. Order could not be verified with PayPal." 
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    console.log("[SECURITY] PayPal order verified successfully");
 
     const isPostProduction = ["mixing", "mastering", "analog-mastering", "podcast"].includes(payload.sessionType);
     
