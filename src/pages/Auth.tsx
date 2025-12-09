@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, CheckCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -19,11 +20,23 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    // Check if there's a saved email in localStorage
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    return !!savedEmail;
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation();
 
   useEffect(() => {
+    // Load remembered email if exists
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+
     // Check URL for password reset
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const type = hashParams.get("type");
@@ -157,6 +170,15 @@ const Auth = () => {
           email,
           password,
         });
+
+        if (!error) {
+          // Save or remove email based on rememberMe checkbox
+          if (rememberMe) {
+            localStorage.setItem("rememberedEmail", email);
+          } else {
+            localStorage.removeItem("rememberedEmail");
+          }
+        }
 
         if (error) {
           if (error.message.includes("Email not confirmed")) {
@@ -481,12 +503,28 @@ const Auth = () => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {view === "signup" && (
+            {view === "signup" && (
                 <p className="text-xs text-muted-foreground">
                   Minimum 6 caractères
                 </p>
               )}
             </div>
+
+            {view === "login" && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                />
+                <Label
+                  htmlFor="rememberMe"
+                  className="text-sm text-muted-foreground cursor-pointer"
+                >
+                  Garder ma session active
+                </Label>
+              </div>
+            )}
 
             <Button
               type="submit"
