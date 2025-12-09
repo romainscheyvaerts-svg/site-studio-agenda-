@@ -69,6 +69,13 @@ const PROMO_CODES: PromoCode[] = [
       "podcast": 50,
     },
   },
+  {
+    code: "cashonly777",
+    fullCalendarVisibility: false,
+    skipPayment: true, // Skip deposit payment, pay cash at studio
+    skipIdentityVerification: false,
+    discounts: {},
+  },
 ];
 
 const BookingSection = () => {
