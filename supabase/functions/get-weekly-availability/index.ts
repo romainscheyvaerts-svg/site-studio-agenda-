@@ -321,9 +321,10 @@ serve(async (req) => {
       claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
     ]);
 
-    // Studio events = patron + studio calendar (main availability)
-    const studioMainEvents = [...patronEvents, ...studioEvents];
-    console.log(`Total main events found: ${studioMainEvents.length}`);
+    // Only studio calendar determines main availability (unavailable)
+    // Patron calendar + Claridge calendar trigger "on-request"
+    console.log(`Studio events found: ${studioEvents.length}`);
+    console.log(`Patron (personal) events found: ${patronEvents.length}`);
     console.log(`Claridge events found: ${claridgeEvents.length}`);
 
     // Generate availability for each day
@@ -351,18 +352,19 @@ serve(async (req) => {
           continue;
         }
 
-        // Check main studio availability (patron + studio calendars)
-        const isMainAvailable = isSlotAvailableInGoogle(studioMainEvents, slotStart, slotEnd);
+        // Check ONLY studio calendar for main availability
+        const isStudioAvailable = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
         
-        if (!isMainAvailable) {
+        if (!isStudioAvailable) {
           // Studio is booked - unavailable
           slots.push({ hour, available: false, status: "unavailable" });
         } else {
-          // Studio is free, check if patron is busy in personal/Claridge calendars
+          // Studio is free, check if patron is busy in personal Google calendar OR Claridge
+          const isPatronBusyInGoogle = !isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);
           const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
           
-          if (isPatronBusyInClaridge) {
-            // Patron busy in Claridge but studio is free - show "on request"
+          if (isPatronBusyInGoogle || isPatronBusyInClaridge) {
+            // Patron busy (personal or Claridge) but studio is free - show "on request"
             slots.push({ hour, available: true, status: "on-request" });
           } else {
             // Fully available

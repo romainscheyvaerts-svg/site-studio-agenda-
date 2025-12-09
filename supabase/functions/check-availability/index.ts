@@ -313,16 +313,16 @@ serve(async (req) => {
     let status: "available" | "unavailable" | "on-request" = "unavailable";
 
     if (sessionType === "with-engineer" || sessionType === "without-engineer") {
-      // Check main studio calendars
-      const patronBusy = hasOverlap(patronEvents, requestedStart, requestedEnd);
+      // Check ONLY studio calendar for main availability
       const studioBusy = hasOverlap(studioEvents, requestedStart, requestedEnd);
       
-      if (!patronBusy && !studioBusy) {
-        // Studio is available, now check Claridge calendar
+      if (!studioBusy) {
+        // Studio is available, now check if patron is busy (personal Google OR Claridge)
+        const patronBusy = hasOverlap(patronEvents, requestedStart, requestedEnd);
         const claridgeBusy = hasICalOverlap(claridgeEvents, requestedStart, requestedEnd);
         
-        if (claridgeBusy) {
-          // Patron busy in Claridge but studio is free - on request
+        if (patronBusy || claridgeBusy) {
+          // Patron busy (personal or Claridge) but studio is free - on request
           isAvailable = true;
           status = "on-request";
           message = "Ce créneau est sur demande. Veuillez contacter le studio via WhatsApp pour vérifier la disponibilité.";
