@@ -80,7 +80,7 @@ const BookingSection = () => {
         fullCalendarVisibility: true,
         skipPayment: true,
         skipIdentityVerification: true,
-        skipFormFields: false, // Admin still fills form for proper booking records
+        skipFormFields: true, // Admin can skip name/phone fields
         autoSelectService: null as SessionType,
         discounts: {} as Record<string, number>,
       };
@@ -1042,7 +1042,8 @@ const BookingSection = () => {
               />
             </div>
 
-            {/* Promo Code Input */}
+            {/* Promo Code Input - Hidden for admin */}
+            {!isAdmin && (
             <div className="mb-6">
               <Label htmlFor="promoCode" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                 <Tag className="w-4 h-4" /> Code promo (optionnel)
@@ -1099,6 +1100,7 @@ const BookingSection = () => {
                 </div>
               )}
             </div>
+            )}
 
             {/* Availability status - Only for studio sessions */}
             {!isImmediateService && sessionType && formData.date && formData.time && (
