@@ -760,13 +760,12 @@ const BookingSection = () => {
             </div>
 
             {/* VIP Calendar - Shows when VIP button is clicked */}
-            {showVIPCalendar && activePromo?.fullCalendarVisibility && sessionType === "without-engineer" && (
-              <div className="mb-6">
+            {showVIPCalendar && activePromo?.fullCalendarVisibility && (
+              <div className="mb-6 animate-in fade-in-0 slide-in-from-top-4 duration-500">
                 <VIPCalendar
                   onSelectSlot={(date, time, duration) => {
                     setFormData({ ...formData, date, time });
                     setHours(duration);
-                    setShowPayment(false);
                     toast({
                       title: "Créneau sélectionné",
                       description: `${date} à ${time} pour ${duration}h`,
@@ -776,16 +775,16 @@ const BookingSection = () => {
                   selectedTime={formData.time}
                 />
                 {formData.date && formData.time && (
-                  <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                    <p className="text-sm text-green-500 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
+                  <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                    <p className="text-lg text-green-500 flex items-center gap-2 font-semibold">
+                      <CheckCircle className="w-5 h-5" />
                       Créneau sélectionné : {formData.date} à {formData.time} ({hours}h)
                     </p>
                   </div>
                 )}
                 
                 {/* Confirm booking button */}
-                {formData.date && formData.time && (
+                {formData.date && formData.time && formData.name && formData.email && formData.phone && (
                   <Button 
                     type="button" 
                     variant="hero" 
@@ -793,8 +792,8 @@ const BookingSection = () => {
                     className="w-full mt-4"
                     onClick={() => {
                       toast({
-                        title: "Réservation confirmée !",
-                        description: `Votre session du ${formData.date} à ${formData.time} (${hours}h) est réservée.`,
+                        title: "Réservation VIP confirmée !",
+                        description: `Votre session du ${formData.date} à ${formData.time} (${hours}h) a été réservée gratuitement.`,
                       });
                       setShowVIPCalendar(false);
                       setShowPayment(false);
@@ -803,10 +802,9 @@ const BookingSection = () => {
                       setActivePromo(null);
                       setPromoCode("");
                     }}
-                    disabled={!formData.name || !formData.email || !formData.phone}
                   >
                     <CheckCircle className="w-5 h-5 mr-2" />
-                    CONFIRMER LA RÉSERVATION GRATUITE
+                    CONFIRMER LA RÉSERVATION VIP GRATUITE
                   </Button>
                 )}
 
@@ -816,7 +814,7 @@ const BookingSection = () => {
                   className="w-full mt-2"
                   onClick={() => setShowVIPCalendar(false)}
                 >
-                  ← Retour au formulaire
+                  ← Fermer l'agenda
                 </Button>
               </div>
             )}
