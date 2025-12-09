@@ -1,11 +1,27 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema for booking payload
+const bookingPayloadSchema = z.object({
+  orderId: z.string().min(1).max(100),
+  payerName: z.string().trim().min(2).max(100),
+  payerEmail: z.string().trim().email().max(255),
+  phone: z.string().trim().min(6).max(30),
+  sessionType: z.enum(["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast"]),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+  hours: z.number().int().min(1).max(12),
+  totalAmount: z.number().min(0).max(10000),
+  message: z.string().max(1000).optional(),
+  podcastMinutes: z.number().int().min(1).max(180).optional(),
+});
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -981,11 +997,30 @@ serve(async (req) => {
   }
 
   try {
-    const payload: BookingPayload = await req.json();
+    const rawBody = await req.json();
+    
+    // Validate input
+    const parseResult = bookingPayloadSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      console.error("[VALIDATION] Invalid booking payload:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Invalid booking data",
+          details: parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
+    const payload = parseResult.data;
     
     console.log("=== PAYMENT WEBHOOK RECEIVED ===");
     console.log("Order ID:", payload.orderId);
-    console.log("Client:", payload.payerName);
+    console.log("Client:", payload.payerName.substring(0, 30));
     console.log("Email:", payload.payerEmail);
     console.log("Phone:", payload.phone);
     console.log("Session Type:", payload.sessionType);
@@ -993,7 +1028,7 @@ serve(async (req) => {
     console.log("Time:", payload.time);
     console.log("Duration:", payload.hours, "hours");
     console.log("Total Amount:", payload.totalAmount, "€");
-    console.log("Message:", payload.message || "N/A");
+    console.log("Message:", payload.message ? payload.message.substring(0, 100) : "N/A");
 
     // SECURITY: Verify the PayPal order is legitimate
     console.log("[SECURITY] Verifying PayPal order...");

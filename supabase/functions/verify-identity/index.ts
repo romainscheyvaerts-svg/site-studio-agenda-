@@ -1,9 +1,21 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schema - limit image size and name length
+const verifyIdentitySchema = z.object({
+  imageBase64: z.string()
+    .min(100, "Image data is too short")
+    .max(10 * 1024 * 1024, "Image data exceeds 10MB limit"), // ~7.5MB actual image
+  formName: z.string()
+    .trim()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name must be less than 100 characters"),
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,22 +23,32 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, formName } = await req.json();
+    const rawBody = await req.json();
 
-    if (!imageBase64) {
-      throw new Error("Image is required");
+    // Validate input
+    const parseResult = verifyIdentitySchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      console.error("[VALIDATION] Invalid input:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          error: parseResult.error.errors.map(e => e.message).join(", "),
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    if (!formName) {
-      throw new Error("Form name is required for comparison");
-    }
+    const { imageBase64, formName } = parseResult.data;
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
       throw new Error("API key not configured");
     }
 
-    console.log("Starting identity verification for:", formName);
+    console.log("Starting identity verification for:", formName.substring(0, 20) + "...");
 
     // Use Gemini Vision to extract name from ID card
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
