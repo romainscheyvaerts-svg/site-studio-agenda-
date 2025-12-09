@@ -91,7 +91,7 @@ const BookingSection = () => {
   const [identityVerified, setIdentityVerified] = useState(false);
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState("");
-  const [activePromo, setActivePromo] = useState<PromoCode | null>(null);
+  const [activePromos, setActivePromos] = useState<PromoCode[]>([]);
   const [promoError, setPromoError] = useState("");
   const [showVIPCalendar, setShowVIPCalendar] = useState(false);
   const [formData, setFormData] = useState({
@@ -103,37 +103,58 @@ const BookingSection = () => {
     message: "",
   });
 
+  // Combined promo effects from all active promos
+  const combinedPromoEffects = useMemo(() => {
+    return {
+      fullCalendarVisibility: activePromos.some(p => p.fullCalendarVisibility),
+      skipPayment: activePromos.some(p => p.skipPayment),
+      skipIdentityVerification: activePromos.some(p => p.skipIdentityVerification),
+      discounts: activePromos.reduce((acc, promo) => {
+        Object.entries(promo.discounts).forEach(([key, value]) => {
+          const currentDiscount = acc[key as keyof typeof acc] || 0;
+          acc[key as keyof typeof acc] = Math.max(currentDiscount, value || 0);
+        });
+        return acc;
+      }, {} as Record<string, number>),
+    };
+  }, [activePromos]);
+
   // Validate promo code
   const handleApplyPromoCode = () => {
     const normalizedCode = promoCode.trim().toLowerCase();
     const foundPromo = PROMO_CODES.find(p => p.code.toLowerCase() === normalizedCode);
     
     if (foundPromo) {
-      setActivePromo(foundPromo);
+      // Check if already applied
+      if (activePromos.some(p => p.code.toLowerCase() === normalizedCode)) {
+        setPromoError("Ce code est déjà appliqué");
+        return;
+      }
+      setActivePromos([...activePromos, foundPromo]);
+      setPromoCode(""); // Clear input for next code
       setPromoError("");
       toast({
         title: "Code promo appliqué !",
         description: foundPromo.fullCalendarVisibility 
           ? "Vous avez accès à la visibilité complète de l'agenda."
+          : foundPromo.skipPayment
+          ? "Paiement en espèces activé - pas d'acompte requis."
           : "Réductions appliquées à votre réservation.",
       });
     } else if (normalizedCode) {
-      setActivePromo(null);
       setPromoError("Code promo invalide");
     }
   };
 
-  const handleRemovePromoCode = () => {
-    setPromoCode("");
-    setActivePromo(null);
-    setPromoError("");
+  const handleRemovePromoCode = (codeToRemove: string) => {
+    setActivePromos(activePromos.filter(p => p.code !== codeToRemove));
   };
 
   // Check if identity verification should be skipped
-  const skipIdentityVerification = activePromo?.skipIdentityVerification || false;
+  const skipIdentityVerification = combinedPromoEffects.skipIdentityVerification;
   
-  // Check if payment should be skipped (only for vip777 + without-engineer)
-  const skipPayment = activePromo?.skipPayment && sessionType === "without-engineer";
+  // Check if payment should be skipped (cashonly777 or vip777 + without-engineer)
+  const skipPayment = combinedPromoEffects.skipPayment && (sessionType === "without-engineer" || activePromos.some(p => p.code === "cashonly777"));
 
   const pricing: Record<string, number> = {
     "with-engineer": 45,
@@ -148,12 +169,12 @@ const BookingSection = () => {
   const isImmediateService = sessionType && IMMEDIATE_SERVICES.includes(sessionType);
   
   // Check if VIP calendar should be available (vip777 with full calendar visibility)
-  const showVIPCalendarButton = activePromo?.fullCalendarVisibility && !isImmediateService;
+  const showVIPCalendarButton = combinedPromoEffects.fullCalendarVisibility && !isImmediateService;
   
   // Debug logging
   console.log("VIP Debug:", { 
-    activePromo: activePromo?.code, 
-    fullCalendarVisibility: activePromo?.fullCalendarVisibility,
+    activePromos: activePromos.map(p => p.code), 
+    fullCalendarVisibility: combinedPromoEffects.fullCalendarVisibility,
     sessionType,
     isImmediateService,
     showVIPCalendarButton,
@@ -174,10 +195,10 @@ const BookingSection = () => {
 
   // Calculate promo discount
   const promoDiscount = useMemo(() => {
-    if (!activePromo || !sessionType) return 0;
-    const discountPercent = activePromo.discounts[sessionType] || 0;
+    if (activePromos.length === 0 || !sessionType) return 0;
+    const discountPercent = combinedPromoEffects.discounts[sessionType] || 0;
     return Math.round(totalPrice * (discountPercent / 100));
-  }, [activePromo, sessionType, totalPrice]);
+  }, [activePromos, combinedPromoEffects, sessionType, totalPrice]);
 
   const finalPrice = totalPrice - promoDiscount;
 
@@ -308,7 +329,7 @@ const BookingSection = () => {
     }
 
     // Skip availability check for VIP777 (full calendar visibility allows any booking)
-    if (!activePromo?.fullCalendarVisibility && availabilityStatus !== "available") {
+    if (!combinedPromoEffects.fullCalendarVisibility && availabilityStatus !== "available") {
       toast({
         title: "Créneau non disponible",
         description: "Veuillez choisir un autre créneau",
@@ -673,7 +694,7 @@ const BookingSection = () => {
               </div>
 
               {/* Date and time - Only for studio sessions */}
-              {!isImmediateService && !activePromo?.fullCalendarVisibility && (
+              {!isImmediateService && !combinedPromoEffects.fullCalendarVisibility && (
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="date" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
@@ -781,7 +802,7 @@ const BookingSection = () => {
             </div>
 
             {/* VIP Calendar - Shows when VIP button is clicked */}
-            {showVIPCalendar && activePromo?.fullCalendarVisibility && (
+            {showVIPCalendar && combinedPromoEffects.fullCalendarVisibility && (
               <div className="mb-6 animate-in fade-in-0 slide-in-from-top-4 duration-500">
                 <VIPCalendar
                   onSelectSlot={(date, time, duration) => {
@@ -820,7 +841,7 @@ const BookingSection = () => {
                       setShowPayment(false);
                       setSessionType(null);
                       setFormData({ name: "", email: "", phone: "", date: "", time: "", message: "" });
-                      setActivePromo(null);
+                      setActivePromos([]);
                       setPromoCode("");
                     }}
                   >
@@ -868,44 +889,45 @@ const BookingSection = () => {
                     setPromoError("");
                   }}
                   placeholder="Entrez votre code"
-                  className={cn(
-                    "bg-secondary/50 border-border flex-1",
-                    activePromo && "border-green-500/50 bg-green-500/10"
-                  )}
-                  disabled={!!activePromo}
+                  className="bg-secondary/50 border-border flex-1"
                 />
-                {activePromo ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleRemovePromoCode}
-                    className="shrink-0"
-                  >
-                    Retirer
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleApplyPromoCode}
-                    className="shrink-0"
-                    disabled={!promoCode.trim()}
-                  >
-                    Appliquer
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleApplyPromoCode}
+                  className="shrink-0"
+                  disabled={!promoCode.trim()}
+                >
+                  Appliquer
+                </Button>
               </div>
               {promoError && (
                 <p className="text-xs text-destructive mt-1">{promoError}</p>
               )}
-              {activePromo && (
-                <div className="mt-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
-                  <p className="text-xs text-green-500 font-medium flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    Code "{activePromo.code.toUpperCase()}" appliqué
-                    {activePromo.fullCalendarVisibility && " - Visibilité agenda complète"}
-                    {activePromo.skipIdentityVerification && " - Vérification ID non requise"}
-                  </p>
+              {/* Display all active promo codes */}
+              {activePromos.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {activePromos.map((promo) => (
+                    <div key={promo.code} className="p-2 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-between">
+                      <p className="text-xs text-green-500 font-medium flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Code "{promo.code.toUpperCase()}" appliqué
+                        {promo.fullCalendarVisibility && " - Agenda VIP"}
+                        {promo.skipPayment && " - Paiement espèces"}
+                        {promo.skipIdentityVerification && " - Sans vérif. ID"}
+                        {Object.keys(promo.discounts).length > 0 && " - Réductions"}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemovePromoCode(promo.code)}
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -947,7 +969,7 @@ const BookingSection = () => {
             )}
 
             {/* Identity Verification - Only for studio sessions and if not skipped by promo */}
-            {!isImmediateService && !skipIdentityVerification && sessionType && formData.name && (availabilityStatus === "available" || activePromo?.fullCalendarVisibility) && (
+            {!isImmediateService && !skipIdentityVerification && sessionType && formData.name && (availabilityStatus === "available" || combinedPromoEffects.fullCalendarVisibility) && (
               <div className="mb-6">
                 <IdentityVerification
                   formName={formData.name}
@@ -1011,7 +1033,7 @@ const BookingSection = () => {
                         <div>
                           <p className="text-sm font-semibold text-green-500">🎁 Réduction code promo</p>
                           <p className="text-xs text-muted-foreground">
-                            {activePromo?.discounts[sessionType!]}% de réduction
+                            {combinedPromoEffects.discounts[sessionType!]}% de réduction
                           </p>
                         </div>
                         <div className="text-right">
@@ -1048,7 +1070,7 @@ const BookingSection = () => {
                         <div>
                           <p className="text-sm font-semibold text-green-500">🎁 Réduction code promo</p>
                           <p className="text-xs text-muted-foreground">
-                            {activePromo?.discounts[sessionType!]}% de réduction
+                            {combinedPromoEffects.discounts[sessionType!]}% de réduction
                           </p>
                         </div>
                         <div className="text-right">
