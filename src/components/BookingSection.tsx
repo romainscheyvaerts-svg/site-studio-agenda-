@@ -1013,8 +1013,8 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Price display */}
-            {sessionType && (
+            {/* Price display - Hidden for VIP codes that skip payment */}
+            {sessionType && !skipPayment && (
               <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
                 {!isImmediateService && (
                   <>
