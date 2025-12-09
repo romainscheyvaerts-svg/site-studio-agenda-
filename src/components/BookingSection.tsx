@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,60 @@ type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "e
 
 // Services qui ne nécessitent pas de calendrier ni de vérification d'identité
 const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast"];
+
+// Promo code configuration
+type PromoCode = {
+  code: string;
+  fullCalendarVisibility: boolean;
+  skipPayment: boolean; // Only for without-engineer
+  skipIdentityVerification: boolean;
+  discounts: {
+    "with-engineer"?: number; // percentage
+    "without-engineer"?: number;
+    "mixing"?: number;
+    "mastering"?: number;
+    "analog-mastering"?: number;
+    "podcast"?: number;
+  };
+};
+
+const PROMO_CODES: PromoCode[] = [
+  {
+    code: "vip777",
+    fullCalendarVisibility: true,
+    skipPayment: true,
+    skipIdentityVerification: true,
+    discounts: {},
+  },
+  {
+    code: "gold50",
+    fullCalendarVisibility: false,
+    skipPayment: false,
+    skipIdentityVerification: false,
+    discounts: {
+      "with-engineer": 40,
+      "without-engineer": 15,
+      "mixing": 50,
+      "mastering": 50,
+      "analog-mastering": 50,
+      "podcast": 50,
+    },
+  },
+  {
+    code: "vip50",
+    fullCalendarVisibility: false,
+    skipPayment: false,
+    skipIdentityVerification: true,
+    discounts: {
+      "with-engineer": 40,
+      "without-engineer": 15,
+      "mixing": 50,
+      "mastering": 50,
+      "analog-mastering": 50,
+      "podcast": 50,
+    },
+  },
+];
 
 const BookingSection = () => {
   const { toast } = useToast();
@@ -28,6 +82,9 @@ const BookingSection = () => {
   const [availabilityMessage, setAvailabilityMessage] = useState("");
   const [identityVerified, setIdentityVerified] = useState(false);
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+  const [activePromo, setActivePromo] = useState<PromoCode | null>(null);
+  const [promoError, setPromoError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -36,6 +93,38 @@ const BookingSection = () => {
     time: "",
     message: "",
   });
+
+  // Validate promo code
+  const handleApplyPromoCode = () => {
+    const normalizedCode = promoCode.trim().toLowerCase();
+    const foundPromo = PROMO_CODES.find(p => p.code.toLowerCase() === normalizedCode);
+    
+    if (foundPromo) {
+      setActivePromo(foundPromo);
+      setPromoError("");
+      toast({
+        title: "Code promo appliqué !",
+        description: foundPromo.fullCalendarVisibility 
+          ? "Vous avez accès à la visibilité complète de l'agenda."
+          : "Réductions appliquées à votre réservation.",
+      });
+    } else if (normalizedCode) {
+      setActivePromo(null);
+      setPromoError("Code promo invalide");
+    }
+  };
+
+  const handleRemovePromoCode = () => {
+    setPromoCode("");
+    setActivePromo(null);
+    setPromoError("");
+  };
+
+  // Check if identity verification should be skipped
+  const skipIdentityVerification = activePromo?.skipIdentityVerification || false;
+  
+  // Check if payment should be skipped (only for vip777 + without-engineer)
+  const skipPayment = activePromo?.skipPayment && sessionType === "without-engineer";
 
   const pricing: Record<string, number> = {
     "with-engineer": 45,
@@ -60,17 +149,27 @@ const BookingSection = () => {
     return hours * pricing[sessionType];
   }, [sessionType, hours, podcastMinutes, isImmediateService]);
 
+  // Calculate promo discount
+  const promoDiscount = useMemo(() => {
+    if (!activePromo || !sessionType) return 0;
+    const discountPercent = activePromo.discounts[sessionType] || 0;
+    return Math.round(totalPrice * (discountPercent / 100));
+  }, [activePromo, sessionType, totalPrice]);
+
+  const finalPrice = totalPrice - promoDiscount;
+
   // Location sèche = paiement complet, analog-mastering = 80€ acompte, autres = 50% acompte
   const paymentAmount = useMemo(() => {
     if (!sessionType) return 0;
+    if (skipPayment) return 0; // VIP777 + without-engineer = free booking
     if (sessionType === "without-engineer") {
-      return totalPrice; // Paiement complet
+      return finalPrice; // Paiement complet
     }
     if (sessionType === "analog-mastering") {
-      return 80; // Acompte fixe de 80€
+      return Math.max(0, 80 - promoDiscount); // Acompte fixe de 80€ avec réduction
     }
-    return Math.ceil(totalPrice / 2); // 50% acompte
-  }, [sessionType, totalPrice]);
+    return Math.ceil(finalPrice / 2); // 50% acompte
+  }, [sessionType, finalPrice, skipPayment, promoDiscount]);
 
   const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering" || sessionType === "podcast";
 
@@ -185,7 +284,8 @@ const BookingSection = () => {
       return false;
     }
 
-    if (availabilityStatus !== "available") {
+    // Skip availability check for VIP777 (full calendar visibility allows any booking)
+    if (!activePromo?.fullCalendarVisibility && availabilityStatus !== "available") {
       toast({
         title: "Créneau non disponible",
         description: "Veuillez choisir un autre créneau",
@@ -194,8 +294,8 @@ const BookingSection = () => {
       return false;
     }
 
-    // KYC is required only for session types (not immediate services)
-    if (!identityVerified) {
+    // KYC is required only for session types (not immediate services) unless promo skips it
+    if (!skipIdentityVerification && !identityVerified) {
       toast({
         title: "Vérification d'identité requise",
         description: "Veuillez vérifier votre identité avant de procéder au paiement",
@@ -671,6 +771,62 @@ const BookingSection = () => {
               />
             </div>
 
+            {/* Promo Code Input */}
+            <div className="mb-6">
+              <Label htmlFor="promoCode" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                <Tag className="w-4 h-4" /> Code promo (optionnel)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="promoCode"
+                  value={promoCode}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value);
+                    setPromoError("");
+                  }}
+                  placeholder="Entrez votre code"
+                  className={cn(
+                    "bg-secondary/50 border-border flex-1",
+                    activePromo && "border-green-500/50 bg-green-500/10"
+                  )}
+                  disabled={!!activePromo}
+                />
+                {activePromo ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRemovePromoCode}
+                    className="shrink-0"
+                  >
+                    Retirer
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleApplyPromoCode}
+                    className="shrink-0"
+                    disabled={!promoCode.trim()}
+                  >
+                    Appliquer
+                  </Button>
+                )}
+              </div>
+              {promoError && (
+                <p className="text-xs text-destructive mt-1">{promoError}</p>
+              )}
+              {activePromo && (
+                <div className="mt-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <p className="text-xs text-green-500 font-medium flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Code "{activePromo.code.toUpperCase()}" appliqué
+                    {activePromo.fullCalendarVisibility && " - Visibilité agenda complète"}
+                    {activePromo.skipIdentityVerification && " - Vérification ID non requise"}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Availability status - Only for studio sessions */}
             {!isImmediateService && sessionType && formData.date && formData.time && (
               <div className={cn(
@@ -707,8 +863,8 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Identity Verification - Only for studio sessions */}
-            {!isImmediateService && sessionType && formData.name && availabilityStatus === "available" && (
+            {/* Identity Verification - Only for studio sessions and if not skipped by promo */}
+            {!isImmediateService && !skipIdentityVerification && sessionType && formData.name && (availabilityStatus === "available" || activePromo?.fullCalendarVisibility) && (
               <div className="mb-6">
                 <IdentityVerification
                   formName={formData.name}
@@ -716,6 +872,16 @@ const BookingSection = () => {
                   isVerified={identityVerified}
                   verifiedName={verifiedName}
                 />
+              </div>
+            )}
+
+            {/* Show skip notice for promo codes that skip ID verification */}
+            {!isImmediateService && skipIdentityVerification && sessionType && (
+              <div className="mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
+                <p className="text-sm text-green-500 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Vérification d'identité non requise avec votre code VIP
+                </p>
               </div>
             )}
 
@@ -737,7 +903,7 @@ const BookingSection = () => {
                     </div>
                     
                     {/* Promo discount display for 5+ hours */}
-                    {hours >= 5 && (sessionType === "with-engineer" || sessionType === "without-engineer") && (
+                    {hours >= 5 && (sessionType === "with-engineer" || sessionType === "without-engineer") && !promoDiscount && (
                       <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-accent/10 border border-accent/30">
                         <div>
                           <p className="text-sm font-semibold text-accent">🎉 Offre promo appliquée</p>
@@ -755,51 +921,96 @@ const BookingSection = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* Promo code discount display */}
+                    {promoDiscount > 0 && (
+                      <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                        <div>
+                          <p className="text-sm font-semibold text-green-500">🎁 Réduction code promo</p>
+                          <p className="text-xs text-muted-foreground">
+                            {activePromo?.discounts[sessionType!]}% de réduction
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-display text-lg text-green-500">-{promoDiscount}€</span>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
                 {isImmediateService && (
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        {sessionType === "mixing" && "Mixage projet"}
-                        {sessionType === "mastering" && "Mastering"}
-                        {sessionType === "analog-mastering" && "Mastering analogique"}
-                        {sessionType === "podcast" && `Mixage Podcast (${podcastMinutes} min)`}
-                      </p>
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {sessionType === "mixing" && "Mixage projet"}
+                          {sessionType === "mastering" && "Mastering"}
+                          {sessionType === "analog-mastering" && "Mastering analogique"}
+                          {sessionType === "podcast" && `Mixage Podcast (${podcastMinutes} min)`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={cn(
+                          "font-display text-2xl",
+                          promoDiscount > 0 ? "text-muted-foreground line-through" : "text-foreground"
+                        )}>
+                          {totalPrice}€
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="font-display text-2xl text-foreground">{totalPrice}€</span>
-                    </div>
-                  </div>
+
+                    {/* Promo code discount for immediate services */}
+                    {promoDiscount > 0 && (
+                      <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                        <div>
+                          <p className="text-sm font-semibold text-green-500">🎁 Réduction code promo</p>
+                          <p className="text-xs text-muted-foreground">
+                            {activePromo?.discounts[sessionType!]}% de réduction
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-display text-lg text-green-500">-{promoDiscount}€</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      {isDeposit ? "Acompte à payer (50%)" : "Montant à payer"}
+                      {skipPayment ? "Réservation VIP" : isDeposit ? "Acompte à payer (50%)" : "Montant à payer"}
                     </p>
-                    {isDeposit && !isImmediateService && sessionType === "with-engineer" && (
+                    {skipPayment && (
+                      <p className="text-xs text-green-500">Réservation gratuite avec votre code VIP</p>
+                    )}
+                    {!skipPayment && isDeposit && !isImmediateService && sessionType === "with-engineer" && (
                       <p className="text-xs text-accent">
                         {hours >= 5
-                          ? `Solde au studio: ${totalPrice - paymentAmount - hours * 5}€ (après réduction)`
+                          ? `Solde au studio: ${finalPrice - paymentAmount - hours * 5}€ (après réduction)`
                           : "Le reste sera payé au studio"
                         }
                       </p>
                     )}
-                    {!isImmediateService && sessionType === "without-engineer" && hours >= 5 && (
+                    {!skipPayment && !isImmediateService && sessionType === "without-engineer" && hours >= 5 && !promoDiscount && (
                       <p className="text-xs text-accent">
                         Réduction de {hours * 2}€ déduite sur place
                       </p>
                     )}
-                    {!isImmediateService && sessionType === "without-engineer" && hours < 5 && (
+                    {!skipPayment && !isImmediateService && sessionType === "without-engineer" && hours < 5 && !promoDiscount && (
                       <p className="text-xs text-muted-foreground">Paiement complet requis</p>
                     )}
-                    {isDeposit && isImmediateService && (
+                    {!skipPayment && isDeposit && isImmediateService && (
                       <p className="text-xs text-accent">Le reste après la session d'écoute</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Euro className="w-6 h-6 text-primary" />
-                    <span className="font-display text-4xl text-primary text-glow-cyan">{paymentAmount}€</span>
+                    <span className={cn(
+                      "font-display text-4xl text-glow-cyan",
+                      skipPayment ? "text-green-500" : "text-primary"
+                    )}>
+                      {skipPayment ? "GRATUIT" : `${paymentAmount}€`}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -814,30 +1025,36 @@ const BookingSection = () => {
                 className="w-full"
                 onClick={handleProceedToPayment}
                 disabled={
-                  loadingClientId || 
-                  (!isImmediateService && (availabilityStatus === "checking" || availabilityStatus === "unavailable" || !identityVerified)) ||
+                  (!skipPayment && loadingClientId) || 
+                  (!isImmediateService && !activePromo?.fullCalendarVisibility && (availabilityStatus === "checking" || availabilityStatus === "unavailable")) ||
+                  (!isImmediateService && !skipIdentityVerification && !identityVerified) ||
                   !formData.name || !formData.email || !formData.phone
                 }
               >
-                {loadingClientId ? (
+                {!skipPayment && loadingClientId ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Chargement...
                   </>
-                ) : !isImmediateService && availabilityStatus === "checking" ? (
+                ) : !isImmediateService && !activePromo?.fullCalendarVisibility && availabilityStatus === "checking" ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Vérification...
                   </>
-                ) : !isImmediateService && availabilityStatus === "unavailable" ? (
+                ) : !isImmediateService && !activePromo?.fullCalendarVisibility && availabilityStatus === "unavailable" ? (
                   <>
                     <XCircle className="w-5 h-5 mr-2" />
                     CRÉNEAU NON DISPONIBLE
                   </>
-                ) : !isImmediateService && !identityVerified ? (
+                ) : !isImmediateService && !skipIdentityVerification && !identityVerified ? (
                   <>
                     <AlertCircle className="w-5 h-5 mr-2" />
                     VÉRIFICATION D'IDENTITÉ REQUISE
+                  </>
+                ) : skipPayment ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    RÉSERVER GRATUITEMENT
                   </>
                 ) : (
                   <>
@@ -846,6 +1063,49 @@ const BookingSection = () => {
                   </>
                 )}
               </Button>
+            ) : skipPayment ? (
+              /* VIP777 Free Booking Confirmation */
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="font-semibold text-foreground">Réservation VIP confirmée</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Votre session de {hours}h en location autonome est réservée gratuitement avec votre code VIP.
+                  </p>
+                  <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                    <p className="text-sm text-foreground mb-2">📅 {formData.date} à {formData.time}</p>
+                    <p className="text-sm text-foreground">👤 {formData.name}</p>
+                    <p className="text-sm text-foreground">📧 {formData.email}</p>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="hero" 
+                    size="lg" 
+                    className="w-full mt-4"
+                    onClick={() => {
+                      toast({
+                        title: "Réservation confirmée !",
+                        description: "Vous recevrez un email de confirmation sous peu.",
+                      });
+                      handlePaymentSuccess();
+                    }}
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    CONFIRMER LA RÉSERVATION
+                  </Button>
+                </div>
+
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="w-full"
+                  onClick={() => setShowPayment(false)}
+                >
+                  ← Modifier ma commande
+                </Button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-accent/10 border border-accent/30">
@@ -856,13 +1116,14 @@ const BookingSection = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     {isImmediateService ? (
                       isDeposit 
-                        ? `Acompte de ${paymentAmount}€ pour votre ${sessionType === "mixing" ? "mixage" : "mastering"} (total: ${totalPrice}€)`
+                        ? `Acompte de ${paymentAmount}€ pour votre ${sessionType === "mixing" ? "mixage" : "mastering"} (total: ${finalPrice}€)`
                         : `Paiement de ${paymentAmount}€ pour votre mastering analogique`
                     ) : (
                       isDeposit 
-                        ? `Acompte de ${paymentAmount}€ pour réserver votre session de ${hours}h (total: ${totalPrice}€)`
+                        ? `Acompte de ${paymentAmount}€ pour réserver votre session de ${hours}h (total: ${finalPrice}€)`
                         : `Paiement complet de ${paymentAmount}€ pour votre location de ${hours}h`
                     )}
+                    {promoDiscount > 0 && ` (réduction de ${promoDiscount}€ appliquée)`}
                   </p>
                   
                   <div className="space-y-4">
@@ -878,7 +1139,7 @@ const BookingSection = () => {
                           clientId={paypalClientId}
                           onSuccess={handlePaymentSuccess}
                           isDeposit={isDeposit}
-                          totalPrice={totalPrice}
+                          totalPrice={finalPrice}
                           podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
                         />
                       ) : (
@@ -926,11 +1187,13 @@ const BookingSection = () => {
             )}
 
             <p className="text-xs text-muted-foreground text-center mt-4">
-              {sessionType === "without-engineer" || sessionType === "analog-mastering"
-                ? "Paiement complet requis à la réservation"
-                : isImmediateService 
-                  ? "Acompte de 50%, le reste après la session d'écoute"
-                  : "Acompte de 50% à la réservation, le reste au studio"
+              {skipPayment 
+                ? "Réservation VIP sans paiement requis"
+                : sessionType === "without-engineer" || sessionType === "analog-mastering"
+                  ? "Paiement complet requis à la réservation"
+                  : isImmediateService 
+                    ? "Acompte de 50%, le reste après la session d'écoute"
+                    : "Acompte de 50% à la réservation, le reste au studio"
               }
             </p>
           </div>
