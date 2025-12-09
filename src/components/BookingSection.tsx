@@ -934,7 +934,7 @@ const BookingSection = () => {
                     <div key={promo.code} className="p-2 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-between">
                       <p className="text-xs text-green-500 font-medium flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" />
-                        Code "{promo.code.toUpperCase()}" appliqué
+                        Code promo activé
                         {promo.fullCalendarVisibility && " - Agenda VIP"}
                         {promo.skipPayment && " - Paiement espèces"}
                         {promo.skipIdentityVerification && " - Sans vérif. ID"}
