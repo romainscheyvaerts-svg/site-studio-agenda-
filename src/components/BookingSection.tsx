@@ -86,6 +86,7 @@ const BookingSection = () => {
   const [promoCode, setPromoCode] = useState("");
   const [activePromo, setActivePromo] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState("");
+  const [showVIPCalendar, setShowVIPCalendar] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -758,8 +759,8 @@ const BookingSection = () => {
               )}
             </div>
 
-            {/* VIP Calendar - Only for full calendar visibility promo codes */}
-            {!isImmediateService && activePromo?.fullCalendarVisibility && sessionType && (
+            {/* VIP Calendar - Shows when VIP button is clicked */}
+            {showVIPCalendar && activePromo?.fullCalendarVisibility && sessionType === "without-engineer" && (
               <div className="mb-6">
                 <VIPCalendar
                   onSelectSlot={(date, time, duration) => {
@@ -782,6 +783,41 @@ const BookingSection = () => {
                     </p>
                   </div>
                 )}
+                
+                {/* Confirm booking button */}
+                {formData.date && formData.time && (
+                  <Button 
+                    type="button" 
+                    variant="hero" 
+                    size="xl" 
+                    className="w-full mt-4"
+                    onClick={() => {
+                      toast({
+                        title: "Réservation confirmée !",
+                        description: `Votre session du ${formData.date} à ${formData.time} (${hours}h) est réservée.`,
+                      });
+                      setShowVIPCalendar(false);
+                      setShowPayment(false);
+                      setSessionType(null);
+                      setFormData({ name: "", email: "", phone: "", date: "", time: "", message: "" });
+                      setActivePromo(null);
+                      setPromoCode("");
+                    }}
+                    disabled={!formData.name || !formData.email || !formData.phone}
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    CONFIRMER LA RÉSERVATION GRATUITE
+                  </Button>
+                )}
+
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="w-full mt-2"
+                  onClick={() => setShowVIPCalendar(false)}
+                >
+                  ← Retour au formulaire
+                </Button>
               </div>
             )}
 
@@ -1044,97 +1080,65 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Payment section */}
-            {!showPayment ? (
-              <Button 
-                type="button" 
-                variant="hero" 
-                size="xl" 
-                className="w-full"
-                onClick={handleProceedToPayment}
-                disabled={
-                  (!skipPayment && loadingClientId) || 
-                  (!isImmediateService && !activePromo?.fullCalendarVisibility && (availabilityStatus === "checking" || availabilityStatus === "unavailable")) ||
-                  (!isImmediateService && !skipIdentityVerification && !identityVerified) ||
-                  !formData.name || !formData.email || !formData.phone
-                }
-              >
-                {!skipPayment && loadingClientId ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Chargement...
-                  </>
-                ) : !isImmediateService && !activePromo?.fullCalendarVisibility && availabilityStatus === "checking" ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Vérification...
-                  </>
-                ) : !isImmediateService && !activePromo?.fullCalendarVisibility && availabilityStatus === "unavailable" ? (
-                  <>
-                    <XCircle className="w-5 h-5 mr-2" />
-                    CRÉNEAU NON DISPONIBLE
-                  </>
-                ) : !isImmediateService && !skipIdentityVerification && !identityVerified ? (
-                  <>
-                    <AlertCircle className="w-5 h-5 mr-2" />
-                    VÉRIFICATION D'IDENTITÉ REQUISE
-                  </>
-                ) : skipPayment ? (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    RÉSERVER GRATUITEMENT
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="w-5 h-5 mr-2" />
-                    PROCÉDER AU PAIEMENT
-                  </>
-                )}
-              </Button>
-            ) : skipPayment ? (
-              /* VIP777 Free Booking Confirmation */
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="font-semibold text-foreground">Réservation VIP confirmée</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Votre session de {hours}h en location autonome est réservée gratuitement avec votre code VIP.
-                  </p>
-                  <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                    <p className="text-sm text-foreground mb-2">📅 {formData.date} à {formData.time}</p>
-                    <p className="text-sm text-foreground">👤 {formData.name}</p>
-                    <p className="text-sm text-foreground">📧 {formData.email}</p>
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="hero" 
-                    size="lg" 
-                    className="w-full mt-4"
-                    onClick={() => {
-                      toast({
-                        title: "Réservation confirmée !",
-                        description: "Vous recevrez un email de confirmation sous peu.",
-                      });
-                      handlePaymentSuccess();
-                    }}
-                  >
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    CONFIRMER LA RÉSERVATION
-                  </Button>
-                </div>
-
+            {/* Payment section - Hidden when VIP calendar is shown */}
+            {!showVIPCalendar && !showPayment ? (
+              skipPayment ? (
+                /* VIP777 - Show "Reserve" button that opens calendar */
                 <Button 
                   type="button" 
-                  variant="ghost" 
+                  variant="hero" 
+                  size="xl" 
                   className="w-full"
-                  onClick={() => setShowPayment(false)}
+                  onClick={() => setShowVIPCalendar(true)}
+                  disabled={!formData.name || !formData.email || !formData.phone || !sessionType}
                 >
-                  ← Modifier ma commande
+                  <Calendar className="w-5 h-5 mr-2" />
+                  RÉSERVER (Ouvrir l'agenda)
                 </Button>
-              </div>
-            ) : (
+              ) : (
+                /* Regular payment button */
+                <Button 
+                  type="button" 
+                  variant="hero" 
+                  size="xl" 
+                  className="w-full"
+                  onClick={handleProceedToPayment}
+                  disabled={
+                    loadingClientId || 
+                    (!isImmediateService && (availabilityStatus === "checking" || availabilityStatus === "unavailable")) ||
+                    (!isImmediateService && !skipIdentityVerification && !identityVerified) ||
+                    !formData.name || !formData.email || !formData.phone
+                  }
+                >
+                  {loadingClientId ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Chargement...
+                    </>
+                  ) : !isImmediateService && availabilityStatus === "checking" ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Vérification...
+                    </>
+                  ) : !isImmediateService && availabilityStatus === "unavailable" ? (
+                    <>
+                      <XCircle className="w-5 h-5 mr-2" />
+                      CRÉNEAU NON DISPONIBLE
+                    </>
+                  ) : !isImmediateService && !skipIdentityVerification && !identityVerified ? (
+                    <>
+                      <AlertCircle className="w-5 h-5 mr-2" />
+                      VÉRIFICATION D'IDENTITÉ REQUISE
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-5 h-5 mr-2" />
+                      PROCÉDER AU PAIEMENT
+                    </>
+                  )}
+                </Button>
+              )
+            ) : !showVIPCalendar && showPayment && (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-accent/10 border border-accent/30">
                   <div className="flex items-center gap-2 mb-2">
