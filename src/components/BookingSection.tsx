@@ -1226,7 +1226,14 @@ const BookingSection = () => {
                   variant="hero" 
                   size="xl" 
                   className="w-full"
-                  onClick={handleCashOnlyBooking}
+                  onClick={() => {
+                    console.log("CashOnly button clicked!");
+                    console.log("Form data:", formData);
+                    console.log("Session type:", sessionType);
+                    console.log("Identity verified:", identityVerified);
+                    console.log("Skip ID verification:", skipIdentityVerification);
+                    handleCashOnlyBooking();
+                  }}
                   disabled={
                     cashOnlyLoading ||
                     (!isImmediateService && (availabilityStatus === "checking" || availabilityStatus === "unavailable")) ||
