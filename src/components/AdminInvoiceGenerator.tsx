@@ -29,23 +29,51 @@ interface InvoiceItem {
   unitPrice: number;
 }
 
-const AdminInvoiceGenerator = () => {
+interface AdminInvoiceGeneratorProps {
+  prefilledData?: {
+    clientName?: string;
+    clientEmail?: string;
+    sessionType?: string | null;
+    hours?: number;
+    totalPrice?: number;
+  };
+}
+
+const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  const getInitialItems = (): InvoiceItem[] => {
+    if (prefilledData?.sessionType && prefilledData.totalPrice) {
+      const descriptions: Record<string, string> = {
+        "with-engineer": "Session d'enregistrement avec ingénieur son",
+        "without-engineer": "Location studio (autonomie)",
+        "mixing": "Mixage + Mastering projet",
+        "mastering": "Mastering digital",
+        "analog-mastering": "Mastering analogique premium",
+        "podcast": "Mixage podcast",
+      };
+      return [{
+        description: descriptions[prefilledData.sessionType] || "Service studio",
+        quantity: prefilledData.hours || 1,
+        unitPrice: Math.round(prefilledData.totalPrice / (prefilledData.hours || 1)),
+      }];
+    }
+    return [{ description: "", quantity: 1, unitPrice: 0 }];
+  };
+  
   const [invoiceData, setInvoiceData] = useState({
-    clientName: "",
-    clientEmail: "",
+    clientName: prefilledData?.clientName || "",
+    clientEmail: prefilledData?.clientEmail || "",
     clientAddress: "",
     invoiceNumber: `FAC-${Date.now().toString().slice(-6)}`,
     date: new Date().toISOString().split("T")[0],
     dueDate: "",
     notes: "",
-    sessionType: "",
+    sessionType: prefilledData?.sessionType || "",
   });
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { description: "", quantity: 1, unitPrice: 0 }
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>(getInitialItems());
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: 1, unitPrice: 0 }]);
