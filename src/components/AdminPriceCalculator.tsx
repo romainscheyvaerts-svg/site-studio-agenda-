@@ -5,9 +5,12 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { 
   Mic, Building2, Music, Headphones, Disc, Radio, 
-  Euro, Percent, Calculator, Clock, CheckCircle, X
+  Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2
 } from "lucide-react";
 import VIPCalendar from "./VIPCalendar";
+import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 
@@ -24,6 +27,7 @@ interface AdminPriceCalculatorProps {
 }
 
 const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) => {
+  const { toast } = useToast();
   const [selectedService, setSelectedService] = useState<SessionType>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [hours, setHours] = useState(2);
@@ -31,6 +35,9 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
   const [discountPercent, setDiscountPercent] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [creatingEvent, setCreatingEvent] = useState(false);
 
   const pricing: Record<string, number> = {
     "with-engineer": 45,
@@ -262,46 +269,119 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                 </div>
               </div>
 
-              {/* Quick discount buttons */}
-              <div className="flex flex-wrap gap-2">
-                {[0, 10, 15, 20, 25, 50].map((percent) => (
-                  <Button
-                    key={percent}
-                    variant={discountPercent === percent ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setDiscountPercent(percent)}
-                    className={cn(
-                      "text-xs",
-                      discountPercent === percent && "bg-green-500 hover:bg-green-600"
-                    )}
-                  >
-                    {percent === 0 ? "Aucune" : `${percent}%`}
-                  </Button>
-                ))}
+              {/* Client info for event creation */}
+              <div className="space-y-4 pt-4 border-t border-border">
+                <div>
+                  <Label className="text-sm text-muted-foreground mb-2 block">
+                    Nom du client (optionnel)
+                  </Label>
+                  <Input
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="Nom du client"
+                    className="bg-secondary/50 border-border"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground mb-2 block">
+                    Email du client (optionnel)
+                  </Label>
+                  <Input
+                    type="email"
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    placeholder="email@exemple.com"
+                    className="bg-secondary/50 border-border"
+                  />
+                </div>
               </div>
 
               {selectedDate && selectedTime && (
-                <div className="pt-4">
+                <div className="pt-4 space-y-3">
                   <Button 
                     variant="hero" 
                     className="w-full"
-                    onClick={() => {
-                      if (onPriceCalculated && selectedService) {
-                        onPriceCalculated({
-                          sessionType: selectedService,
-                          hours: isHourlyService ? hours : (isPodcast ? podcastMinutes : 1),
-                          totalPrice,
-                          discountPercent,
-                          finalPrice,
-                          date: selectedDate,
-                          time: selectedTime,
+                    disabled={creatingEvent}
+                    onClick={async () => {
+                      setCreatingEvent(true);
+                      try {
+                        const sessionLabels: Record<string, string> = {
+                          "with-engineer": "Session avec ingénieur",
+                          "without-engineer": "Location sèche",
+                          "mixing": "Mixage",
+                          "mastering": "Mastering",
+                          "analog-mastering": "Mastering analogique",
+                          "podcast": "Podcast"
+                        };
+                        
+                        const title = clientName 
+                          ? `SESSION ${sessionLabels[selectedService!]} - ${clientName}`
+                          : `SESSION ${sessionLabels[selectedService!]}`;
+                        
+                        const { error } = await supabase.functions.invoke("create-admin-event", {
+                          body: {
+                            title,
+                            clientName: clientName || "",
+                            description: `Prix: ${finalPrice}€${discountPercent > 0 ? ` (remise ${discountPercent}%)` : ''}\n${clientEmail ? `Email: ${clientEmail}` : ''}`,
+                            date: selectedDate,
+                            time: selectedTime,
+                            hours: isHourlyService ? hours : (isPodcast ? Math.ceil(podcastMinutes / 60) : 1),
+                            colorId: "7",
+                          },
                         });
+                        
+                        if (error) throw error;
+                        
+                        toast({
+                          title: "Événement créé !",
+                          description: `Session du ${selectedDate} à ${selectedTime} ajoutée à l'agenda.`,
+                        });
+                        
+                        if (onPriceCalculated && selectedService) {
+                          onPriceCalculated({
+                            sessionType: selectedService,
+                            hours: isHourlyService ? hours : (isPodcast ? podcastMinutes : 1),
+                            totalPrice,
+                            discountPercent,
+                            finalPrice,
+                            date: selectedDate,
+                            time: selectedTime,
+                          });
+                        }
+                      } catch (err) {
+                        console.error("Error creating event:", err);
+                        toast({
+                          title: "Erreur",
+                          description: "Impossible de créer l'événement. Réessayez.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setCreatingEvent(false);
                       }
                     }}
                   >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    VALIDER CE CALCUL
+                    {creatingEvent ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Création...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        CRÉER L'ÉVÉNEMENT
+                      </>
+                    )}
                   </Button>
+                  
+                  <AdminInvoiceGenerator 
+                    prefilledData={{
+                      clientName,
+                      clientEmail,
+                      sessionType: selectedService,
+                      hours: isHourlyService ? hours : (isPodcast ? podcastMinutes : 1),
+                      totalPrice: finalPrice,
+                    }}
+                  />
                 </div>
               )}
             </div>

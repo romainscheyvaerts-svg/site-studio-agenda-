@@ -172,20 +172,20 @@ const QuoteRequestDialog = ({ trigger }: QuoteRequestDialogProps) => {
         {/* Mode selection */}
         {mode === "choose" && (
           <div className="grid gap-4 py-4">
-            <button
-              onClick={() => setMode("email")}
-              className="p-6 rounded-xl border-2 border-border bg-secondary/30 hover:border-primary/50 transition-all duration-300 text-left group"
+            <a
+              href="tel:+32476094172"
+              className="p-6 rounded-xl border-2 border-border bg-secondary/30 hover:border-primary/50 transition-all duration-300 text-left group block"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
                   <Mail className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h4 className="font-display text-lg text-foreground">Envoyer un email</h4>
-                  <p className="text-sm text-muted-foreground">Décrivez votre projet, nous vous répondrons sous 24h</p>
+                  <h4 className="font-display text-lg text-foreground">Nous appeler</h4>
+                  <p className="text-sm text-muted-foreground">+32 476 09 41 72</p>
                 </div>
               </div>
-            </button>
+            </a>
 
             <button
               onClick={() => setMode("chatbot")}

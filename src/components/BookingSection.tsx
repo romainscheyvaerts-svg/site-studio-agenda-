@@ -12,6 +12,7 @@ import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
 import AdminEventCreator from "./AdminEventCreator";
+import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
 import { useAuth } from "@/hooks/useAuth";
@@ -520,7 +521,7 @@ const BookingSection = () => {
         <div className="max-w-4xl mx-auto relative">
           {/* Login Required Overlay */}
           {!authLoading && !user && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-2xl">
+            <div className="absolute inset-0 z-50 flex items-start justify-center pt-8 bg-background/80 backdrop-blur-sm rounded-2xl">
               <div className="text-center p-8 max-w-md">
                 <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Lock className="w-8 h-8 text-primary" />
@@ -552,10 +553,7 @@ const BookingSection = () => {
                   <Shield className="w-8 h-8 text-green-500" />
                   <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
                 </div>
-                <div className="flex gap-2">
-                  <AdminInvoiceGenerator />
-                  <AdminEventCreator />
-                </div>
+                <AdminPanel />
               </div>
               <p className="text-muted-foreground">
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
@@ -645,6 +643,7 @@ const BookingSection = () => {
                 <p className="text-sm text-muted-foreground">
                   Session accompagnée avec un ingénieur son professionnel
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">💳 50% acompte • 🪪 Vérification d'identité requise</p>
                 <p className="text-xs text-accent mt-1">⭐ Dès 5h : 40€/h (déduit du solde le jour de la session)</p>
               </button>
 
@@ -671,8 +670,9 @@ const BookingSection = () => {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Accès au studio en autonomie (vérification d'identité requise)
+                  Accès au studio en autonomie
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">💳 Paiement complet • 🪪 Vérification d'identité requise</p>
                 <p className="text-xs text-primary mt-1">⭐ Dès 5h : 20€/h (déduit du solde le jour de la session)</p>
               </button>
             </div>
@@ -816,6 +816,10 @@ const BookingSection = () => {
               {/* Personal info - Hidden when skipFormFields is active */}
               {!combinedPromoEffects.skipFormFields && (
                 <div className="space-y-4">
+                  <h4 className="font-display text-lg text-foreground flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">2</span>
+                    REMPLISSEZ LE FORMULAIRE
+                  </h4>
                   <div>
                     <Label htmlFor="name" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                       <User className="w-4 h-4" /> Nom complet <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
@@ -1181,6 +1185,10 @@ const BookingSection = () => {
             {/* Identity Verification - Only for studio sessions and if not skipped by promo */}
             {!isImmediateService && !skipIdentityVerification && sessionType && formData.name && (availabilityStatus === "available" || combinedPromoEffects.fullCalendarVisibility) && (
               <div className="mb-6">
+                <h4 className="font-display text-lg text-foreground flex items-center gap-2 mb-4">
+                  <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">3</span>
+                  VÉRIFICATION D'IDENTITÉ
+                </h4>
                 <IdentityVerification
                   formName={formData.name}
                   onVerified={handleIdentityVerified}
@@ -1202,7 +1210,12 @@ const BookingSection = () => {
 
             {/* Price display - Hidden for admin and VIP codes that skip payment */}
             {sessionType && !skipPayment && !isAdmin && (
-              <div className="mb-6 p-4 rounded-xl bg-secondary/50 border border-primary/20">
+              <div className="mb-6">
+                <h4 className="font-display text-lg text-foreground flex items-center gap-2 mb-4">
+                  <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">4</span>
+                  PAIEMENT
+                </h4>
+                <div className="p-4 rounded-xl bg-secondary/50 border border-primary/20">
                 {!isImmediateService && (
                   <>
                     <div className="flex items-center justify-between mb-2">
@@ -1328,6 +1341,7 @@ const BookingSection = () => {
                     </span>
                   </div>
                 </div>
+              </div>
               </div>
             )}
 
@@ -1502,7 +1516,7 @@ const BookingSection = () => {
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
                       <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut</p>
                       <a
-                        href={`https://revolut.me/makemusic?amount=${paymentAmount}`}
+                        href={`https://revolut.me/makemusic/${paymentAmount}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
