@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-const ADMIN_EMAIL = "prod.makemusic@gmail.com";
+const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com"];
 
 export const useAdmin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -20,7 +20,7 @@ export const useAdmin = () => {
       }
 
       // Quick check by email first
-      if (user.email !== ADMIN_EMAIL) {
+      if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
         setIsAdmin(false);
         setLoading(false);
         return;

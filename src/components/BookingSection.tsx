@@ -548,16 +548,46 @@ const BookingSection = () => {
           {/* Admin Access Banner */}
           {isAdmin && (
             <div className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border-2 border-green-500/50">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Shield className="w-8 h-8 text-green-500" />
                   <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
                 </div>
-                <AdminPanel />
+                <Button
+                  variant="outline"
+                  onClick={() => setShowVIPCalendar(!showVIPCalendar)}
+                  className="border-green-500 text-green-500 hover:bg-green-500/10"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  {showVIPCalendar ? "Fermer l'agenda" : "Voir l'agenda"}
+                </Button>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-4">
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
               </p>
+              
+              {/* Admin-only VIP Calendar viewer */}
+              {showVIPCalendar && (
+                <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500">
+                  <VIPCalendar
+                    onSelectSlot={(date, time, duration) => {
+                      setFormData(prev => ({ ...prev, date, time }));
+                      setHours(duration);
+                      toast({
+                        title: "Créneau sélectionné",
+                        description: `${date} à ${time} pour ${duration}h`,
+                      });
+                    }}
+                    selectedDate={formData.date}
+                    selectedTime={formData.time}
+                  />
+                </div>
+              )}
+              
+              {/* Inline promo code management */}
+              <div className="mt-4">
+                <AdminPanel inline={true} />
+              </div>
             </div>
           )}
 
@@ -1349,6 +1379,24 @@ const BookingSection = () => {
             {sessionType && !isImmediateService && !isAdmin && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm">
                 ⚠️ Pour les réservations moins de 24h à l'avance, le studio se réserve le droit d'annuler et de rembourser intégralement.
+              </div>
+            )}
+
+            {/* Helper message when form is incomplete - shown only when button would be disabled */}
+            {!isAdmin && sessionType && !combinedPromoEffects.skipFormFields && (!formData.name || !formData.email || !formData.phone || (!isImmediateService && !skipIdentityVerification && !identityVerified)) && (
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-sm">
+                <p className="text-muted-foreground flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span>
+                    Pour continuer, veuillez compléter :
+                    {!formData.name && <span className="block text-primary">• Votre nom complet</span>}
+                    {!formData.email && <span className="block text-primary">• Votre adresse email</span>}
+                    {!formData.phone && <span className="block text-primary">• Votre numéro de téléphone</span>}
+                    {!isImmediateService && !skipIdentityVerification && !identityVerified && (
+                      <span className="block text-primary">• La vérification d'identité (carte d'identité)</span>
+                    )}
+                  </span>
+                </p>
               </div>
             )}
 
