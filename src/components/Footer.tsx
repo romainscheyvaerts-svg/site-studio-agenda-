@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Mic, Instagram, Youtube, Music } from "lucide-react";
+import { Mic } from "lucide-react";
 
 const Footer = () => {
   const { t } = useTranslation();
@@ -19,17 +19,6 @@ const Footer = () => {
             <p className="text-muted-foreground text-sm max-w-md mb-4">
               {t("footer.description")}
             </p>
-            <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                <Youtube className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                <Music className="w-5 h-5" />
-              </a>
-            </div>
           </div>
 
           {/* Services */}

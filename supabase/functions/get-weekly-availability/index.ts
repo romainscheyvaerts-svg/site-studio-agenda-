@@ -15,6 +15,7 @@ const AvailabilityRequestSchema = z.object({
 interface CalendarEvent {
   start: { dateTime?: string; date?: string };
   end: { dateTime?: string; date?: string };
+  summary?: string;
 }
 
 interface CalendarResponse {
@@ -31,6 +32,7 @@ interface TimeSlot {
   hour: number;
   available: boolean;
   status: "available" | "unavailable" | "on-request";
+  eventName?: string;
 }
 
 interface DayAvailability {
@@ -226,7 +228,7 @@ function isSlotAvailableInGoogle(
   events: CalendarEvent[],
   slotStart: Date,
   slotEnd: Date
-): boolean {
+): { available: boolean; eventName?: string } {
   for (const event of events) {
     const eventStart = new Date(event.start.dateTime || event.start.date || "");
     const eventEnd = new Date(event.end.dateTime || event.end.date || "");
@@ -236,16 +238,16 @@ function isSlotAvailableInGoogle(
       const eventDate = event.start.date;
       const slotDate = slotStart.toISOString().split("T")[0];
       if (eventDate === slotDate) {
-        return false;
+        return { available: false, eventName: event.summary };
       }
     }
     
     // Check for overlap
     if (eventStart < slotEnd && eventEnd > slotStart) {
-      return false;
+      return { available: false, eventName: event.summary };
     }
   }
-  return true;
+  return { available: true };
 }
 
 function isSlotBusyInICal(
@@ -353,17 +355,17 @@ serve(async (req) => {
         }
 
         // Check ONLY studio calendar for main availability
-        const isStudioAvailable = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
+        const studioResult = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
         
-        if (!isStudioAvailable) {
+        if (!studioResult.available) {
           // Studio is booked - unavailable
-          slots.push({ hour, available: false, status: "unavailable" });
+          slots.push({ hour, available: false, status: "unavailable", eventName: studioResult.eventName });
         } else {
           // Studio is free, check if patron is busy in personal Google calendar OR Claridge
-          const isPatronBusyInGoogle = !isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);
+          const patronResult = isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);
           const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
           
-          if (isPatronBusyInGoogle || isPatronBusyInClaridge) {
+          if (!patronResult.available || isPatronBusyInClaridge) {
             // Patron busy (personal or Claridge) but studio is free - show "on request"
             slots.push({ hour, available: true, status: "on-request" });
           } else {
