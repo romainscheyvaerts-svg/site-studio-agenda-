@@ -112,12 +112,12 @@ const GearSection = () => {
 
           {/* Right: Visual display */}
           <div className="relative flex items-center justify-center">
-            <div className="relative w-full aspect-square max-w-md">
+            <div className="relative w-full aspect-square max-w-md mx-auto">
               {/* Glow effect */}
               <div className="absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent animate-pulse-slow" />
               
               {/* Center display */}
-              <div className="absolute inset-8 rounded-2xl border border-primary/30 bg-card/50 backdrop-blur-sm flex flex-col items-center justify-center gradient-border">
+              <div className="absolute inset-8 rounded-2xl border border-primary/30 bg-card/50 backdrop-blur-sm flex flex-col items-center justify-center gradient-border text-center">
                 <span className="text-sm text-primary mb-2">{t(gearData[activeGear].categoryKey)}</span>
                 <span className="font-display text-4xl md:text-5xl text-foreground mb-1">{gearData[activeGear].brand}</span>
                 <span className="font-display text-2xl md:text-3xl text-primary text-glow-cyan">{gearData[activeGear].name}</span>

@@ -118,8 +118,20 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
         Le nom doit correspondre à celui du formulaire : <span className="font-semibold text-foreground">{formName}</span>
       </p>
 
+      {/* Hidden file input - configured to show camera and gallery on mobile */}
       <input
         ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      {/* Separate camera-specific input */}
+      <input
+        ref={(el) => {
+          if (el) el.setAttribute("capture", "environment");
+        }}
+        id="camera-input"
         type="file"
         accept="image/*"
         capture="environment"
@@ -143,9 +155,9 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
             variant="outline"
             className="flex-1"
             onClick={() => {
-              if (fileInputRef.current) {
-                fileInputRef.current.setAttribute("capture", "environment");
-                fileInputRef.current.click();
+              const cameraInput = document.getElementById("camera-input") as HTMLInputElement;
+              if (cameraInput) {
+                cameraInput.click();
               }
             }}
           >

@@ -28,7 +28,7 @@ interface AdminPanelProps {
 
 const AdminPanel = ({ inline = false }: AdminPanelProps) => {
   const { toast } = useToast();
-  const [isExpanded, setIsExpanded] = useState(inline);
+  const [isExpanded, setIsExpanded] = useState(true); // Always start expanded
   const [isOpen, setIsOpen] = useState(false);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);

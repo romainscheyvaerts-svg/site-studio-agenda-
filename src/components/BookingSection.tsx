@@ -580,12 +580,13 @@ const BookingSection = () => {
                     }}
                     selectedDate={formData.date}
                     selectedTime={formData.time}
+                    isAdminMode={true}
                   />
                 </div>
               )}
               
-              {/* Inline promo code management */}
-              <div className="mt-4">
+              {/* Inline promo code management - directly visible */}
+              <div className="mt-4 p-4 rounded-xl bg-card/50 border border-green-500/30">
                 <AdminPanel inline={true} />
               </div>
             </div>
