@@ -15,6 +15,7 @@ import AdminEventCreator from "./AdminEventCreator";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
+import StripeWalletPayment from "./StripeWalletPayment";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -1668,63 +1669,16 @@ const BookingSection = () => {
                     {/* Apple Pay / Google Pay Option via Stripe */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
                       <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Apple Pay / Google Pay</p>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            toast({
-                              title: "Redirection vers le paiement...",
-                              description: "Vous allez être redirigé vers la page de paiement sécurisée.",
-                            });
-                            
-                            const { data, error } = await supabase.functions.invoke("create-stripe-payment", {
-                              body: {
-                                amount: paymentAmount,
-                                email: formData.email,
-                                name: formData.name,
-                                phone: formData.phone,
-                                sessionType,
-                                hours,
-                                date: formData.date,
-                                time: formData.time,
-                                isDeposit,
-                                totalPrice: finalPrice,
-                                podcastMinutes: sessionType === "podcast" ? podcastMinutes : undefined,
-                                message: formData.message,
-                              },
-                            });
-                            
-                            if (error) throw error;
-                            if (data?.url) {
-                              window.location.href = data.url;
-                            } else {
-                              throw new Error("No checkout URL received");
-                            }
-                          } catch (err) {
-                            console.error("Stripe payment error:", err);
-                            toast({
-                              title: "Erreur de paiement",
-                              description: "Impossible de créer la session de paiement. Veuillez réessayer.",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-[#000000] to-[#1a1a2e] hover:from-[#1a1a2e] hover:to-[#000000] text-white font-semibold rounded-lg transition-all"
-                      >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M17.0425 8.1725C16.9875 8.2225 15.7425 8.9225 15.7425 10.4475C15.7425 12.2225 17.3175 12.8475 17.3625 12.8625C17.3525 12.8975 17.1075 13.7225 16.5225 14.5675C16.0025 15.3175 15.4575 16.0625 14.6325 16.0625C13.8075 16.0625 13.5425 15.5875 12.5925 15.5875C11.6675 15.5875 11.2675 16.0775 10.5075 16.0775C9.7475 16.0775 9.2175 15.3925 8.6075 14.5475C7.9025 13.5575 7.3325 12.0225 7.3325 10.5675C7.3325 8.2925 8.8125 7.0825 10.2675 7.0825C11.0675 7.0825 11.7375 7.6025 12.2425 7.6025C12.7225 7.6025 13.4775 7.0525 14.4025 7.0525C14.7675 7.0525 16.0125 7.0825 16.9525 8.1725H17.0425ZM14.0175 5.6775C14.4175 5.1925 14.6925 4.5275 14.6925 3.8625C14.6925 3.7625 14.6825 3.6625 14.6625 3.5775C14.0075 3.6025 13.2275 4.0175 12.7525 4.5675C12.3775 4.9875 12.0425 5.6525 12.0425 6.3275C12.0425 6.4375 12.0575 6.5475 12.0675 6.5825C12.1125 6.5925 12.1875 6.6025 12.2625 6.6025C12.8525 6.6025 13.5925 6.2075 14.0175 5.6775Z"/>
-                        </svg>
-                        <span>Pay</span>
-                        <span className="mx-1">/</span>
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z"/>
-                        </svg>
-                        <span>Pay</span>
-                        <span className="ml-2 text-sm opacity-80">({paymentAmount}€)</span>
-                      </button>
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Paiement sécurisé par carte, Apple Pay ou Google Pay
-                      </p>
+                      <StripeWalletPayment
+                        amount={paymentAmount}
+                        sessionType={sessionType!}
+                        hours={hours}
+                        formData={formData}
+                        isDeposit={isDeposit}
+                        totalPrice={finalPrice}
+                        podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
+                        onSuccess={() => setShowPayment(false)}
+                      />
                     </div>
 
                     {/* Divider */}

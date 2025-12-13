@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.verify-stripe-payment]
 verify_jwt = false
+
+[functions.create-stripe-payment-intent]
+verify_jwt = false
+
+[functions.get-stripe-publishable-key]
+verify_jwt = false
