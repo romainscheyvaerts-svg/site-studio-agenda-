@@ -49,7 +49,8 @@ serve(async (req) => {
       fileName: file.name,
       mimeType: file.mimeType,
       size: file.size ? parseInt(file.size) : 0,
-      previewUrl: `https://drive.google.com/uc?export=preview&id=${file.id}`,
+      // Use media export URL for audio playback
+      previewUrl: `https://docs.google.com/uc?export=open&id=${file.id}`,
       downloadUrl: `https://drive.google.com/uc?export=download&id=${file.id}`,
       webViewLink: file.webViewLink,
       createdTime: file.createdTime,
