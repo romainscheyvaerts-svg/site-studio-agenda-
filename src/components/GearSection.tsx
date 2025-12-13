@@ -74,56 +74,32 @@ const GearSection = () => {
           </p>
         </div>
 
-        {/* Gear grid */}
-        <div className="grid lg:grid-cols-2 gap-8 mb-16">
-          {/* Left: Gear selector */}
-          <div className="space-y-4">
+        {/* Gear grid - full width, centered */}
+        <div className="max-w-4xl mx-auto mb-16">
+          <div className="grid md:grid-cols-2 gap-4">
             {gearData.map((item, index) => (
               <div
                 key={index}
-                onClick={() => setActiveGear(index)}
                 className={cn(
-                  "p-6 rounded-xl cursor-pointer transition-all duration-300",
-                  activeGear === index
-                    ? "bg-card border border-primary/50 box-glow-cyan"
-                    : "bg-secondary/30 border border-border hover:border-primary/30"
+                  "p-6 rounded-xl transition-all duration-300",
+                  "bg-card border border-primary/30 box-glow-cyan"
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-primary font-medium tracking-wider">{t(item.categoryKey)}</span>
                   <span className="text-xs text-accent font-bold">{item.brand}</span>
                 </div>
-                <h3 className="font-display text-2xl text-foreground mb-2">{item.brand} {item.name}</h3>
-                {activeGear === index && (
-                  <div className="animate-fade-in">
-                    <p className="text-muted-foreground text-sm mb-4">{t(item.descriptionKey)}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {item.features.map((feature, i) => (
-                        <span key={i} className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs">
-                          {feature}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <h3 className="font-display text-2xl text-foreground mb-3">{item.brand} {item.name}</h3>
+                <p className="text-muted-foreground text-sm mb-4">{t(item.descriptionKey)}</p>
+                <div className="flex flex-wrap gap-2">
+                  {item.features.map((feature, i) => (
+                    <span key={i} className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
-          </div>
-
-          {/* Right: Decorative glow */}
-          <div className="relative flex items-center justify-center">
-            <div className="relative w-full aspect-square max-w-md mx-auto">
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent animate-pulse-slow" />
-              
-              {/* Orbiting elements */}
-              <div className="absolute inset-0 animate-spin" style={{ animationDuration: '30s' }}>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_hsl(var(--neon-cyan))]" />
-              </div>
-              <div className="absolute inset-0 animate-spin" style={{ animationDuration: '25s', animationDirection: 'reverse' }}>
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_hsl(var(--neon-gold))]" />
-              </div>
-            </div>
           </div>
         </div>
 

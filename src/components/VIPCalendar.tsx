@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, CheckSquare } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +32,12 @@ interface VIPCalendarProps {
   isAdminMode?: boolean;
 }
 
+interface SelectedSlot {
+  date: string;
+  hour: number;
+  eventId?: string;
+}
+
 const VIPCalendar = ({ 
   onSelectSlot, 
   onConfirmBooking, 
@@ -53,6 +59,10 @@ const VIPCalendar = ({
   const [eventName, setEventName] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
+  
+  // Multi-select mode for admin
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
 
   // Fetch availability data
   useEffect(() => {
@@ -90,8 +100,26 @@ const VIPCalendar = ({
   };
 
   const handleSelectSlot = (date: string, hour: number) => {
-    setSelectedDay(date);
-    setSelectedHour(hour);
+    if (isAdminMode && multiSelectMode) {
+      // Multi-select mode: toggle slot selection
+      const dayData = availability.find(d => d.date === date);
+      const slot = dayData?.slots.find(s => s.hour === hour);
+      
+      if (slot?.status === "unavailable" && slot?.eventId) {
+        const slotKey = `${date}-${hour}`;
+        const existingIndex = selectedSlots.findIndex(s => `${s.date}-${s.hour}` === slotKey);
+        
+        if (existingIndex >= 0) {
+          setSelectedSlots(selectedSlots.filter((_, i) => i !== existingIndex));
+        } else {
+          setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
+        }
+      }
+    } else {
+      // Single select mode
+      setSelectedDay(date);
+      setSelectedHour(hour);
+    }
   };
 
   const handleConfirmSelection = () => {
@@ -203,15 +231,7 @@ const VIPCalendar = ({
       setSelectedHour(null);
       
       // Refresh availability
-      setLoading(true);
-      const refreshData = await supabase.functions.invoke("get-weekly-availability", {
-        body: {
-          startDate: weekStart.toISOString().split("T")[0],
-          days: 14,
-        },
-      });
-      setAvailability(refreshData.data?.availability || []);
-      setLoading(false);
+      await refreshAvailability();
     } catch (err) {
       console.error("Failed to delete event:", err);
       toast({
@@ -222,6 +242,69 @@ const VIPCalendar = ({
     } finally {
       setDeletingEvent(false);
     }
+  };
+
+  // Delete multiple events
+  const handleDeleteMultiple = async () => {
+    if (selectedSlots.length === 0) return;
+    
+    setDeletingEvent(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const slot of selectedSlots) {
+        if (slot.eventId) {
+          try {
+            const { error } = await supabase.functions.invoke("delete-admin-event", {
+              body: { eventId: slot.eventId },
+            });
+            if (!error) successCount++;
+            else errorCount++;
+          } catch {
+            errorCount++;
+          }
+        }
+      }
+
+      toast({
+        title: `${successCount} événement(s) supprimé(s)`,
+        description: errorCount > 0 ? `${errorCount} erreur(s)` : undefined,
+        variant: errorCount > 0 ? "destructive" : "default",
+      });
+
+      setSelectedSlots([]);
+      setMultiSelectMode(false);
+      
+      // Refresh availability
+      await refreshAvailability();
+    } catch (err) {
+      console.error("Failed to delete events:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les événements",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingEvent(false);
+    }
+  };
+
+  const refreshAvailability = async () => {
+    setLoading(true);
+    const refreshData = await supabase.functions.invoke("get-weekly-availability", {
+      body: {
+        startDate: weekStart.toISOString().split("T")[0],
+        days: 14,
+      },
+    });
+    setAvailability(refreshData.data?.availability || []);
+    setLoading(false);
+  };
+
+  // Check if slot is in multi-select
+  const isSlotMultiSelected = (date: string, hour: number): boolean => {
+    return selectedSlots.some(s => s.date === date && s.hour === hour);
   };
 
   const formatHour = (hour: number) => {
