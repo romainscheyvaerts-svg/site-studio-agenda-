@@ -135,7 +135,7 @@ const BeatStore = () => {
     }
   }, [volume, isMuted]);
 
-  const handlePlay = (beatId: string, previewUrl: string) => {
+  const handlePlay = (beatId: string, audioUrl: string) => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -144,7 +144,7 @@ const BeatStore = () => {
       setIsPlaying(false);
     } else {
       if (currentlyPlaying !== beatId) {
-        audio.src = previewUrl;
+        audio.src = audioUrl;
         setCurrentlyPlaying(beatId);
         setProgress(0);
       }
@@ -168,6 +168,12 @@ const BeatStore = () => {
     const paypalUrl = `https://www.paypal.com/paypalme/makemusic/${beat.price}EUR`;
     const revolutUrl = `https://revolut.me/makemusic/${revolutAmount}`;
     
+    const markAsPurchased = () => {
+      const newPurchases = [...purchasedBeats, beat.id];
+      setPurchasedBeats(newPurchases);
+      localStorage.setItem("beatstore_purchases", JSON.stringify(newPurchases));
+    };
+    
     // Show payment options
     toast({
       title: `Acheter "${beat.name}"`,
@@ -182,8 +188,16 @@ const BeatStore = () => {
               Revolut
             </Button>
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-1 self-start"
+            onClick={markAsPurchased}
+          >
+            J'ai payé, débloquer le téléchargement
+          </Button>
           <p className="text-xs text-muted-foreground mt-1">
-            Après paiement, envoyez la confirmation à prod.makemusic@gmail.com pour recevoir le lien de téléchargement.
+            Après paiement, cliquez sur "J'ai payé" pour activer le bouton de téléchargement.
           </p>
         </div>
       ) as unknown as string,
@@ -338,7 +352,7 @@ const BeatStore = () => {
                 {/* Play overlay */}
                 <div 
                   className="absolute inset-0 flex items-center justify-center bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer"
-                  onClick={() => handlePlay(beat.id, beat.downloadUrl)}
+                  onClick={() => handlePlay(beat.id, beat.previewUrl)}
                 >
                   <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
                     {currentlyPlaying === beat.id && isPlaying ? (
