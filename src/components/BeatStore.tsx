@@ -158,7 +158,26 @@ const BeatStore = () => {
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sepaPayload)}`;
   };
 
-  const handlePlay = (beatId: string, audioUrl: string) => {
+  const buildBankAppUrl = (amount: number) => {
+    // Lien deep-link générique pour ouvrir l'app bancaire avec virement SEPA pré-rempli
+    const iban = "BE28650615377020";
+    const name = encodeURIComponent("MAKE MUSIC");
+    const amountStr = amount.toFixed(2);
+    // Tous les banques ne supportent pas forcément ce format, mais c'est la meilleure approximation cross-plateforme
+    return `bank://sepa?iban=${iban}&name=${name}&amount=${amountStr}&currency=EUR`;
+  };
+
+  const getDriveDirectUrl = (url: string) => {
+    if (!url) return "";
+    // Essaie de récupérer l'id de fichier à partir des différents formats d'URL Google Drive
+    const idMatch = url.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]{10,})/);
+    const fileId = idMatch ? idMatch[1] : null;
+    return fileId
+      ? `https://drive.google.com/uc?export=download&id=${fileId}`
+      : url;
+  };
+
+  const handlePlay = (beatId: string, rawUrl: string) => {
     if (!user) {
       toast({
         title: "Connexion requise",
@@ -170,6 +189,8 @@ const BeatStore = () => {
 
     const audio = audioRef.current;
     if (!audio) return;
+
+    const audioUrl = getDriveDirectUrl(rawUrl);
 
     if (currentlyPlaying === beatId && isPlaying) {
       audio.pause();
@@ -194,7 +215,7 @@ const BeatStore = () => {
     audio.currentTime = percent * audio.duration;
   };
 
-  const handlePurchase = (beat: Beat) => {
+  const handlePurchase = async (beat: Beat) => {
     if (!user) {
       toast({
         title: "Connexion requise",
@@ -206,29 +227,59 @@ const BeatStore = () => {
 
     const paypalUrl = `https://www.paypal.com/paypalme/makemusic/${beat.price}EUR`;
     const sepaQrUrl = buildSepaQrUrl(beat.price);
-    
-    const markAsPurchased = () => {
+    const bankAppUrl = buildBankAppUrl(beat.price);
+
+    const markAsPurchased = async () => {
       const newPurchases = [...purchasedBeats, beat.id];
       setPurchasedBeats(newPurchases);
       localStorage.setItem("beatstore_purchases", JSON.stringify(newPurchases));
+
+      // Envoi du lien de téléchargement par email au client
+      try {
+        await supabase.functions.invoke("send-beat-download", {
+          body: {
+            email: user.email,
+            beatName: beat.name,
+            downloadUrl: beat.downloadUrl,
+          },
+        });
+        toast({
+          title: "Paiement confirmé",
+          description: "Le lien de téléchargement a été envoyé par email.",
+        });
+      } catch (error) {
+        console.error("Erreur lors de l'envoi de l'email de téléchargement:", error);
+        toast({
+          title: "Avertissement",
+          description: "Téléchargement débloqué, mais l'email n'a pas pu être envoyé.",
+        });
+      }
     };
-    
-    // Show payment options
+
     toast({
       title: `Acheter "${beat.name}"`,
       description: (
         <div className="flex flex-col gap-2 mt-2">
           <p className="text-sm">Prix: {beat.price}€</p>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => window.open(paypalUrl, "_blank")}>
-              PayPal
-            </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => window.open(paypalUrl, "_blank")}>
+                PayPal
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(sepaQrUrl, "_blank")}
+              >
+                QR banque / Revolut
+              </Button>
+            </div>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => window.open(sepaQrUrl, "_blank")}
+              onClick={() => (window.location.href = bankAppUrl)}
             >
-              Revolut / Banque (QR)
+              Ouvrir mon application bancaire
             </Button>
           </div>
           <Button
@@ -237,10 +288,11 @@ const BeatStore = () => {
             className="mt-1 self-start"
             onClick={markAsPurchased}
           >
-            J'ai payé, débloquer le téléchargement
+            J'ai payé, m'envoyer le lien
           </Button>
           <p className="text-xs text-muted-foreground mt-1">
-            Après paiement, cliquez sur "J'ai payé" pour activer le bouton de téléchargement.
+            Après paiement, cliquez sur "J'ai payé" pour recevoir le lien de téléchargement par email
+            et activer le bouton de téléchargement.
           </p>
         </div>
       ) as unknown as string,
