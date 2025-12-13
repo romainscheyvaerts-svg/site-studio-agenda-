@@ -1620,40 +1620,64 @@ const BookingSection = () => {
                         <ExternalLink className="w-4 h-4" />
                       </button>
 
-                      {/* Open Banking App Button */}
+                      {/* Open Banking App Button - Shows QR modal for universal compatibility */}
                       <button
                         type="button"
                         onClick={() => {
+                          // EPC QR Code standard - compatible with ALL European banking apps
+                          // BCD = SEPA Credit Transfer format
                           const iban = "BE28650615377020";
                           const name = "MAKE MUSIC";
-                          const amountCents = Math.round(paymentAmount * 100);
-                          // Try multiple deep link formats for banking apps
-                          const sepaLink = `sepa://pay?name=${encodeURIComponent(name)}&iban=${iban}&amount=${paymentAmount}&currency=EUR`;
+                          const bic = "REVOBE23"; // Revolut Belgium BIC
+                          const reference = `Booking ${new Date().toISOString().split('T')[0]}`;
                           
-                          // Create a fallback with bank: scheme
-                          const bankLink = `bank://sepa?iban=${iban}&name=${encodeURIComponent(name)}&amount=${paymentAmount}&currency=EUR`;
+                          // EPC QR Code format (version 002)
+                          const sepaPayload = [
+                            "BCD",           // Service Tag
+                            "002",           // Version
+                            "1",             // Character set (UTF-8)
+                            "SCT",           // SEPA Credit Transfer
+                            bic,             // BIC
+                            name,            // Beneficiary Name
+                            iban,            // IBAN
+                            `EUR${paymentAmount.toFixed(2)}`, // Amount
+                            "",              // Purpose
+                            reference,       // Reference
+                            "Make Music Studio Booking" // Additional info
+                          ].join("\n");
                           
-                          // Try to open the banking app
-                          window.location.href = sepaLink;
+                          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(sepaPayload)}`;
                           
-                          // Show toast with manual info as fallback
+                          // Show modal with QR code
                           toast({
-                            title: "Informations de paiement",
+                            title: "📱 Scannez avec votre application bancaire",
                             description: (
-                              <div className="space-y-2 text-sm">
-                                <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
-                                <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
-                                <p><strong>Montant:</strong> {paymentAmount}€</p>
-                                <p className="text-xs text-muted-foreground">Si l'app ne s'ouvre pas, copiez ces informations dans votre application bancaire.</p>
+                              <div className="space-y-3">
+                                <div className="flex justify-center bg-white p-3 rounded-lg">
+                                  <img src={qrUrl} alt="QR SEPA" className="w-48 h-48" />
+                                </div>
+                                <p className="text-xs text-center text-muted-foreground">
+                                  Compatible avec toutes les banques européennes : BNP, Crédit Agricole, Société Générale, Deutsche Bank, ING, KBC, Belfius, Santander, BBVA, UniCredit, etc.
+                                </p>
+                                <div className="text-xs space-y-1 p-2 bg-muted/50 rounded">
+                                  <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
+                                  <p><strong>Montant:</strong> {paymentAmount}€</p>
+                                  <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
+                                </div>
+                                <p className="text-xs text-center">
+                                  1. Ouvrez votre app bancaire<br/>
+                                  2. Cherchez "Scanner QR" ou "Payer par QR"<br/>
+                                  3. Scannez ce code
+                                </p>
                               </div>
                             ),
-                            duration: 15000,
+                            duration: 60000,
                           });
                         }}
                         className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors"
                       >
                         <Building2 className="w-4 h-4" />
-                        <span>Ouvrir mon application bancaire</span>
+                        <span>Ouvrir mon application bancaire ({paymentAmount}€)</span>
                       </button>
                       
                       <div className="mt-3 p-2 bg-muted/50 rounded-lg text-xs text-muted-foreground">
