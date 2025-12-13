@@ -163,9 +163,10 @@ const BeatStore = () => {
   };
 
   const handlePurchase = (beat: Beat) => {
-    // Open payment in new tab - Revolut uses /amount format, not query param
+    // Revolut personnal link uses amount in cents, so multiply by 100
+    const revolutAmount = beat.price * 100;
     const paypalUrl = `https://www.paypal.com/paypalme/makemusic/${beat.price}EUR`;
-    const revolutUrl = `https://revolut.me/makemusic/${beat.price}`;
+    const revolutUrl = `https://revolut.me/makemusic/${revolutAmount}`;
     
     // Show payment options
     toast({
@@ -337,7 +338,7 @@ const BeatStore = () => {
                 {/* Play overlay */}
                 <div 
                   className="absolute inset-0 flex items-center justify-center bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer"
-                  onClick={() => handlePlay(beat.id, beat.previewUrl)}
+                  onClick={() => handlePlay(beat.id, beat.downloadUrl)}
                 >
                   <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
                     {currentlyPlaying === beat.id && isPlaying ? (

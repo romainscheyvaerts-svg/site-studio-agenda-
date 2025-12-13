@@ -15,9 +15,9 @@ const AdminPaymentQRCode = ({ calculatedPrice }: AdminPaymentQRCodeProps) => {
   const [showQR, setShowQR] = useState(false);
 
   const amount = parseFloat(customAmount) || 0;
-
+  const revolutAmount = amount * 100;
   const paypalLink = `https://www.paypal.me/makemusicstudio/${amount}EUR`;
-  const revolutLink = `https://revolut.me/makemusic/${amount}`;
+  const revolutLink = `https://revolut.me/makemusic/${revolutAmount}`;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
