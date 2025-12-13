@@ -17,7 +17,7 @@ const AdminPaymentQRCode = ({ calculatedPrice }: AdminPaymentQRCodeProps) => {
   const amount = parseFloat(customAmount) || 0;
 
   const paypalLink = `https://www.paypal.me/makemusicstudio/${amount}EUR`;
-  const revolutLink = `https://revolut.me/makemusic?amount=${amount}`;
+  const revolutLink = `https://revolut.me/makemusic/${amount}`;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

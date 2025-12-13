@@ -163,9 +163,9 @@ const BeatStore = () => {
   };
 
   const handlePurchase = (beat: Beat) => {
-    // Open payment in new tab
+    // Open payment in new tab - Revolut uses /amount format, not query param
     const paypalUrl = `https://www.paypal.com/paypalme/makemusic/${beat.price}EUR`;
-    const revolutUrl = `https://revolut.me/makemusic?amount=${beat.price}`;
+    const revolutUrl = `https://revolut.me/makemusic/${beat.price}`;
     
     // Show payment options
     toast({
