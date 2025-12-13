@@ -60,8 +60,7 @@ const VIPCalendar = ({
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
   
-  // Multi-select mode for admin
-  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  // Multi-select for admin - always enabled in admin mode for booked slots
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
 
   // Fetch availability data
@@ -100,23 +99,23 @@ const VIPCalendar = ({
   };
 
   const handleSelectSlot = (date: string, hour: number) => {
-    if (isAdminMode && multiSelectMode) {
-      // Multi-select mode: toggle slot selection
-      const dayData = availability.find(d => d.date === date);
-      const slot = dayData?.slots.find(s => s.hour === hour);
+    const dayData = availability.find(d => d.date === date);
+    const slot = dayData?.slots.find(s => s.hour === hour);
+    
+    // In admin mode, clicking on a booked slot toggles its selection
+    if (isAdminMode && slot?.status === "unavailable" && slot?.eventId) {
+      const slotKey = `${date}-${hour}`;
+      const existingIndex = selectedSlots.findIndex(s => `${s.date}-${s.hour}` === slotKey);
       
-      if (slot?.status === "unavailable" && slot?.eventId) {
-        const slotKey = `${date}-${hour}`;
-        const existingIndex = selectedSlots.findIndex(s => `${s.date}-${s.hour}` === slotKey);
-        
-        if (existingIndex >= 0) {
-          setSelectedSlots(selectedSlots.filter((_, i) => i !== existingIndex));
-        } else {
-          setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
-        }
+      if (existingIndex >= 0) {
+        // Deselect if already selected
+        setSelectedSlots(selectedSlots.filter((_, i) => i !== existingIndex));
+      } else {
+        // Add to selection
+        setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
       }
     } else {
-      // Single select mode
+      // Regular selection for available slots or non-admin
       setSelectedDay(date);
       setSelectedHour(hour);
     }
@@ -274,7 +273,6 @@ const VIPCalendar = ({
       });
 
       setSelectedSlots([]);
-      setMultiSelectMode(false);
       
       // Refresh availability
       await refreshAvailability();
@@ -493,6 +491,8 @@ const VIPCalendar = ({
                       const isClickable = displayStatus !== "unavailable" || isAdminMode;
                       const isSelected = selectedDay === day.date && selectedHour === hour;
 
+                      const isMultiSelected = isAdminMode && isSlotMultiSelected(day.date, hour);
+                      
                       return (
                         <button
                           key={`${day.date}-${hour}`}
@@ -500,22 +500,29 @@ const VIPCalendar = ({
                           disabled={!isClickable && !isAdminMode}
                           className={cn(
                             "p-1 rounded text-[10px] transition-all duration-200 min-h-[36px] flex flex-col items-center justify-center",
-                            displayStatus === "available"
-                              ? isSelected
-                                ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
-                              : displayStatus === "on-request"
+                            // Multi-selected slots in admin mode
+                            isMultiSelected
+                              ? "bg-blue-500 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-background"
+                              : displayStatus === "available"
                                 ? isSelected
-                                  ? "bg-primary text-primary-foreground ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
-                                  : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
-                                : isSelected
                                   ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                  : "bg-destructive/20 text-destructive cursor-pointer"
+                                  : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
+                                : displayStatus === "on-request"
+                                  ? isSelected
+                                    ? "bg-primary text-primary-foreground ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+                                    : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
+                                  : isSelected
+                                    ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
+                                    : isAdminMode 
+                                      ? "bg-destructive/20 text-destructive hover:bg-destructive/40 cursor-pointer"
+                                      : "bg-destructive/20 text-destructive cursor-pointer"
                           )}
                           title={eventName || formatHour(hour)}
                         >
                           <span className="font-medium">{formatHour(hour)}</span>
-                          {displayStatus === "unavailable" && eventName ? (
+                          {isMultiSelected ? (
+                            <span className="text-[8px]">✓ sélectionné</span>
+                          ) : displayStatus === "unavailable" && eventName ? (
                             <span className="truncate w-full text-[8px] opacity-80 px-0.5">{eventName}</span>
                           ) : displayStatus === "available" ? (
                             <span className="opacity-50">✓</span>
@@ -530,6 +537,40 @@ const VIPCalendar = ({
               </div>
             </div>
           </div>
+
+          {/* Multi-select delete button for admin */}
+          {isAdminMode && selectedSlots.length > 0 && (
+            <div className="mt-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-blue-400">
+                  {selectedSlots.length} créneau(x) sélectionné(s)
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedSlots([])}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Désélectionner
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteMultiple}
+                    disabled={deletingEvent}
+                  >
+                    {deletingEvent ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 mr-1" />
+                    )}
+                    Supprimer ({selectedSlots.length})
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Selection summary and confirm */}
           {selectedDay && selectedHour !== null && (
