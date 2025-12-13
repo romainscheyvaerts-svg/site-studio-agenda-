@@ -13,6 +13,7 @@ const AvailabilityRequestSchema = z.object({
 });
 
 interface CalendarEvent {
+  id?: string;
   start: { dateTime?: string; date?: string };
   end: { dateTime?: string; date?: string };
   summary?: string;
@@ -33,6 +34,7 @@ interface TimeSlot {
   available: boolean;
   status: "available" | "unavailable" | "on-request";
   eventName?: string;
+  eventId?: string;
 }
 
 interface DayAvailability {
@@ -228,7 +230,7 @@ function isSlotAvailableInGoogle(
   events: CalendarEvent[],
   slotStart: Date,
   slotEnd: Date
-): { available: boolean; eventName?: string } {
+): { available: boolean; eventName?: string; eventId?: string } {
   for (const event of events) {
     const eventStart = new Date(event.start.dateTime || event.start.date || "");
     const eventEnd = new Date(event.end.dateTime || event.end.date || "");
@@ -238,13 +240,13 @@ function isSlotAvailableInGoogle(
       const eventDate = event.start.date;
       const slotDate = slotStart.toISOString().split("T")[0];
       if (eventDate === slotDate) {
-        return { available: false, eventName: event.summary };
+        return { available: false, eventName: event.summary, eventId: event.id };
       }
     }
     
     // Check for overlap
     if (eventStart < slotEnd && eventEnd > slotStart) {
-      return { available: false, eventName: event.summary };
+      return { available: false, eventName: event.summary, eventId: event.id };
     }
   }
   return { available: true };
@@ -331,7 +333,7 @@ serve(async (req) => {
 
     // Generate availability for each day
     const availability: DayAvailability[] = [];
-    const workingHours = { start: 10, end: 23 }; // 10:00 - 23:00
+    const workingHours = { start: 0, end: 24 }; // 24h/24
 
     for (let d = 0; d < days; d++) {
       const currentDate = new Date(start);
@@ -359,7 +361,13 @@ serve(async (req) => {
         
         if (!studioResult.available) {
           // Studio is booked - unavailable
-          slots.push({ hour, available: false, status: "unavailable", eventName: studioResult.eventName });
+          slots.push({ 
+            hour, 
+            available: false, 
+            status: "unavailable", 
+            eventName: studioResult.eventName,
+            eventId: studioResult.eventId 
+          });
         } else {
           // Studio is free, check if patron is busy in personal Google calendar OR Claridge
           const patronResult = isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);

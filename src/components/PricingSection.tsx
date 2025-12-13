@@ -16,7 +16,23 @@ interface PricingCardProps {
 }
 
 const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted, buttonText }: PricingCardProps) => {
-  const scrollToBooking = () => {
+  const scrollToBookingAndSelectService = () => {
+    // Dispatch an event to auto-select the service based on title
+    const serviceMap: Record<string, string> = {
+      "Session accompagnée": "with-engineer",
+      "Sans ingénieur": "without-engineer",
+      "Location sèche": "without-engineer",
+      "Piste par piste": "mixing",
+      "Finalisation": "mastering",
+      "Mastering premium": "analog-mastering",
+      "Audio podcast": "podcast",
+    };
+    
+    const serviceType = serviceMap[subtitle] || null;
+    if (serviceType) {
+      window.dispatchEvent(new CustomEvent("select-service", { detail: serviceType }));
+    }
+    
     document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -74,7 +90,7 @@ const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted
         variant={highlighted ? "hero" : "neon"}
         className="w-full"
         size="lg"
-        onClick={scrollToBooking}
+        onClick={scrollToBookingAndSelectService}
       >
         {buttonText}
       </Button>

@@ -5,10 +5,11 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { 
   Mic, Building2, Music, Headphones, Disc, Radio, 
-  Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2, Trash2
+  Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2
 } from "lucide-react";
 import VIPCalendar from "./VIPCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
+import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,8 +40,6 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
   const [clientEmail, setClientEmail] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
-  const [deletingEvent, setDeletingEvent] = useState(false);
-  const [eventIdToDelete, setEventIdToDelete] = useState("");
 
   const pricing: Record<string, number> = {
     "with-engineer": 45,
@@ -402,63 +401,13 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                       totalPrice: finalPrice,
                     }}
                   />
+                  
+                  {/* QR Code payment */}
+                  <div className="pt-4 border-t border-border">
+                    <AdminPaymentQRCode calculatedPrice={finalPrice} />
+                  </div>
                 </div>
               )}
-
-              {/* Delete event section */}
-              <div className="pt-4 border-t border-border">
-                <Label className="text-sm text-muted-foreground mb-2 block flex items-center gap-2">
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                  Supprimer un événement
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={eventIdToDelete}
-                    onChange={(e) => setEventIdToDelete(e.target.value)}
-                    placeholder="ID de l'événement Google Calendar"
-                    className="bg-secondary/50 border-border flex-1"
-                  />
-                  <Button
-                    variant="destructive"
-                    disabled={deletingEvent || !eventIdToDelete.trim()}
-                    onClick={async () => {
-                      if (!eventIdToDelete.trim()) return;
-                      setDeletingEvent(true);
-                      try {
-                        const { error } = await supabase.functions.invoke("delete-admin-event", {
-                          body: { eventId: eventIdToDelete.trim() },
-                        });
-                        
-                        if (error) throw error;
-                        
-                        toast({
-                          title: "Événement supprimé",
-                          description: "L'événement a été retiré de l'agenda.",
-                        });
-                        setEventIdToDelete("");
-                      } catch (err) {
-                        console.error("Error deleting event:", err);
-                        toast({
-                          title: "Erreur",
-                          description: "Impossible de supprimer l'événement. Vérifiez l'ID.",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setDeletingEvent(false);
-                      }
-                    }}
-                  >
-                    {deletingEvent ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  L'ID de l'événement se trouve dans l'URL Google Calendar
-                </p>
-              </div>
             </div>
           </div>
         </div>

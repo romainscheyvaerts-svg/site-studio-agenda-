@@ -281,6 +281,26 @@ const BookingSection = () => {
     };
   }, []);
 
+  // Listen for select-service event from pricing cards
+  useEffect(() => {
+    const handleSelectService = (event: CustomEvent<string>) => {
+      const serviceType = event.detail as SessionType;
+      if (serviceType) {
+        setSessionType(serviceType);
+        setShowPayment(false);
+        // Scroll to form after a short delay
+        setTimeout(() => {
+          document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    };
+
+    window.addEventListener("select-service", handleSelectService as EventListener);
+    return () => {
+      window.removeEventListener("select-service", handleSelectService as EventListener);
+    };
+  }, []);
+
   // Check availability when date, time, duration or session type changes
   useEffect(() => {
     const checkAvailability = async () => {
@@ -648,12 +668,15 @@ const BookingSection = () => {
             
             {/* Sessions studio */}
             <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Sessions Studio</p>
-            <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <div className="grid md:grid-cols-2 gap-4 mb-6" id="booking-form">
               <button
                 type="button"
                 onClick={() => {
                   setSessionType("with-engineer");
                   setShowPayment(false);
+                  setTimeout(() => {
+                    document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
                 }}
                 className={cn(
                   "p-6 rounded-xl border-2 text-left transition-all duration-300",
@@ -683,6 +706,9 @@ const BookingSection = () => {
                 onClick={() => {
                   setSessionType("without-engineer");
                   setShowPayment(false);
+                  setTimeout(() => {
+                    document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
                 }}
                 className={cn(
                   "p-6 rounded-xl border-2 text-left transition-all duration-300",
