@@ -121,7 +121,7 @@ const PricingSection = () => {
         </div>
 
         {/* Pricing grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           <PricingCard
             title={t("pricing.with_engineer.title")}
             subtitle="Session accompagnée"
@@ -201,10 +201,7 @@ const PricingSection = () => {
               t("pricing.analog_mastering.feature5"),
             ]}
           />
-        </div>
 
-        {/* Second row - Podcast */}
-        <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
           <PricingCard
             title={t("pricing.podcast.title")}
             subtitle="Audio podcast"
@@ -213,9 +210,9 @@ const PricingSection = () => {
             icon={<Radio className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
             features={[
-              t("pricing.podcast.feature1"),
-              t("pricing.podcast.feature2"),
-              t("pricing.podcast.feature3"),
+              "Base: 40€/min (jusqu'à 2 pistes)",
+              "4 pistes: +35€/min",
+              "6 pistes: +65€/min",
               t("pricing.podcast.feature4"),
               t("pricing.podcast.feature5"),
             ]}
