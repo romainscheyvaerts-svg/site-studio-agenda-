@@ -1587,9 +1587,11 @@ const BookingSection = () => {
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
-                    {/* Revolut Option */}
+                    {/* Revolut / Bank Option */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut / Virement bancaire</p>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Virement bancaire / Revolut</p>
+                      
+                      {/* QR Code Button */}
                       <button
                         type="button"
                         onClick={() => {
@@ -1612,13 +1614,57 @@ const BookingSection = () => {
                           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sepaPayload)}`;
                           window.open(qrUrl, "_blank");
                         }}
-                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
+                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors mb-2"
                       >
-                        <span>Payer {paymentAmount}€ via Revolut / Banque (QR)</span>
+                        <span>Afficher QR Code ({paymentAmount}€)</span>
                         <ExternalLink className="w-4 h-4" />
                       </button>
+
+                      {/* Open Banking App Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const iban = "BE28650615377020";
+                          const name = "MAKE MUSIC";
+                          const amountCents = Math.round(paymentAmount * 100);
+                          // Try multiple deep link formats for banking apps
+                          const sepaLink = `sepa://pay?name=${encodeURIComponent(name)}&iban=${iban}&amount=${paymentAmount}&currency=EUR`;
+                          
+                          // Create a fallback with bank: scheme
+                          const bankLink = `bank://sepa?iban=${iban}&name=${encodeURIComponent(name)}&amount=${paymentAmount}&currency=EUR`;
+                          
+                          // Try to open the banking app
+                          window.location.href = sepaLink;
+                          
+                          // Show toast with manual info as fallback
+                          toast({
+                            title: "Informations de paiement",
+                            description: (
+                              <div className="space-y-2 text-sm">
+                                <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
+                                <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
+                                <p><strong>Montant:</strong> {paymentAmount}€</p>
+                                <p className="text-xs text-muted-foreground">Si l'app ne s'ouvre pas, copiez ces informations dans votre application bancaire.</p>
+                              </div>
+                            ),
+                            duration: 15000,
+                          });
+                        }}
+                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors"
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>Ouvrir mon application bancaire</span>
+                      </button>
+                      
+                      <div className="mt-3 p-2 bg-muted/50 rounded-lg text-xs text-muted-foreground">
+                        <p className="font-medium mb-1">Informations de virement :</p>
+                        <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
+                        <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
+                        <p><strong>Montant:</strong> {paymentAmount}€</p>
+                      </div>
+                      
                       <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Scannez le QR avec votre app bancaire ou Revolut pour envoyer le montant sur l'IBAN {"BE28 6506 1537 7020"}
+                        ⚠️ Après paiement, envoyez une capture d'écran à <a href="https://wa.me/32476094172" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">+32 476 09 41 72</a> pour confirmation
                       </p>
                     </div>
                   </div>
