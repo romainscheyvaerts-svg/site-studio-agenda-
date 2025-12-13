@@ -1589,18 +1589,36 @@ const BookingSection = () => {
 
                     {/* Revolut Option */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut</p>
-                      <a
-                        href={`https://revolut.me/makemusic/${paymentAmount * 100}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Revolut / Virement bancaire</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const iban = "BE28650615377020";
+                          const name = "MAKE MUSIC";
+                          const amountStr = paymentAmount.toFixed(2);
+                          const sepaPayload = [
+                            "BCD",
+                            "001",
+                            "1",
+                            "SCT",
+                            "",
+                            name,
+                            iban,
+                            `EUR${amountStr}`,
+                            "",
+                            "",
+                            "",
+                          ].join("\n");
+                          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sepaPayload)}`;
+                          window.open(qrUrl, "_blank");
+                        }}
                         className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
                       >
-                        <span>Payer {paymentAmount}€ via Revolut</span>
+                        <span>Payer {paymentAmount}€ via Revolut / Banque (QR)</span>
                         <ExternalLink className="w-4 h-4" />
-                      </a>
+                      </button>
                       <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Après paiement Revolut, envoyez-nous une capture d'écran de confirmation
+                        Scannez le QR avec votre app bancaire ou Revolut pour envoyer le montant sur l'IBAN {"BE28 6506 1537 7020"}
                       </p>
                     </div>
                   </div>

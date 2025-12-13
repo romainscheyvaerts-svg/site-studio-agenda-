@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   Play, 
   Pause, 
@@ -44,6 +45,7 @@ const BeatStore = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { isAdmin } = useAdmin();
+  const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const [beats, setBeats] = useState<Beat[]>([]);
@@ -135,7 +137,37 @@ const BeatStore = () => {
     }
   }, [volume, isMuted]);
 
+  const buildSepaQrUrl = (amount: number) => {
+    const iban = "BE28650615377020"; // IBAN Make Music (sans espaces)
+    const name = "MAKE MUSIC";
+    const amountStr = amount.toFixed(2);
+    const sepaPayload = [
+      "BCD", // Service tag
+      "001", // Version
+      "1",   // Character set
+      "SCT", // SEPA credit transfer
+      "",    // BIC (optional)
+      name,
+      iban,
+      `EUR${amountStr}`,
+      "", // Purpose
+      "", // Remittance
+      ""  // Information
+    ].join("\n");
+
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sepaPayload)}`;
+  };
+
   const handlePlay = (beatId: string, audioUrl: string) => {
+    if (!user) {
+      toast({
+        title: "Connexion requise",
+        description: "Connectez-vous pour écouter les instrumentales.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -163,10 +195,17 @@ const BeatStore = () => {
   };
 
   const handlePurchase = (beat: Beat) => {
-    // Revolut personnal link uses amount in cents, so multiply by 100
-    const revolutAmount = beat.price * 100;
+    if (!user) {
+      toast({
+        title: "Connexion requise",
+        description: "Connectez-vous pour acheter et télécharger les instrumentales.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const paypalUrl = `https://www.paypal.com/paypalme/makemusic/${beat.price}EUR`;
-    const revolutUrl = `https://revolut.me/makemusic/${revolutAmount}`;
+    const sepaQrUrl = buildSepaQrUrl(beat.price);
     
     const markAsPurchased = () => {
       const newPurchases = [...purchasedBeats, beat.id];
@@ -184,8 +223,12 @@ const BeatStore = () => {
             <Button size="sm" onClick={() => window.open(paypalUrl, "_blank")}>
               PayPal
             </Button>
-            <Button size="sm" variant="outline" onClick={() => window.open(revolutUrl, "_blank")}>
-              Revolut
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(sepaQrUrl, "_blank")}
+            >
+              Revolut / Banque (QR)
             </Button>
           </div>
           <Button
@@ -205,6 +248,15 @@ const BeatStore = () => {
   };
 
   const handleDownload = (beat: Beat) => {
+    if (!user) {
+      toast({
+        title: "Connexion requise",
+        description: "Connectez-vous pour télécharger les instrumentales.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     window.open(beat.downloadUrl, "_blank");
   };
 
@@ -283,7 +335,7 @@ const BeatStore = () => {
                   variant="ghost"
                   onClick={() => {
                     const beat = beats.find(b => b.id === currentlyPlaying);
-                    if (beat) handlePlay(beat.id, beat.previewUrl);
+                    if (beat) handlePlay(beat.id, beat.downloadUrl);
                   }}
                 >
                   {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
@@ -352,7 +404,7 @@ const BeatStore = () => {
                 {/* Play overlay */}
                 <div 
                   className="absolute inset-0 flex items-center justify-center bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer"
-                  onClick={() => handlePlay(beat.id, beat.previewUrl)}
+                  onClick={() => handlePlay(beat.id, beat.downloadUrl)}
                 >
                   <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
                     {currentlyPlaying === beat.id && isPlaying ? (

@@ -15,9 +15,31 @@ const AdminPaymentQRCode = ({ calculatedPrice }: AdminPaymentQRCodeProps) => {
   const [showQR, setShowQR] = useState(false);
 
   const amount = parseFloat(customAmount) || 0;
-  const revolutAmount = amount * 100;
   const paypalLink = `https://www.paypal.me/makemusicstudio/${amount}EUR`;
-  const revolutLink = `https://revolut.me/makemusic/${revolutAmount}`;
+
+  const iban = "BE28650615377020";
+  const name = "MAKE MUSIC";
+  const amountStr = amount.toFixed(2);
+  const sepaPayload = [
+    "BCD",
+    "001",
+    "1",
+    "SCT",
+    "",
+    name,
+    iban,
+    `EUR${amountStr}`,
+    "",
+    "",
+    "",
+  ].join("\n");
+
+  // Generate QR code URL using a free API
+  const getQRCodeUrl = (data: string) => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
+  };
+
+  const revolutLink = getQRCodeUrl(sepaPayload);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -25,11 +47,6 @@ const AdminPaymentQRCode = ({ calculatedPrice }: AdminPaymentQRCodeProps) => {
       title: "Copié !",
       description: `Lien ${label} copié dans le presse-papier`,
     });
-  };
-
-  // Generate QR code URL using a free API
-  const getQRCodeUrl = (data: string) => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
   };
 
   return (
