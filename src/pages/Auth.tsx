@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, CheckCircle, Chrome } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, CheckCircle, Chrome, User, Phone } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 type AuthView = "login" | "signup" | "forgot-password" | "reset-password";
@@ -16,6 +16,8 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -202,6 +204,16 @@ const Auth = () => {
           }
         }
       } else {
+        if (!fullName.trim() || !phone.trim()) {
+          toast({
+            title: "Informations requises",
+            description: "Merci d'indiquer votre nom et votre numéro de téléphone.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
         const redirectUrl = `${window.location.origin}/`;
         
         const { error } = await supabase.auth.signUp({
@@ -209,6 +221,10 @@ const Auth = () => {
           password,
           options: {
             emailRedirectTo: redirectUrl,
+            data: {
+              full_name: fullName.trim(),
+              phone: phone.trim(),
+            },
           },
         });
 
@@ -508,6 +524,45 @@ const Auth = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {view === "signup" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-foreground">Nom complet</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Votre nom et prénom"
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-foreground">Numéro de téléphone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+32 ..."
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Ces informations seront utilisées pour pré-remplir vos réservations.
+                  </p>
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground">Email</Label>
               <div className="relative">
@@ -557,11 +612,9 @@ const Auth = () => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-            {view === "signup" && (
-                <p className="text-xs text-muted-foreground">
-                  Minimum 6 caractères
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Minimum 6 caractères
+              </p>
             </div>
 
             {view === "login" && (
