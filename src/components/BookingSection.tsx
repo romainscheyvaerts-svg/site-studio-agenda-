@@ -72,7 +72,8 @@ const BookingSection = () => {
       setFormData(prev => ({
         ...prev,
         email: user.email || prev.email,
-        name: user.user_metadata?.full_name || user.user_metadata?.name || prev.name,
+        name: (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || prev.name,
+        phone: (user.user_metadata?.phone as string) || prev.phone,
       }));
     }
   }, [user]);
