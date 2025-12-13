@@ -110,19 +110,12 @@ const GearSection = () => {
             ))}
           </div>
 
-          {/* Right: Visual display */}
+          {/* Right: Decorative glow */}
           <div className="relative flex items-center justify-center">
             <div className="relative w-full aspect-square max-w-md mx-auto">
               {/* Glow effect */}
               <div className="absolute inset-0 bg-gradient-radial from-primary/20 via-transparent to-transparent animate-pulse-slow" />
               
-              {/* Center display */}
-              <div className="absolute inset-8 rounded-2xl border border-primary/30 bg-card/50 backdrop-blur-sm flex flex-col items-center justify-center gradient-border text-center">
-                <span className="text-sm text-primary mb-2">{t(gearData[activeGear].categoryKey)}</span>
-                <span className="font-display text-4xl md:text-5xl text-foreground mb-1">{gearData[activeGear].brand}</span>
-                <span className="font-display text-2xl md:text-3xl text-primary text-glow-cyan">{gearData[activeGear].name}</span>
-              </div>
-
               {/* Orbiting elements */}
               <div className="absolute inset-0 animate-spin" style={{ animationDuration: '30s' }}>
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_15px_hsl(var(--neon-cyan))]" />

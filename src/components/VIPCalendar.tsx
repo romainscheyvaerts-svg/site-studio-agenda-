@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ interface TimeSlot {
   available: boolean;
   status: "available" | "unavailable" | "on-request";
   eventName?: string;
+  eventId?: string;
 }
 
 interface DayAvailability {
@@ -51,6 +52,7 @@ const VIPCalendar = ({
   const [duration, setDuration] = useState(2);
   const [eventName, setEventName] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
 
   // Fetch availability data
   useEffect(() => {
@@ -167,6 +169,61 @@ const VIPCalendar = ({
     }
   };
 
+  // Delete event handler for admin mode
+  const handleDeleteEvent = async () => {
+    if (!selectedDay || selectedHour === null) return;
+    
+    const dayData = availability.find(d => d.date === selectedDay);
+    const slot = dayData?.slots.find(s => s.hour === selectedHour);
+    
+    if (!slot?.eventId) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de trouver l'ID de l'événement",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDeletingEvent(true);
+
+    try {
+      const { error } = await supabase.functions.invoke("delete-admin-event", {
+        body: { eventId: slot.eventId },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Événement supprimé ! 🗑️",
+        description: `L'événement a été retiré de l'agenda`,
+      });
+
+      setSelectedDay(null);
+      setSelectedHour(null);
+      
+      // Refresh availability
+      setLoading(true);
+      const refreshData = await supabase.functions.invoke("get-weekly-availability", {
+        body: {
+          startDate: weekStart.toISOString().split("T")[0],
+          days: 14,
+        },
+      });
+      setAvailability(refreshData.data?.availability || []);
+      setLoading(false);
+    } catch (err) {
+      console.error("Failed to delete event:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer l'événement",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingEvent(false);
+    }
+  };
+
   const formatHour = (hour: number) => {
     return `${hour.toString().padStart(2, "0")}:00`;
   };
@@ -212,6 +269,19 @@ const VIPCalendar = ({
     const slot = daySlots.find(s => s.hour === hour);
     return slot?.eventName;
   };
+
+  // Get event ID for a slot (for deletion)
+  const getSlotEventId = (daySlots: TimeSlot[], hour: number): string | undefined => {
+    const slot = daySlots.find(s => s.hour === hour);
+    return slot?.eventId;
+  };
+
+  // Check if selected slot can be deleted (has eventId and is unavailable)
+  const canDeleteSelectedSlot = isAdminMode && selectedDay && selectedHour !== null && (() => {
+    const dayData = availability.find(d => d.date === selectedDay);
+    const slot = dayData?.slots.find(s => s.hour === selectedHour);
+    return slot?.status === "unavailable" && slot?.eventId;
+  })();
 
   const openWhatsApp = () => {
     const phoneNumber = "+32476094172";
@@ -328,8 +398,8 @@ const VIPCalendar = ({
               </div>
 
               {/* Time slots grid */}
-              <div className="space-y-1">
-                {[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map((hour) => (
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => (
                   <div key={hour} className="grid grid-cols-8 gap-1">
                     <div className="text-xs text-muted-foreground p-2 flex items-center">
                       {formatHour(hour)}
@@ -406,31 +476,57 @@ const VIPCalendar = ({
                   )}
                 </div>
 
-                {/* Admin event creation */}
+                {/* Admin event creation / deletion */}
                 {isAdminMode && (
-                  <div className="border-t border-border pt-4">
-                    <Label className="text-sm text-muted-foreground mb-2 block">Nom de l'événement</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        placeholder="Ex: Session John Doe"
-                        className="flex-1"
-                      />
-                      <Button 
-                        onClick={handleCreateEvent}
-                        disabled={creatingEvent || !eventName.trim()}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {creatingEvent ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4 mr-2" />
-                            CRÉER L'ÉVÉNEMENT
-                          </>
-                        )}
-                      </Button>
+                  <div className="border-t border-border pt-4 space-y-4">
+                    {/* Delete button for booked slots */}
+                    {canDeleteSelectedSlot && (
+                      <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                        <p className="text-sm text-destructive mb-2 flex items-center gap-2">
+                          <Trash2 className="w-4 h-4" />
+                          Cet événement peut être supprimé
+                        </p>
+                        <Button 
+                          onClick={handleDeleteEvent}
+                          disabled={deletingEvent}
+                          variant="destructive"
+                          className="w-full"
+                        >
+                          {deletingEvent ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 mr-2" />
+                          )}
+                          SUPPRIMER L'ÉVÉNEMENT
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Create new event */}
+                    <div>
+                      <Label className="text-sm text-muted-foreground mb-2 block">Créer un nouvel événement</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={eventName}
+                          onChange={(e) => setEventName(e.target.value)}
+                          placeholder="Ex: Session John Doe"
+                          className="flex-1"
+                        />
+                        <Button 
+                          onClick={handleCreateEvent}
+                          disabled={creatingEvent || !eventName.trim()}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {creatingEvent ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4 mr-2" />
+                              CRÉER
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
