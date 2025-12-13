@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.quote-assistant]
 verify_jwt = false
+
+[functions.create-stripe-payment]
+verify_jwt = false
+
+[functions.verify-stripe-payment]
+verify_jwt = false
