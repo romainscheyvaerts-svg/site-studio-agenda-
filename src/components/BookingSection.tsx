@@ -281,6 +281,84 @@ const BookingSection = () => {
     };
   }, []);
 
+  // Handle Stripe payment callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get("payment");
+    const sessionId = urlParams.get("session_id");
+
+    if (paymentStatus === "success" && sessionId) {
+      // Verify payment and create booking
+      const verifyAndCreateBooking = async () => {
+        try {
+          toast({
+            title: "Vérification du paiement...",
+            description: "Veuillez patienter pendant que nous vérifions votre paiement.",
+          });
+
+          const { data, error } = await supabase.functions.invoke("verify-stripe-payment", {
+            body: { sessionId },
+          });
+
+          if (error) throw error;
+
+          if (data?.success) {
+            // Payment verified - create booking via paypal-webhook (reusing existing logic)
+            const { data: bookingData, error: bookingError } = await supabase.functions.invoke("paypal-webhook", {
+              body: {
+                orderId: `STRIPE-${sessionId}`,
+                payerName: data.metadata?.name || "Client",
+                payerEmail: data.customerEmail || "",
+                phone: data.metadata?.phone || "",
+                sessionType: data.metadata?.sessionType,
+                date: data.metadata?.date,
+                time: data.metadata?.time,
+                hours: parseInt(data.metadata?.hours || "2"),
+                totalAmount: data.metadata?.totalPrice || data.amountTotal,
+                message: data.metadata?.message || "",
+                isCashPayment: false,
+                podcastMinutes: data.metadata?.podcastMinutes ? parseInt(data.metadata.podcastMinutes) : undefined,
+              },
+            });
+
+            if (bookingError) throw bookingError;
+
+            toast({
+              title: "Paiement confirmé ! 🎉",
+              description: "Votre réservation a été enregistrée. Un email de confirmation vous a été envoyé.",
+            });
+
+            // Clear URL params
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            toast({
+              title: "Erreur de paiement",
+              description: data?.error || "Le paiement n'a pas pu être vérifié.",
+              variant: "destructive",
+            });
+          }
+        } catch (err) {
+          console.error("Payment verification error:", err);
+          toast({
+            title: "Erreur de vérification",
+            description: "Une erreur est survenue lors de la vérification du paiement.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      verifyAndCreateBooking();
+    } else if (paymentStatus === "cancelled") {
+      toast({
+        title: "Paiement annulé",
+        description: "Vous avez annulé le processus de paiement. Vous pouvez réessayer quand vous le souhaitez.",
+        variant: "destructive",
+      });
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
+
   // Listen for select-service event from pricing cards
   useEffect(() => {
     const handleSelectService = (event: CustomEvent<string>) => {
@@ -1587,9 +1665,78 @@ const BookingSection = () => {
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
-                    {/* Revolut / Bank Option */}
+                    {/* Apple Pay / Google Pay Option via Stripe */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Virement bancaire / Revolut</p>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Apple Pay / Google Pay</p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            toast({
+                              title: "Redirection vers le paiement...",
+                              description: "Vous allez être redirigé vers la page de paiement sécurisée.",
+                            });
+                            
+                            const { data, error } = await supabase.functions.invoke("create-stripe-payment", {
+                              body: {
+                                amount: paymentAmount,
+                                email: formData.email,
+                                name: formData.name,
+                                phone: formData.phone,
+                                sessionType,
+                                hours,
+                                date: formData.date,
+                                time: formData.time,
+                                isDeposit,
+                                totalPrice: finalPrice,
+                                podcastMinutes: sessionType === "podcast" ? podcastMinutes : undefined,
+                                message: formData.message,
+                              },
+                            });
+                            
+                            if (error) throw error;
+                            if (data?.url) {
+                              window.location.href = data.url;
+                            } else {
+                              throw new Error("No checkout URL received");
+                            }
+                          } catch (err) {
+                            console.error("Stripe payment error:", err);
+                            toast({
+                              title: "Erreur de paiement",
+                              description: "Impossible de créer la session de paiement. Veuillez réessayer.",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-[#000000] to-[#1a1a2e] hover:from-[#1a1a2e] hover:to-[#000000] text-white font-semibold rounded-lg transition-all"
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.0425 8.1725C16.9875 8.2225 15.7425 8.9225 15.7425 10.4475C15.7425 12.2225 17.3175 12.8475 17.3625 12.8625C17.3525 12.8975 17.1075 13.7225 16.5225 14.5675C16.0025 15.3175 15.4575 16.0625 14.6325 16.0625C13.8075 16.0625 13.5425 15.5875 12.5925 15.5875C11.6675 15.5875 11.2675 16.0775 10.5075 16.0775C9.7475 16.0775 9.2175 15.3925 8.6075 14.5475C7.9025 13.5575 7.3325 12.0225 7.3325 10.5675C7.3325 8.2925 8.8125 7.0825 10.2675 7.0825C11.0675 7.0825 11.7375 7.6025 12.2425 7.6025C12.7225 7.6025 13.4775 7.0525 14.4025 7.0525C14.7675 7.0525 16.0125 7.0825 16.9525 8.1725H17.0425ZM14.0175 5.6775C14.4175 5.1925 14.6925 4.5275 14.6925 3.8625C14.6925 3.7625 14.6825 3.6625 14.6625 3.5775C14.0075 3.6025 13.2275 4.0175 12.7525 4.5675C12.3775 4.9875 12.0425 5.6525 12.0425 6.3275C12.0425 6.4375 12.0575 6.5475 12.0675 6.5825C12.1125 6.5925 12.1875 6.6025 12.2625 6.6025C12.8525 6.6025 13.5925 6.2075 14.0175 5.6775Z"/>
+                        </svg>
+                        <span>Pay</span>
+                        <span className="mx-1">/</span>
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z"/>
+                        </svg>
+                        <span>Pay</span>
+                        <span className="ml-2 text-sm opacity-80">({paymentAmount}€)</span>
+                      </button>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Paiement sécurisé par carte, Apple Pay ou Google Pay
+                      </p>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-xs text-muted-foreground">ou</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* Bank Transfer Option */}
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 3 : Virement bancaire</p>
                       
                       {/* QR Code Button */}
                       <button
@@ -1597,87 +1744,28 @@ const BookingSection = () => {
                         onClick={() => {
                           const iban = "BE28650615377020";
                           const name = "MAKE MUSIC";
-                          const amountStr = paymentAmount.toFixed(2);
+                          const bic = "REVOBE23";
+                          const reference = `Booking ${new Date().toISOString().split('T')[0]}`;
                           const sepaPayload = [
                             "BCD",
-                            "001",
+                            "002",
                             "1",
                             "SCT",
-                            "",
+                            bic,
                             name,
                             iban,
-                            `EUR${amountStr}`,
+                            `EUR${paymentAmount.toFixed(2)}`,
                             "",
-                            "",
-                            "",
+                            reference,
+                            "Make Music Studio Booking"
                           ].join("\n");
                           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sepaPayload)}`;
                           window.open(qrUrl, "_blank");
                         }}
-                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors mb-2"
+                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
                       >
-                        <span>Afficher QR Code ({paymentAmount}€)</span>
+                        <span>Afficher QR Code SEPA ({paymentAmount}€)</span>
                         <ExternalLink className="w-4 h-4" />
-                      </button>
-
-                      {/* Open Banking App Button - Shows QR modal for universal compatibility */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // EPC QR Code standard - compatible with ALL European banking apps
-                          // BCD = SEPA Credit Transfer format
-                          const iban = "BE28650615377020";
-                          const name = "MAKE MUSIC";
-                          const bic = "REVOBE23"; // Revolut Belgium BIC
-                          const reference = `Booking ${new Date().toISOString().split('T')[0]}`;
-                          
-                          // EPC QR Code format (version 002)
-                          const sepaPayload = [
-                            "BCD",           // Service Tag
-                            "002",           // Version
-                            "1",             // Character set (UTF-8)
-                            "SCT",           // SEPA Credit Transfer
-                            bic,             // BIC
-                            name,            // Beneficiary Name
-                            iban,            // IBAN
-                            `EUR${paymentAmount.toFixed(2)}`, // Amount
-                            "",              // Purpose
-                            reference,       // Reference
-                            "Make Music Studio Booking" // Additional info
-                          ].join("\n");
-                          
-                          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(sepaPayload)}`;
-                          
-                          // Show modal with QR code
-                          toast({
-                            title: "📱 Scannez avec votre application bancaire",
-                            description: (
-                              <div className="space-y-3">
-                                <div className="flex justify-center bg-white p-3 rounded-lg">
-                                  <img src={qrUrl} alt="QR SEPA" className="w-48 h-48" />
-                                </div>
-                                <p className="text-xs text-center text-muted-foreground">
-                                  Compatible avec toutes les banques européennes : BNP, Crédit Agricole, Société Générale, Deutsche Bank, ING, KBC, Belfius, Santander, BBVA, UniCredit, etc.
-                                </p>
-                                <div className="text-xs space-y-1 p-2 bg-muted/50 rounded">
-                                  <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
-                                  <p><strong>Montant:</strong> {paymentAmount}€</p>
-                                  <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
-                                </div>
-                                <p className="text-xs text-center">
-                                  1. Ouvrez votre app bancaire<br/>
-                                  2. Cherchez "Scanner QR" ou "Payer par QR"<br/>
-                                  3. Scannez ce code
-                                </p>
-                              </div>
-                            ),
-                            duration: 60000,
-                          });
-                        }}
-                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors"
-                      >
-                        <Building2 className="w-4 h-4" />
-                        <span>Ouvrir mon application bancaire ({paymentAmount}€)</span>
                       </button>
                       
                       <div className="mt-3 p-2 bg-muted/50 rounded-lg text-xs text-muted-foreground">
@@ -1686,10 +1774,6 @@ const BookingSection = () => {
                         <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
                         <p><strong>Montant:</strong> {paymentAmount}€</p>
                       </div>
-                      
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        ⚠️ Après paiement, envoyez une capture d'écran à <a href="https://wa.me/32476094172" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">+32 476 09 41 72</a> pour confirmation
-                      </p>
                     </div>
                   </div>
                 </div>
