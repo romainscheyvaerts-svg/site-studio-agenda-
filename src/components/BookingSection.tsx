@@ -15,7 +15,7 @@ import AdminEventCreator from "./AdminEventCreator";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
-import StripeWalletPayment from "./StripeWalletPayment";
+import StripeCheckoutButton from "./StripeCheckoutButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -1667,10 +1667,10 @@ const BookingSection = () => {
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
-                    {/* Apple Pay / Google Pay Option via Stripe */}
+                    {/* Stripe Checkout Option (Card, Apple Pay, Google Pay) */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Apple Pay / Google Pay</p>
-                      <StripeWalletPayment
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Carte bancaire (Apple Pay / Google Pay disponible)</p>
+                      <StripeCheckoutButton
                         amount={paymentAmount}
                         sessionType={sessionType!}
                         hours={hours}
@@ -1678,7 +1678,6 @@ const BookingSection = () => {
                         isDeposit={isDeposit}
                         totalPrice={finalPrice}
                         podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
-                        onSuccess={() => setShowPayment(false)}
                       />
                     </div>
 
