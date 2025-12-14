@@ -93,12 +93,10 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "https://b6b6c818-c19e-4ab7-9caf-8f1f698d2e1c.lovableproject.com";
 
-    // Create Checkout session with Apple Pay and Google Pay enabled natively
-    // Stripe Checkout automatically enables Apple Pay and Google Pay when available
+    // Create Checkout session - Stripe Checkout automatically enables Apple Pay and Google Pay
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      // Let Stripe determine available payment methods (includes Apple Pay, Google Pay, cards)
-      payment_method_types: ["card", "link"],
+      payment_method_types: ["card"], // Apple Pay and Google Pay are included with card on Checkout
       line_items: [
         {
           price_data: {
