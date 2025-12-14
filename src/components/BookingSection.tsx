@@ -1728,6 +1728,15 @@ const BookingSection = () => {
                         <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
                         <p><strong>Montant:</strong> {paymentAmount}€</p>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => navigate("/success?payment=sepa")}
+                        className="flex items-center justify-center gap-2 w-full py-2 px-4 mt-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        J'ai effectué mon virement
+                      </button>
                     </div>
                   </div>
                 </div>
