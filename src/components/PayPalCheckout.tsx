@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast";
 
@@ -37,6 +38,7 @@ const PayPalButtonWrapper = ({
   podcastMinutes
 }: Omit<PayPalCheckoutProps, 'clientId'>) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [{ isPending, isResolved, isRejected }] = usePayPalScriptReducer();
   const [showFallback, setShowFallback] = useState(false);
 
@@ -151,6 +153,8 @@ const PayPalButtonWrapper = ({
               : `Paiement de ${amount}€ confirmé. Votre location de ${hours}h est réservée.`,
           });
 
+          // Redirect to success page
+          navigate("/success?payment=paypal");
           onSuccess();
         } catch (err) {
           console.error("Error capturing payment:", err);
