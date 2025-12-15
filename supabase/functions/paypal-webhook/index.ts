@@ -8,6 +8,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Post-production services that don't require calendar scheduling
+const POST_PRODUCTION_SERVICES = ["mixing", "mastering", "analog-mastering", "podcast"];
+
 // Input validation schema for booking payload
 const bookingPayloadSchema = z.object({
   orderId: z.string().min(1).max(100),
@@ -15,13 +18,25 @@ const bookingPayloadSchema = z.object({
   payerEmail: z.string().trim().email().max(255),
   phone: z.string().trim().max(30).optional().default(""),
   sessionType: z.enum(["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast"]),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+  // Date/time optional for post-production services, required for studio sessions
+  date: z.string().optional().default(""),
+  time: z.string().optional().default(""),
   hours: z.number().int().min(1).max(12),
   totalAmount: z.number().min(0).max(10000),
   message: z.string().max(1000).optional(),
   podcastMinutes: z.number().int().min(1).max(180).optional(),
   isCashPayment: z.boolean().optional().default(false),
+}).refine((data) => {
+  // Post-production services don't need date/time
+  if (POST_PRODUCTION_SERVICES.includes(data.sessionType)) {
+    return true;
+  }
+  // Studio sessions require valid date and time
+  const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(data.date || "");
+  const timeValid = /^\d{2}:\d{2}$/.test(data.time || "");
+  return dateValid && timeValid;
+}, {
+  message: "Studio sessions require valid date (YYYY-MM-DD) and time (HH:MM)",
 });
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
