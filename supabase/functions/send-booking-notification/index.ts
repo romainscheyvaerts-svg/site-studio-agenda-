@@ -78,8 +78,9 @@ serve(async (req) => {
     }
 
     const { error: emailError } = await resend.emails.send({
-      from: "Make Music <onboarding@resend.dev>",
-      to: ["prod.makemusic@gmail.com"],
+      from: "Make Music Studio <onboarding@resend.dev>",
+      to: ["romain.scheyvaerts@gmail.com"],
+      reply_to: "prod.makemusic@gmail.com",
       subject: `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
