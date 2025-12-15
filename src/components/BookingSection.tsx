@@ -1684,55 +1684,30 @@ const BookingSection = () => {
                     {/* Divider */}
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-muted-foreground">ou</span>
+                      <span className="text-xs text-muted-foreground">ou virement SEPA</span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
-                    {/* Bank Transfer Option */}
-                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 3 : Virement bancaire</p>
-                      
-                      {/* QR Code Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const iban = "BE28650615377020";
-                          const name = "MAKE MUSIC";
-                          const bic = "REVOBE23";
-                          const reference = `Booking ${new Date().toISOString().split('T')[0]}`;
-                          const sepaPayload = [
-                            "BCD",
-                            "002",
-                            "1",
-                            "SCT",
-                            bic,
-                            name,
-                            iban,
-                            `EUR${paymentAmount.toFixed(2)}`,
-                            "",
-                            reference,
-                            "Make Music Studio Booking"
-                          ].join("\n");
-                          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sepaPayload)}`;
-                          window.open(qrUrl, "_blank");
-                        }}
-                        className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[#0075EB] hover:bg-[#0066CC] text-white font-semibold rounded-lg transition-colors"
-                      >
-                        <span>Afficher QR Code SEPA ({paymentAmount}€)</span>
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
-                      
-                      <div className="mt-3 p-2 bg-muted/50 rounded-lg text-xs text-muted-foreground">
-                        <p className="font-medium mb-1">Informations de virement :</p>
+                    {/* SEPA Bank Transfer - QR Code directly visible */}
+                    <div className="flex flex-col items-center gap-3">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent([
+                          "BCD", "002", "1", "SCT", "REVOBE23", "MAKE MUSIC", 
+                          "BE28650615377020", `EUR${paymentAmount.toFixed(2)}`, "", 
+                          `Booking ${new Date().toISOString().split('T')[0]}`, "Make Music Studio"
+                        ].join("\n"))}`}
+                        alt="SEPA QR Code"
+                        className="w-40 h-40 rounded-lg border border-border"
+                      />
+                      <div className="text-center text-xs text-muted-foreground">
                         <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
                         <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
                         <p><strong>Montant:</strong> {paymentAmount}€</p>
                       </div>
-
                       <button
                         type="button"
                         onClick={() => navigate("/success?payment=sepa")}
-                        className="flex items-center justify-center gap-2 w-full py-2 px-4 mt-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm"
+                        className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm"
                       >
                         <CheckCircle className="w-4 h-4" />
                         J'ai effectué mon virement
