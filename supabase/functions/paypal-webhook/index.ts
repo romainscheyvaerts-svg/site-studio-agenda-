@@ -829,7 +829,113 @@ const generateGoogleCalendarUrl = (payload: BookingPayload): string => {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&location=${location}&details=${details}`;
 };
 
-const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null, delayWeeks: number = 2): string => {
+const generateInvoiceHtml = (payload: BookingPayload, isCashPayment: boolean = false): string => {
+  const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
+  const invoiceDate = new Date().toLocaleDateString('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  let sessionLabel = "";
+  let unitPrice = 0;
+  
+  if (payload.sessionType === "with-engineer") {
+    sessionLabel = "Session avec ingénieur son";
+    unitPrice = 45;
+  } else if (payload.sessionType === "without-engineer") {
+    sessionLabel = "Location sèche (autonomie)";
+    unitPrice = 22;
+  } else if (payload.sessionType === "mixing") {
+    sessionLabel = "Service Mixage + Mastering";
+    unitPrice = 200;
+  } else if (payload.sessionType === "mastering") {
+    sessionLabel = "Service Mastering";
+    unitPrice = 60;
+  } else if (payload.sessionType === "analog-mastering") {
+    sessionLabel = "Service Mastering Analogique";
+    unitPrice = 100;
+  } else if (payload.sessionType === "podcast") {
+    sessionLabel = "Service Mixage Podcast";
+    unitPrice = 40; // per minute
+  }
+
+  const isHourlyService = ["with-engineer", "without-engineer"].includes(payload.sessionType);
+  const isPodcast = payload.sessionType === "podcast";
+  
+  const quantity = isPodcast ? (payload.podcastMinutes || 1) : (isHourlyService ? payload.hours : 1);
+  const quantityLabel = isPodcast ? `${quantity} min` : (isHourlyService ? `${quantity}h` : "1");
+  const totalHT = payload.totalAmount;
+  
+  const paymentStatus = isCashPayment 
+    ? `<span style="color: #fbbf24;">À payer le jour de la session: ${totalHT}€</span>` 
+    : `<span style="color: #22c55e;">Payé: ${totalHT}€</span>`;
+
+  return `
+    <div style="background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 24px; margin-top: 20px;">
+      <div style="border-bottom: 1px solid #27272a; padding-bottom: 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3 style="margin: 0; color: #22d3ee; font-size: 20px;">FACTURE</h3>
+            <p style="margin: 4px 0 0 0; color: #71717a; font-size: 12px;">N° ${invoiceNumber}</p>
+          </div>
+          <div style="text-align: right;">
+            <p style="margin: 0; color: #a1a1aa; font-size: 12px;">Date: ${invoiceDate}</p>
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <p style="margin: 0 0 4px 0; color: #71717a; font-size: 12px;">Émetteur:</p>
+        <p style="margin: 0; color: #fafafa; font-size: 14px; font-weight: 600;">Make Music Studio</p>
+        <p style="margin: 2px 0; color: #a1a1aa; font-size: 12px;">Rue du Sceptre 22, 1050 Ixelles, Bruxelles</p>
+        <p style="margin: 0; color: #a1a1aa; font-size: 12px;">prod.makemusic@gmail.com • +32 476 09 41 72</p>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <p style="margin: 0 0 4px 0; color: #71717a; font-size: 12px;">Client:</p>
+        <p style="margin: 0; color: #fafafa; font-size: 14px; font-weight: 600;">${payload.payerName}</p>
+        <p style="margin: 2px 0; color: #a1a1aa; font-size: 12px;">${payload.payerEmail}</p>
+        ${payload.phone ? `<p style="margin: 0; color: #a1a1aa; font-size: 12px;">${payload.phone}</p>` : ''}
+      </div>
+      
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+        <thead>
+          <tr style="border-bottom: 1px solid #27272a;">
+            <th style="text-align: left; padding: 8px 0; color: #71717a; font-size: 12px; font-weight: normal;">Description</th>
+            <th style="text-align: center; padding: 8px 0; color: #71717a; font-size: 12px; font-weight: normal;">Qté</th>
+            <th style="text-align: right; padding: 8px 0; color: #71717a; font-size: 12px; font-weight: normal;">P.U.</th>
+            <th style="text-align: right; padding: 8px 0; color: #71717a; font-size: 12px; font-weight: normal;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 12px 0; color: #fafafa; font-size: 14px;">${sessionLabel}</td>
+            <td style="padding: 12px 0; color: #a1a1aa; font-size: 14px; text-align: center;">${quantityLabel}</td>
+            <td style="padding: 12px 0; color: #a1a1aa; font-size: 14px; text-align: right;">${unitPrice}€</td>
+            <td style="padding: 12px 0; color: #fafafa; font-size: 14px; text-align: right; font-weight: 600;">${totalHT}€</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div style="border-top: 1px solid #27272a; padding-top: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #71717a; font-size: 14px;">Total TTC</span>
+          <span style="color: #fbbf24; font-size: 20px; font-weight: bold;">${totalHT}€</span>
+        </div>
+        <div style="margin-top: 8px; text-align: right;">
+          ${paymentStatus}
+        </div>
+      </div>
+      
+      <p style="margin: 16px 0 0 0; color: #52525b; font-size: 11px; text-align: center;">
+        Réf: ${payload.orderId}
+      </p>
+    </div>
+  `;
+};
+
+const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: string | null, delayWeeks: number = 2, isCashPayment: boolean = false): string => {
   const isPostProduction = ["mixing", "mastering", "analog-mastering", "podcast"].includes(payload.sessionType);
   const delayText = delayWeeks === 4 ? "environ 1 mois" : "environ 2 semaines";
   
@@ -900,6 +1006,16 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
               </tr>
   ` : '';
 
+  // Payment status message based on cash payment
+  const paymentStatusMessage = isCashPayment
+    ? `<h2 style="margin: 0 0 8px 0; color: #fafafa; font-size: 22px;">Réservation confirmée !</h2>
+       <p style="margin: 0; color: #fbbf24; font-size: 16px; font-weight: 600;">💰 Montant à payer le jour de la session : ${payload.totalAmount}€</p>`
+    : `<h2 style="margin: 0 0 8px 0; color: #fafafa; font-size: 22px;">Paiement confirmé !</h2>
+       <p style="margin: 0; color: #a1a1aa; font-size: 14px;">${isPostProduction ? "Votre commande est enregistrée" : "Votre session est réservée"}, ${payload.payerName}</p>`;
+
+  // Payment amount label
+  const paymentLabel = isCashPayment ? "Montant à payer" : "Montant payé";
+
   // For post-production, don't show date/time/duration
   const bookingDetailsSection = isPostProduction ? `
               <!-- Booking Details for Post-Production -->
@@ -918,8 +1034,8 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                     </tr>
                     <tr>
                       <td style="padding: 12px 0;">
-                        <span style="color: #71717a; font-size: 14px;">Montant payé</span><br>
-                        <span style="color: #fbbf24; font-size: 20px; font-weight: bold;">${payload.totalAmount}€</span>
+                        <span style="color: #71717a; font-size: 14px;">${paymentLabel}</span><br>
+                        <span style="color: ${isCashPayment ? '#fbbf24' : '#fbbf24'}; font-size: 20px; font-weight: bold;">${payload.totalAmount}€</span>
                       </td>
                     </tr>
                   </table>
@@ -960,11 +1076,21 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                     </tr>
                     <tr>
                       <td style="padding: 12px 0;">
-                        <span style="color: #71717a; font-size: 14px;">Montant payé</span><br>
-                        <span style="color: #fbbf24; font-size: 20px; font-weight: bold;">${payload.totalAmount}€</span>
+                        <span style="color: #71717a; font-size: 14px;">${paymentLabel}</span><br>
+                        <span style="color: ${isCashPayment ? '#fbbf24' : '#fbbf24'}; font-size: 20px; font-weight: bold;">${payload.totalAmount}€</span>
                       </td>
                     </tr>
                   </table>
+                </td>
+              </tr>
+  `;
+
+  // Generate invoice section
+  const invoiceSection = `
+              <!-- Invoice -->
+              <tr>
+                <td style="padding: 0 40px 30px 40px;">
+                  ${generateInvoiceHtml(payload, isCashPayment)}
                 </td>
               </tr>
   `;
@@ -1001,8 +1127,7 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
                     <div style="width: 60px; height: 60px; background-color: rgba(34, 197, 94, 0.2); border-radius: 50%; margin: 0 auto 16px auto; display: flex; align-items: center; justify-content: center;">
                       <span style="color: #22c55e; font-size: 30px;">✓</span>
                     </div>
-                    <h2 style="margin: 0 0 8px 0; color: #fafafa; font-size: 22px;">Paiement confirmé !</h2>
-                    <p style="margin: 0; color: #a1a1aa; font-size: 14px;">${isPostProduction ? "Votre commande est enregistrée" : "Votre session est réservée"}, ${payload.payerName}</p>
+                    ${paymentStatusMessage}
                   </div>
                 </td>
               </tr>
@@ -1012,6 +1137,8 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
               ${addToCalendarSection}
 
               ${driveSection}
+
+              ${invoiceSection}
 
               <!-- Contact Info -->
               <tr>
@@ -1243,7 +1370,7 @@ serve(async (req) => {
     console.log("[EMAIL] Sending confirmation email to:", payload.payerEmail);
     
     try {
-      const emailHtml = generateConfirmationEmail(payload, driveFolderLink, actualDelayWeeks);
+      const emailHtml = generateConfirmationEmail(payload, driveFolderLink, actualDelayWeeks, isCashPayment);
       
       // Adapt email subject based on service type
       let emailSubject = "";
@@ -1263,11 +1390,13 @@ serve(async (req) => {
 
       console.log("[EMAIL] Confirmation email sent successfully:", emailResponse);
 
-      // Send notification email to admin
+      // Send notification email to admin (romain.scheyvaerts@gmail.com because Resend test mode)
       console.log("[EMAIL] Sending notification to admin...");
+      const paymentStatusAdmin = isCashPayment ? "💰 À payer au studio" : "✅ Payé";
       const adminEmailResponse = await resend.emails.send({
         from: "Make Music Studio <onboarding@resend.dev>",
-        to: ["prod.makemusic@gmail.com"],
+        reply_to: "prod.makemusic@gmail.com",
+        to: ["romain.scheyvaerts@gmail.com"],
         subject: `🎵 Nouvelle réservation - ${payload.payerName} - ${sessionLabel}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
@@ -1289,9 +1418,10 @@ serve(async (req) => {
               ${payload.podcastMinutes ? `<p><strong>Durée audio :</strong> ${payload.podcastMinutes} min</p>` : ''}
             </div>
 
-            <div style="background: #22d3ee; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
-              <h3 style="margin: 0 0 10px 0;">💰 Montant payé</h3>
+            <div style="background: ${isCashPayment ? '#fbbf24' : '#22d3ee'}; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
+              <h3 style="margin: 0 0 10px 0;">${paymentStatusAdmin}</h3>
               <p style="font-size: 28px; font-weight: bold; margin: 0;">${payload.totalAmount}€</p>
+              ${isCashPayment ? '<p style="margin: 10px 0 0 0; font-size: 14px;">Paiement en espèces le jour de la session</p>' : ''}
             </div>
 
             ${payload.message ? `<div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;"><strong>Message :</strong> ${payload.message}</div>` : ''}
