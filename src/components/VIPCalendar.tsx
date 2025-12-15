@@ -30,6 +30,8 @@ interface VIPCalendarProps {
   showConfirmButton?: boolean;
   confirmLoading?: boolean;
   isAdminMode?: boolean;
+  isVIPMode?: boolean;
+  currentUserEmail?: string;
 }
 
 interface SelectedSlot {
@@ -45,8 +47,12 @@ const VIPCalendar = ({
   selectedTime, 
   showConfirmButton = false, 
   confirmLoading = false,
-  isAdminMode = false
+  isAdminMode = false,
+  isVIPMode = false,
+  currentUserEmail = ""
 }: VIPCalendarProps) => {
+  // VIP mode has similar features to admin mode but with restrictions
+  const hasAdminFeatures = isAdminMode || isVIPMode;
   const { toast } = useToast();
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
@@ -102,20 +108,29 @@ const VIPCalendar = ({
     const dayData = availability.find(d => d.date === date);
     const slot = dayData?.slots.find(s => s.hour === hour);
     
-    // In admin mode, clicking on a booked slot toggles its selection
-    if (isAdminMode && slot?.status === "unavailable" && slot?.eventId) {
-      const slotKey = `${date}-${hour}`;
-      const existingIndex = selectedSlots.findIndex(s => `${s.date}-${s.hour}` === slotKey);
+    // In admin/VIP mode, clicking on a booked slot toggles its selection for deletion
+    if (hasAdminFeatures && slot?.status === "unavailable" && slot?.eventId) {
+      // VIP users can only select their own events (check if event name contains their email)
+      const canSelectSlot = isAdminMode || (isVIPMode && slot.eventName?.toLowerCase().includes(currentUserEmail.toLowerCase()));
       
-      if (existingIndex >= 0) {
-        // Deselect if already selected
-        setSelectedSlots(selectedSlots.filter((_, i) => i !== existingIndex));
+      if (canSelectSlot) {
+        const slotKey = `${date}-${hour}`;
+        const existingIndex = selectedSlots.findIndex(s => `${s.date}-${s.hour}` === slotKey);
+        
+        if (existingIndex >= 0) {
+          // Deselect if already selected
+          setSelectedSlots(selectedSlots.filter((_, i) => i !== existingIndex));
+        } else {
+          // Add to selection
+          setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
+        }
       } else {
-        // Add to selection
-        setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
+        // VIP trying to select someone else's event - just show it normally
+        setSelectedDay(date);
+        setSelectedHour(hour);
       }
     } else {
-      // Regular selection for available slots or non-admin
+      // Regular selection for available slots
       setSelectedDay(date);
       setSelectedHour(hour);
     }
@@ -358,10 +373,22 @@ const VIPCalendar = ({
   };
 
   // Check if selected slot can be deleted (has eventId and is unavailable)
-  const canDeleteSelectedSlot = isAdminMode && selectedDay && selectedHour !== null && (() => {
+  // Admin can delete any event, VIP can only delete their own events
+  const canDeleteSelectedSlot = hasAdminFeatures && selectedDay && selectedHour !== null && (() => {
     const dayData = availability.find(d => d.date === selectedDay);
     const slot = dayData?.slots.find(s => s.hour === selectedHour);
-    return slot?.status === "unavailable" && slot?.eventId;
+    if (!slot?.eventId || slot?.status !== "unavailable") return false;
+    
+    // Admin can delete any event
+    if (isAdminMode) return true;
+    
+    // VIP can only delete their own events (check if event name contains their email or name)
+    if (isVIPMode && currentUserEmail) {
+      const eventNameLower = slot.eventName?.toLowerCase() || "";
+      return eventNameLower.includes(currentUserEmail.toLowerCase());
+    }
+    
+    return false;
   })();
 
   const openWhatsApp = () => {
@@ -488,16 +515,16 @@ const VIPCalendar = ({
                     {displayDays.map((day) => {
                       const displayStatus = getSlotDisplayStatus(day.slots, hour);
                       const eventName = getSlotEventName(day.slots, hour);
-                      const isClickable = displayStatus !== "unavailable" || isAdminMode;
+                      const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
                       const isSelected = selectedDay === day.date && selectedHour === hour;
 
-                      const isMultiSelected = isAdminMode && isSlotMultiSelected(day.date, hour);
+                      const isMultiSelected = hasAdminFeatures && isSlotMultiSelected(day.date, hour);
                       
                       return (
                         <button
                           key={`${day.date}-${hour}`}
                           onClick={() => isClickable && handleSelectSlot(day.date, hour)}
-                          disabled={!isClickable && !isAdminMode}
+                          disabled={!isClickable && !hasAdminFeatures}
                           className={cn(
                             "p-1 rounded text-[10px] transition-all duration-200 min-h-[36px] flex flex-col items-center justify-center",
                             // Multi-selected slots in admin mode
@@ -513,7 +540,7 @@ const VIPCalendar = ({
                                     : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
                                   : isSelected
                                     ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                    : isAdminMode 
+                                    : hasAdminFeatures 
                                       ? "bg-destructive/20 text-destructive hover:bg-destructive/40 cursor-pointer"
                                       : "bg-destructive/20 text-destructive cursor-pointer"
                           )}
@@ -539,7 +566,7 @@ const VIPCalendar = ({
           </div>
 
           {/* Multi-select delete button for admin */}
-          {isAdminMode && selectedSlots.length > 0 && (
+          {hasAdminFeatures && selectedSlots.length > 0 && (
             <div className="mt-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-blue-400">
@@ -600,8 +627,8 @@ const VIPCalendar = ({
                   )}
                 </div>
 
-                {/* Admin event creation / deletion */}
-                {isAdminMode && (
+                {/* Admin/VIP event deletion */}
+                {hasAdminFeatures && (
                   <div className="border-t border-border pt-4 space-y-4">
                     {/* Delete button for booked slots */}
                     {canDeleteSelectedSlot && (
@@ -626,37 +653,39 @@ const VIPCalendar = ({
                       </div>
                     )}
                     
-                    {/* Create new event */}
-                    <div>
-                      <Label className="text-sm text-muted-foreground mb-2 block">Créer un nouvel événement</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={eventName}
-                          onChange={(e) => setEventName(e.target.value)}
-                          placeholder="Ex: Session John Doe"
-                          className="flex-1"
-                        />
-                        <Button 
-                          onClick={handleCreateEvent}
-                          disabled={creatingEvent || !eventName.trim()}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          {creatingEvent ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Plus className="w-4 h-4 mr-2" />
-                              CRÉER
-                            </>
-                          )}
-                        </Button>
+                    {/* Create new event - Admin only */}
+                    {isAdminMode && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground mb-2 block">Créer un nouvel événement</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={eventName}
+                            onChange={(e) => setEventName(e.target.value)}
+                            placeholder="Ex: Session John Doe"
+                            className="flex-1"
+                          />
+                          <Button 
+                            onClick={handleCreateEvent}
+                            disabled={creatingEvent || !eventName.trim()}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            {creatingEvent ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Plus className="w-4 h-4 mr-2" />
+                                CRÉER
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
-                {/* Regular user actions */}
-                {!isAdminMode && (
+                {/* VIP user booking actions (can book but not create events) */}
+                {isVIPMode && !canDeleteSelectedSlot && (
                   <div className="flex gap-2 flex-wrap">
                     {selectedSlotOnRequest ? (
                       <Button 
@@ -676,7 +705,49 @@ const VIPCalendar = ({
                         {showConfirmButton && onConfirmBooking && (
                           <Button 
                             variant="hero" 
-                            onClick={() => onConfirmBooking(selectedDay, `${selectedHour.toString().padStart(2, "0")}:00`, duration)}
+                            onClick={() => onConfirmBooking(selectedDay!, `${selectedHour!.toString().padStart(2, "0")}:00`, duration)}
+                            disabled={confirmLoading}
+                          >
+                            {confirmLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Validation...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                VALIDER LA RÉSERVATION
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Regular user actions (not admin mode, not VIP mode) */}
+                {!isAdminMode && !isVIPMode && (
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedSlotOnRequest ? (
+                      <Button 
+                        variant="outline" 
+                        onClick={openWhatsApp}
+                        className="border-amber-500 text-amber-500 hover:bg-amber-500/10"
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        CONTACTER VIA WHATSAPP
+                      </Button>
+                    ) : (
+                      <>
+                        <Button variant="outline" onClick={handleConfirmSelection}>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          SÉLECTIONNER
+                        </Button>
+                        {showConfirmButton && onConfirmBooking && (
+                          <Button 
+                            variant="hero" 
+                            onClick={() => onConfirmBooking(selectedDay!, `${selectedHour!.toString().padStart(2, "0")}:00`, duration)}
                             disabled={confirmLoading}
                           >
                             {confirmLoading ? (

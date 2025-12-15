@@ -1186,6 +1186,8 @@ const BookingSection = () => {
                   selectedTime={formData.time}
                   showConfirmButton={true}
                   confirmLoading={cashOnlyLoading}
+                  isVIPMode={true}
+                  currentUserEmail={formData.email || user?.email || ""}
                 />
                 {formData.date && formData.time && (
                   <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
