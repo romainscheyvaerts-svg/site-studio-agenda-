@@ -446,6 +446,16 @@ const BookingSection = () => {
       return true;
     }
 
+    // Validate name length (minimum 2 characters)
+    if (formData.name && formData.name.trim().length < 2) {
+      toast({
+        title: "Nom invalide",
+        description: "Le nom doit contenir au moins 2 caractères",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     // Pour les services immédiats, seuls nom, email et téléphone sont requis
     if (isImmediateService) {
       if (!formData.name || !formData.email || !formData.phone) {
