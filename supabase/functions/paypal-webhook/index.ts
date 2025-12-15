@@ -646,6 +646,9 @@ async function scheduleInternalWorkSessions(
 
 // ============ GOOGLE DRIVE INTEGRATION ============
 
+// Root folder ID for all client folders
+const CLIENT_DRIVE_ROOT_FOLDER_ID = "1hmo7HY7xX_mvXXm6vUCRuR2HB6C49Y-r";
+
 interface ClientDriveFolder {
   id: string;
   client_email: string;
@@ -653,6 +656,11 @@ interface ClientDriveFolder {
   client_name: string;
   drive_folder_id: string;
   drive_folder_link: string;
+}
+
+interface SubfolderResult {
+  clientFolderLink: string;
+  sessionFolderLink: string;
 }
 
 async function getExistingClientFolder(email: string, phone?: string): Promise<ClientDriveFolder | null> {
@@ -729,7 +737,7 @@ async function createDriveFolder(
   folderName: string,
   parentFolderId?: string
 ): Promise<{ id: string; webViewLink: string }> {
-  console.log(`[DRIVE] Creating folder: ${folderName}`);
+  console.log(`[DRIVE] Creating folder: ${folderName}${parentFolderId ? ` in parent ${parentFolderId}` : ''}`);
 
   const metadata: Record<string, unknown> = {
     name: folderName,
@@ -760,6 +768,38 @@ async function createDriveFolder(
   return folder;
 }
 
+async function setFolderPublicReadAccess(
+  accessToken: string,
+  folderId: string
+): Promise<void> {
+  console.log(`[DRIVE] Setting public read access for folder ${folderId}`);
+
+  const permission = {
+    type: "anyone",
+    role: "reader",
+  };
+
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(permission),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[DRIVE] Error setting public access:", errorText);
+    throw new Error(`Failed to set public access: ${response.status}`);
+  }
+
+  console.log(`[DRIVE] Public read access set successfully`);
+}
+
 async function shareDriveFolder(
   accessToken: string,
   folderId: string,
@@ -788,10 +828,68 @@ async function shareDriveFolder(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("[DRIVE] Error sharing folder:", errorText);
-    throw new Error(`Failed to share Drive folder: ${response.status}`);
+    // Don't throw - sharing with user email might fail if email doesn't exist in Google
+    console.log("[DRIVE] Continuing without user-specific share");
+  } else {
+    console.log(`[DRIVE] Folder shared successfully with ${email}`);
+  }
+}
+
+async function createClientSessionFolder(
+  accessToken: string,
+  clientName: string,
+  clientEmail: string,
+  clientPhone: string | undefined,
+  sessionDate: string
+): Promise<SubfolderResult> {
+  console.log(`[DRIVE] Creating client folder structure for ${clientName}, session date: ${sessionDate}`);
+
+  // Check if client already has a folder
+  const existingFolder = await getExistingClientFolder(clientEmail, clientPhone);
+  
+  let clientFolderId: string;
+  let clientFolderLink: string;
+
+  if (existingFolder) {
+    // Use existing client folder
+    clientFolderId = existingFolder.drive_folder_id;
+    clientFolderLink = existingFolder.drive_folder_link;
+    console.log(`[DRIVE] Using existing client folder: ${clientFolderId}`);
+  } else {
+    // Create new client folder under root
+    const clientFolder = await createDriveFolder(accessToken, clientName, CLIENT_DRIVE_ROOT_FOLDER_ID);
+    clientFolderId = clientFolder.id;
+    clientFolderLink = clientFolder.webViewLink;
+    
+    // Set public read access on client folder
+    await setFolderPublicReadAccess(accessToken, clientFolderId);
+    
+    // Also try to share with client email
+    try {
+      await shareDriveFolder(accessToken, clientFolderId, clientEmail);
+    } catch (shareError) {
+      console.log("[DRIVE] Could not share with user email, continuing with public link");
+    }
+    
+    // Save to database for future bookings
+    await saveClientFolder(clientEmail, clientPhone, clientName, clientFolderId, clientFolderLink);
+    
+    console.log(`[DRIVE] New client folder created: ${clientFolderId}`);
   }
 
-  console.log(`[DRIVE] Folder shared successfully with ${email}`);
+  // Create session subfolder with date (YYYY-MM-DD format)
+  const sessionFolderName = sessionDate || new Date().toISOString().split("T")[0];
+  const sessionFolder = await createDriveFolder(accessToken, sessionFolderName, clientFolderId);
+  
+  // Set public read access on session subfolder
+  await setFolderPublicReadAccess(accessToken, sessionFolder.id);
+  
+  console.log(`[DRIVE] Session subfolder created: ${sessionFolder.id}`);
+
+  return {
+    clientFolderLink,
+    sessionFolderLink: sessionFolder.webViewLink,
+  };
 }
 
 // ============ EMAIL FUNCTIONS ============
@@ -1340,39 +1438,28 @@ serve(async (req) => {
       console.log("[CALENDAR] Missing calendar configuration, skipping event creation");
     }
 
-    // ACTION 2: Get or create Google Drive shared folder for client
+    // ACTION 2: Create Google Drive folder structure for client (Parent/Session Date subfolder)
     let driveFolderLink: string | null = null;
     if (serviceAccountKey) {
       try {
-        // Check if client already has a folder
-        const existingFolder = await getExistingClientFolder(payload.payerEmail, payload.phone);
+        const driveToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/drive"]);
         
-        if (existingFolder) {
-          // Use existing folder
-          driveFolderLink = existingFolder.drive_folder_link;
-          console.log(`[DRIVE] Using existing folder: ${driveFolderLink}`);
-        } else {
-          // Create new folder
-          const driveToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/drive"]);
-          
-          const folderName = `${payload.payerName} - Make Music Studio`;
-          const folder = await createDriveFolder(driveToken, folderName);
-          
-          // Share folder with client email
-          await shareDriveFolder(driveToken, folder.id, payload.payerEmail);
-          
-          // Save to database for future bookings
-          await saveClientFolder(
-            payload.payerEmail,
-            payload.phone,
-            payload.payerName,
-            folder.id,
-            folder.webViewLink
-          );
-          
-          driveFolderLink = folder.webViewLink;
-          console.log(`[DRIVE] New folder created and shared: ${driveFolderLink}`);
-        }
+        // Determine session date for subfolder naming
+        const sessionDate = payload.date || new Date().toISOString().split("T")[0];
+        
+        // Create client folder structure: [Client Name] / [YYYY-MM-DD]
+        const folderResult = await createClientSessionFolder(
+          driveToken,
+          payload.payerName,
+          payload.payerEmail,
+          payload.phone,
+          sessionDate
+        );
+        
+        // Use the SESSION subfolder link (not the parent folder) for the client email
+        driveFolderLink = folderResult.sessionFolderLink;
+        console.log(`[DRIVE] Session subfolder created and shared: ${driveFolderLink}`);
+        console.log(`[DRIVE] Client parent folder: ${folderResult.clientFolderLink}`);
       } catch (driveError) {
         console.error("[DRIVE] Failed to handle folder:", driveError);
         // Don't fail the whole webhook if Drive fails
