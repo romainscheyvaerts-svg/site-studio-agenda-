@@ -1255,8 +1255,49 @@ serve(async (req) => {
       });
 
       console.log("[EMAIL] Confirmation email sent successfully:", emailResponse);
+
+      // Send notification email to admin
+      console.log("[EMAIL] Sending notification to admin...");
+      const adminEmailResponse = await resend.emails.send({
+        from: "Make Music Studio <onboarding@resend.dev>",
+        to: ["prod.makemusic@gmail.com"],
+        subject: `🎵 Nouvelle réservation - ${payload.payerName} - ${sessionLabel}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
+            <h2 style="color: #22d3ee; margin-bottom: 20px;">Nouvelle réservation reçue</h2>
+            
+            <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+              <h3 style="color: #fafafa; margin-top: 0;">👤 Client</h3>
+              <p><strong>Nom :</strong> ${payload.payerName}</p>
+              <p><strong>Email :</strong> <a href="mailto:${payload.payerEmail}" style="color: #22d3ee;">${payload.payerEmail}</a></p>
+              ${payload.phone ? `<p><strong>Téléphone :</strong> ${payload.phone}</p>` : ''}
+            </div>
+
+            <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+              <h3 style="color: #fafafa; margin-top: 0;">📅 Session</h3>
+              <p><strong>Type :</strong> ${sessionLabel}</p>
+              ${!isPostProduction ? `<p><strong>Date :</strong> ${formatDate(payload.date)}</p>` : ''}
+              ${!isPostProduction ? `<p><strong>Heure :</strong> ${payload.time}</p>` : ''}
+              ${!isPostProduction ? `<p><strong>Durée :</strong> ${payload.hours}h</p>` : ''}
+              ${payload.podcastMinutes ? `<p><strong>Durée audio :</strong> ${payload.podcastMinutes} min</p>` : ''}
+            </div>
+
+            <div style="background: #22d3ee; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
+              <h3 style="margin: 0 0 10px 0;">💰 Montant payé</h3>
+              <p style="font-size: 28px; font-weight: bold; margin: 0;">${payload.totalAmount}€</p>
+            </div>
+
+            ${payload.message ? `<div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;"><strong>Message :</strong> ${payload.message}</div>` : ''}
+
+            <p style="margin-top: 20px; color: #a1a1aa; font-size: 12px; text-align: center;">
+              Réf: ${payload.orderId}
+            </p>
+          </div>
+        `,
+      });
+      console.log("[EMAIL] Admin notification sent:", adminEmailResponse);
     } catch (emailError) {
-      console.error("[EMAIL] Failed to send confirmation email:", emailError);
+      console.error("[EMAIL] Failed to send email:", emailError);
       // Don't fail the whole webhook if email fails
     }
 
