@@ -1680,39 +1680,6 @@ const BookingSection = () => {
                         podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
                       />
                     </div>
-
-                    {/* Divider */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-muted-foreground">ou virement SEPA</span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-
-                    {/* SEPA Bank Transfer - QR Code directly visible */}
-                    <div className="flex flex-col items-center gap-3">
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent([
-                          "BCD", "002", "1", "SCT", "REVOBE23", "MAKE MUSIC", 
-                          "BE28650615377020", `EUR${paymentAmount.toFixed(2)}`, "", 
-                          `Booking ${new Date().toISOString().split('T')[0]}`, "Make Music Studio"
-                        ].join("\n"))}`}
-                        alt="SEPA QR Code"
-                        className="w-40 h-40 rounded-lg border border-border"
-                      />
-                      <div className="text-center text-xs text-muted-foreground">
-                        <p><strong>IBAN:</strong> BE28 6506 1537 7020</p>
-                        <p><strong>Bénéficiaire:</strong> MAKE MUSIC</p>
-                        <p><strong>Montant:</strong> {paymentAmount}€</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate("/success?payment=sepa")}
-                        className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        J'ai effectué mon virement
-                      </button>
-                    </div>
                   </div>
                 </div>
 
