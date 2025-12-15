@@ -21,6 +21,7 @@ const bookingPayloadSchema = z.object({
   totalAmount: z.number().min(0).max(10000),
   message: z.string().max(1000).optional(),
   podcastMinutes: z.number().int().min(1).max(180).optional(),
+  isCashPayment: z.boolean().optional().default(false),
 });
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
@@ -1090,25 +1091,31 @@ serve(async (req) => {
     console.log("Total Amount:", payload.totalAmount, "€");
     console.log("Message:", payload.message ? payload.message.substring(0, 100) : "N/A");
 
-    // SECURITY: Verify the PayPal order is legitimate
-    console.log("[SECURITY] Verifying PayPal order...");
-    const { verified, orderDetails } = await verifyPayPalOrder(payload.orderId);
+    // SECURITY: Verify the PayPal order is legitimate (skip for cash payments)
+    const isCashPayment = payload.isCashPayment || payload.orderId.startsWith("CASH-");
     
-    if (!verified) {
-      console.error("[SECURITY] PayPal order verification FAILED - rejecting request");
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Payment verification failed. Order could not be verified with PayPal." 
-        }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    if (!isCashPayment) {
+      console.log("[SECURITY] Verifying PayPal order...");
+      const { verified, orderDetails } = await verifyPayPalOrder(payload.orderId);
+      
+      if (!verified) {
+        console.error("[SECURITY] PayPal order verification FAILED - rejecting request");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Payment verification failed. Order could not be verified with PayPal." 
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      console.log("[SECURITY] PayPal order verified successfully");
+    } else {
+      console.log("[CASH PAYMENT] Skipping PayPal verification - cash payment at studio");
     }
-    
-    console.log("[SECURITY] PayPal order verified successfully");
 
     const isPostProduction = ["mixing", "mastering", "analog-mastering", "podcast"].includes(payload.sessionType);
     
