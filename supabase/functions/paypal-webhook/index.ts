@@ -13,7 +13,7 @@ const bookingPayloadSchema = z.object({
   orderId: z.string().min(1).max(100),
   payerName: z.string().trim().min(2).max(100),
   payerEmail: z.string().trim().email().max(255),
-  phone: z.string().trim().min(6).max(30),
+  phone: z.string().trim().max(30).optional().default(""),
   sessionType: z.enum(["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast"]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
   time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
