@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,7 @@ interface DriveFile {
   createdTime: string;
   size: string;
   isInDatabase: boolean;
+  webContentLink?: string;
 }
 
 const defaultFormData = {
@@ -40,13 +41,15 @@ const defaultFormData = {
   preview_url: "",
   cover_image_url: "",
   drive_file_id: "",
-  is_active: false // Désactivé par défaut - admin doit activer manuellement
+  drive_file_name: "",
+  is_active: false
 };
 
-const DEFAULT_PRICE = 100; // Prix par défaut en euros
+const DEFAULT_PRICE = 100;
 
 const AdminInstrumentals = () => {
   const { toast } = useToast();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [instrumentals, setInstrumentals] = useState<Instrumental[]>([]);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +58,8 @@ const AdminInstrumentals = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
   const [saving, setSaving] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playingDriveId, setPlayingDriveId] = useState<string | null>(null);
 
   const fetchInstrumentals = async () => {
     const { data, error } = await supabase
@@ -96,6 +101,16 @@ const AdminInstrumentals = () => {
 
   useEffect(() => {
     fetchInstrumentals();
+    // Auto-scan Drive pour récupérer les noms des fichiers
+    scanGoogleDrive();
+    
+    // Cleanup audio on unmount
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, []);
 
   const handleAddFromDrive = (file: DriveFile) => {
@@ -107,9 +122,70 @@ const AdminInstrumentals = () => {
       ...defaultFormData,
       title: titleWithoutExt,
       drive_file_id: file.id,
-      is_active: false // Désactivé par défaut
+      drive_file_name: file.name,
+      is_active: false
     });
     setIsDialogOpen(true);
+  };
+
+  // Play audio preview from Google Drive
+  const playDriveFile = (fileId: string) => {
+    if (playingDriveId === fileId) {
+      // Stop playing
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingDriveId(null);
+    } else {
+      // Stop any current playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      // Create Drive preview URL
+      const previewUrl = `https://docs.google.com/uc?export=open&id=${fileId}`;
+      audioRef.current = new Audio(previewUrl);
+      audioRef.current.play().catch(err => {
+        console.error("Playback error:", err);
+        toast({
+          title: "Erreur de lecture",
+          description: "Impossible de lire le fichier. Vérifiez les permissions du fichier Google Drive.",
+          variant: "destructive"
+        });
+      });
+      audioRef.current.onended = () => setPlayingDriveId(null);
+      setPlayingDriveId(fileId);
+      setPlayingId(null);
+    }
+  };
+
+  const playInstrumental = (instrumental: Instrumental) => {
+    const fileId = instrumental.drive_file_id;
+    if (playingId === instrumental.id) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingId(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      // Use preview_url if available, otherwise use Drive URL
+      const url = instrumental.preview_url || `https://docs.google.com/uc?export=open&id=${fileId}`;
+      audioRef.current = new Audio(url);
+      audioRef.current.play().catch(err => {
+        console.error("Playback error:", err);
+        toast({
+          title: "Erreur de lecture",
+          description: "Impossible de lire le fichier.",
+          variant: "destructive"
+        });
+      });
+      audioRef.current.onended = () => setPlayingId(null);
+      setPlayingId(instrumental.id);
+      setPlayingDriveId(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,6 +239,9 @@ const AdminInstrumentals = () => {
   };
 
   const handleEdit = (instrumental: Instrumental) => {
+    // Trouver le nom du fichier Drive si disponible
+    const driveFile = driveFiles.find(f => f.id === instrumental.drive_file_id);
+    
     setEditingId(instrumental.id);
     setFormData({
       title: instrumental.title,
@@ -173,6 +252,7 @@ const AdminInstrumentals = () => {
       preview_url: instrumental.preview_url || "",
       cover_image_url: instrumental.cover_image_url || "",
       drive_file_id: instrumental.drive_file_id,
+      drive_file_name: driveFile?.name || "",
       is_active: instrumental.is_active
     });
     setIsDialogOpen(true);
@@ -379,11 +459,25 @@ const AdminInstrumentals = () => {
                 key={file.id}
                 className="flex items-center justify-between p-2 bg-background/50 rounded"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(file.createdTime).toLocaleDateString()}
-                  </p>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => playDriveFile(file.id)}
+                    className="shrink-0"
+                  >
+                    {playingDriveId === file.id ? (
+                      <Pause className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(file.createdTime).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
                 <Button 
                   size="sm" 
@@ -408,7 +502,9 @@ const AdminInstrumentals = () => {
         </p>
       ) : (
         <div className="space-y-3">
-          {instrumentals.map((instrumental) => (
+          {instrumentals.map((instrumental) => {
+            const driveFile = driveFiles.find(f => f.id === instrumental.drive_file_id);
+            return (
             <div 
               key={instrumental.id}
               className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
@@ -417,6 +513,20 @@ const AdminInstrumentals = () => {
                   : "bg-muted/50 opacity-60"
               }`}
             >
+              {/* Play Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => playInstrumental(instrumental)}
+                className="shrink-0"
+              >
+                {playingId === instrumental.id ? (
+                  <Pause className="h-5 w-5 text-primary" />
+                ) : (
+                  <Play className="h-5 w-5" />
+                )}
+              </Button>
+
               {instrumental.cover_image_url ? (
                 <img 
                   src={instrumental.cover_image_url} 
@@ -434,6 +544,11 @@ const AdminInstrumentals = () => {
                 <p className="text-sm text-muted-foreground">
                   {instrumental.genre && `${instrumental.genre} • `}
                   {instrumental.bpm && `${instrumental.bpm} BPM`}
+                </p>
+                {/* Afficher le nom du fichier Drive */}
+                <p className="text-xs text-primary/70 truncate flex items-center gap-1 mt-0.5">
+                  <Volume2 className="h-3 w-3" />
+                  {driveFile?.name || `ID: ${instrumental.drive_file_id.slice(0, 15)}...`}
                 </p>
               </div>
               
@@ -468,7 +583,7 @@ const AdminInstrumentals = () => {
                 </Button>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </div>
