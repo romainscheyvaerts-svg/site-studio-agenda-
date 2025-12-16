@@ -647,7 +647,7 @@ async function scheduleInternalWorkSessions(
 // ============ GOOGLE DRIVE INTEGRATION ============
 
 // Root folder ID for all client folders
-const CLIENT_DRIVE_ROOT_FOLDER_ID = "1hmo7HY7xX_mvXXm6vUCRuR2HB6C49Y-r";
+const CLIENT_DRIVE_ROOT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
 interface ClientDriveFolder {
   id: string;
