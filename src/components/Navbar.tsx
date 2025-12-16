@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Mic, LogOut, User } from "lucide-react";
+import { Menu, X, Mic, LogOut, User, Music } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,8 +11,12 @@ const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const isHomePage = location.pathname === "/";
+  
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -22,7 +26,14 @@ const Navbar = () => {
   }, []);
 
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (!isHomePage) {
+      navigate("/");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
     setIsMobileMenuOpen(false);
   };
 
@@ -64,6 +75,14 @@ const Navbar = () => {
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
               </button>
             ))}
+            <button
+              onClick={() => navigate("/instrumentals")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors relative group flex items-center gap-1"
+            >
+              <Music className="h-4 w-4" />
+              Instrumentaux
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-neon-gold transition-all duration-300 group-hover:w-full" />
+            </button>
           </div>
 
           {/* Language switcher & Auth/CTA */}
@@ -125,6 +144,16 @@ const Navbar = () => {
                   {link.label}
                 </button>
               ))}
+              <button
+                onClick={() => {
+                  navigate("/instrumentals");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 flex items-center gap-2"
+              >
+                <Music className="h-4 w-4" />
+                Instrumentaux
+              </button>
               <Button variant="neon" className="mt-2" onClick={() => scrollTo("booking")}>
                 {t("nav.booking").toUpperCase()}
               </Button>
