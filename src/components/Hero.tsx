@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones } from "lucide-react";
+import { Mic, Headphones, Music } from "lucide-react";
 
 const Hero = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const scrollToBooking = () => {
     document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
@@ -11,6 +13,10 @@ const Hero = () => {
 
   const scrollToGear = () => {
     document.getElementById('gear')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const goToInstrumentals = () => {
+    navigate('/instrumentals');
   };
 
   return (
@@ -55,6 +61,10 @@ const Hero = () => {
             <Button variant="neon" size="xl" onClick={scrollToGear}>
               <Headphones className="w-5 h-5" />
               {t("hero.cta_discover").toUpperCase()}
+            </Button>
+            <Button variant="outline" size="xl" onClick={goToInstrumentals} className="border-accent/50 hover:bg-accent/10 hover:border-accent">
+              <Music className="w-5 h-5" />
+              INSTRUMENTAUX
             </Button>
           </div>
           
