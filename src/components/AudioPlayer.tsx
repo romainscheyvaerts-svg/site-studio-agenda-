@@ -11,9 +11,11 @@ interface AudioPlayerProps {
   coverImage?: string;
   className?: string;
   compact?: boolean;
+  autoPlay?: boolean;
+  onEnded?: () => void;
 }
 
-const AudioPlayer = ({ src, title, artist, coverImage, className, compact = false }: AudioPlayerProps) => {
+const AudioPlayer = ({ src, title, artist, coverImage, className, compact = false, autoPlay = false, onEnded }: AudioPlayerProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -27,18 +29,29 @@ const AudioPlayer = ({ src, title, artist, coverImage, className, compact = fals
 
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
-    const handleEnded = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      onEnded?.();
+    };
+    const handleCanPlay = () => {
+      if (autoPlay && audio.paused) {
+        audio.play().catch(() => {});
+        setIsPlaying(true);
+      }
+    };
 
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("canplay", handleCanPlay);
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("canplay", handleCanPlay);
     };
-  }, []);
+  }, [autoPlay, onEnded]);
 
   useEffect(() => {
     if (audioRef.current) {

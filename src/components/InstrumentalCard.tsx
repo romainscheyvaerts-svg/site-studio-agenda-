@@ -13,6 +13,7 @@ interface Instrumental {
   key?: string;
   preview_url?: string;
   cover_image_url?: string;
+  drive_file_id?: string;
 }
 
 interface InstrumentalCardProps {
