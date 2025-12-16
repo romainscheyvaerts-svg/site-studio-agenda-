@@ -7,7 +7,7 @@ import {
   Mic, Building2, Music, Headphones, Disc, Radio, 
   Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2
 } from "lucide-react";
-import VIPCalendar from "./VIPCalendar";
+import AdminCalendar from "./AdminCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,7 +187,7 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
               />
             </div>
           ) : (
-            <VIPCalendar
+            <AdminCalendar
               onSelectSlot={handleSlotSelect}
               selectedDate={selectedDate || undefined}
               selectedTime={selectedTime || undefined}

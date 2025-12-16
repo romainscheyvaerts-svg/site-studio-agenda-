@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
+import AdminCalendar from "./AdminCalendar";
 import AdminEventCreator from "./AdminEventCreator";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -716,10 +717,10 @@ const BookingSection = () => {
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
               </p>
               
-              {/* Admin-only VIP Calendar viewer */}
+              {/* Admin-only Calendar viewer */}
               {showVIPCalendar && (
                 <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500">
-                  <VIPCalendar
+                  <AdminCalendar
                     onSelectSlot={(date, time, duration) => {
                       setFormData(prev => ({ ...prev, date, time }));
                       setHours(duration);
@@ -730,15 +731,10 @@ const BookingSection = () => {
                     }}
                     selectedDate={formData.date}
                     selectedTime={formData.time}
-                    isAdminMode={true}
                   />
                 </div>
               )}
               
-              {/* Inline promo code management - directly visible */}
-              <div className="mt-4 p-4 rounded-xl bg-card/50 border border-green-500/30">
-                <AdminPanel inline={true} />
-              </div>
             </div>
           )}
 
