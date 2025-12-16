@@ -21,9 +21,9 @@ interface Instrumental {
   drive_file_id?: string;
 }
 
-// Helper to get audio URL from Google Drive file ID
+// Helper to get audio URL from Google Drive file ID via streaming proxy
 const getDriveAudioUrl = (fileId: string) => {
-  return `https://docs.google.com/uc?export=download&id=${fileId}`;
+  return `https://aafjeezfrmxssehnpwct.supabase.co/functions/v1/stream-instrumental?fileId=${fileId}`;
 };
 
 const InstrumentalsSection = () => {
