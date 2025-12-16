@@ -16,6 +16,8 @@ type PromoEffects = {
   skipFormFields: boolean;
   autoSelectService: SessionType;
   discounts: Record<string, number>;
+  customPrices: Record<string, number>;
+  requireFullPayment: boolean;
 };
 
 serve(async (req) => {
@@ -81,6 +83,15 @@ serve(async (req) => {
       discounts['analog-mastering'] = promoData.discount_mastering;
     }
 
+    // Build custom prices object
+    const customPrices: Record<string, number> = {};
+    if (promoData.custom_price_with_engineer !== null) {
+      customPrices['with-engineer'] = promoData.custom_price_with_engineer;
+    }
+    if (promoData.custom_price_without_engineer !== null) {
+      customPrices['without-engineer'] = promoData.custom_price_without_engineer;
+    }
+
     // Return only the effects, never the code list
     const effects: PromoEffects = {
       valid: true,
@@ -90,6 +101,8 @@ serve(async (req) => {
       skipFormFields: promoData.skip_form_fields,
       autoSelectService: promoData.auto_select_service as SessionType,
       discounts,
+      customPrices,
+      requireFullPayment: promoData.require_full_payment || false,
     };
 
     console.log(`Valid promo code applied: ${promoData.code}`);

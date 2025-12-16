@@ -15,7 +15,6 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
   
-  // Create JWT header and claim set
   const header = { alg: "RS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
   const claimSet = {
@@ -26,7 +25,6 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
     iat: now,
   };
 
-  // Base64url encode
   const encoder = new TextEncoder();
   const base64url = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   
@@ -34,7 +32,6 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   const claimSetB64 = base64url(encoder.encode(JSON.stringify(claimSet)));
   const signatureInput = `${headerB64}.${claimSetB64}`;
 
-  // Import private key and sign
   const pemContent = key.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, "");
   const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
   
@@ -54,7 +51,6 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
 
   const jwt = `${signatureInput}.${base64url(new Uint8Array(signature))}`;
 
-  // Exchange JWT for access token
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -71,33 +67,16 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   return tokenData.access_token;
 }
 
-// Delete a Google Calendar event
-async function deleteCalendarEvent(accessToken: string, calendarId: string, eventId: string): Promise<void> {
-  const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-
-  if (!response.ok && response.status !== 410) { // 410 means already deleted
-    const errorText = await response.text();
-    console.error("Failed to delete calendar event:", errorText);
-    throw new Error(`Failed to delete calendar event: ${response.status}`);
-  }
-}
+// Folder ID for instrumentals
+const INSTRUMENTALS_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify user is authenticated and is admin
+    // Verify admin
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
@@ -117,7 +96,6 @@ serve(async (req) => {
       });
     }
 
-    // Check if user is admin
     const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com"];
     if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
@@ -126,23 +104,11 @@ serve(async (req) => {
       });
     }
 
-    // Parse request body
-    const { eventId } = await req.json();
-
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: "Event ID is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Get Google Calendar credentials
+    // Get Google credentials
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const calendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
-
-    if (!serviceAccountKey || !calendarId) {
-      console.error("Missing Google Calendar configuration");
-      return new Response(JSON.stringify({ error: "Calendar configuration missing" }), {
+    if (!serviceAccountKey) {
+      console.error("Missing Google service account key");
+      return new Response(JSON.stringify({ error: "Configuration missing" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -150,26 +116,66 @@ serve(async (req) => {
 
     // Get access token
     const accessToken = await getAccessToken(serviceAccountKey, [
-      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/drive.readonly",
     ]);
 
-    // Delete the event
-    await deleteCalendarEvent(accessToken, calendarId, eventId);
+    // List audio files in the folder
+    const listResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q='${INSTRUMENTALS_FOLDER_ID}'+in+parents+and+(mimeType+contains+'audio'+or+name+contains+'.mp3'+or+name+contains+'.wav'+or+name+contains+'.flac')&fields=files(id,name,mimeType,createdTime,size)`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
 
-    console.log(`Admin ${user.email} deleted calendar event ${eventId}`);
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text();
+      console.error("Failed to list drive files:", errorText);
+      throw new Error("Failed to list drive files");
+    }
+
+    const listData = await listResponse.json();
+    const driveFiles = listData.files || [];
+
+    console.log(`Found ${driveFiles.length} audio files in Drive folder`);
+
+    // Get existing instrumentals from database
+    const { data: existingInstrumentals, error: dbError } = await supabase
+      .from("instrumentals")
+      .select("drive_file_id, title");
+
+    if (dbError) {
+      console.error("DB error:", dbError);
+      throw new Error("Database error");
+    }
+
+    const existingDriveIds = new Set(existingInstrumentals?.map(i => i.drive_file_id) || []);
+
+    // Separate into new and existing files
+    const driveFilesWithStatus = driveFiles.map((file: any) => ({
+      id: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      createdTime: file.createdTime,
+      size: file.size,
+      isInDatabase: existingDriveIds.has(file.id),
+    }));
 
     return new Response(
-      JSON.stringify({ success: true, message: "Event deleted successfully" }),
+      JSON.stringify({ 
+        files: driveFilesWithStatus,
+        totalInDrive: driveFiles.length,
+        totalInDatabase: existingInstrumentals?.length || 0,
+        newFiles: driveFilesWithStatus.filter((f: any) => !f.isInDatabase).length,
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error deleting event:", errorMessage, error);
+    console.error("Error scanning drive:", error);
     return new Response(
-      JSON.stringify({ error: errorMessage, details: String(error) }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -230,11 +230,19 @@ const VIPCalendar = ({
     setDeletingEvent(true);
 
     try {
-      const { error } = await supabase.functions.invoke("delete-admin-event", {
+      const { data, error } = await supabase.functions.invoke("delete-admin-event", {
         body: { eventId: slot.eventId },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Function error:", error);
+        throw new Error(error.message || "Erreur de fonction");
+      }
+      
+      if (data?.error) {
+        console.error("Response error:", data.error);
+        throw new Error(data.error);
+      }
 
       toast({
         title: "Événement supprimé ! 🗑️",
@@ -246,11 +254,11 @@ const VIPCalendar = ({
       
       // Refresh availability
       await refreshAvailability();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete event:", err);
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer l'événement",
+        description: err.message || "Impossible de supprimer l'événement",
         variant: "destructive",
       });
     } finally {

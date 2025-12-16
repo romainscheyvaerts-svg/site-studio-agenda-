@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Music, Eye, EyeOff } from "lucide-react";
+import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,15 @@ interface Instrumental {
   is_active: boolean;
 }
 
+interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  createdTime: string;
+  size: string;
+  isInDatabase: boolean;
+}
+
 const defaultFormData = {
   title: "",
   description: "",
@@ -31,13 +40,17 @@ const defaultFormData = {
   preview_url: "",
   cover_image_url: "",
   drive_file_id: "",
-  is_active: true
+  is_active: false // Désactivé par défaut - admin doit activer manuellement
 };
+
+const DEFAULT_PRICE = 100; // Prix par défaut en euros
 
 const AdminInstrumentals = () => {
   const { toast } = useToast();
   const [instrumentals, setInstrumentals] = useState<Instrumental[]>([]);
+  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scanningDrive, setScanningDrive] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
@@ -55,9 +68,49 @@ const AdminInstrumentals = () => {
     setLoading(false);
   };
 
+  const scanGoogleDrive = async () => {
+    setScanningDrive(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scan-drive-instrumentals");
+      
+      if (error) throw error;
+      
+      if (data.files) {
+        setDriveFiles(data.files);
+        toast({
+          title: "Scan terminé",
+          description: `${data.newFiles} nouveau(x) fichier(s) trouvé(s) sur ${data.totalInDrive} au total.`
+        });
+      }
+    } catch (err: any) {
+      console.error("Drive scan error:", err);
+      toast({
+        title: "Erreur de scan",
+        description: err.message || "Impossible de scanner Google Drive",
+        variant: "destructive"
+      });
+    } finally {
+      setScanningDrive(false);
+    }
+  };
+
   useEffect(() => {
     fetchInstrumentals();
   }, []);
+
+  const handleAddFromDrive = (file: DriveFile) => {
+    // Extraire le titre du nom du fichier (sans extension)
+    const titleWithoutExt = file.name.replace(/\.(mp3|wav|flac|m4a)$/i, "");
+    
+    setEditingId(null);
+    setFormData({
+      ...defaultFormData,
+      title: titleWithoutExt,
+      drive_file_id: file.id,
+      is_active: false // Désactivé par défaut
+    });
+    setIsDialogOpen(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +147,7 @@ const AdminInstrumentals = () => {
       if (error) {
         toast({ title: "Erreur", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Succès", description: "Instrumental créé." });
+        toast({ title: "Succès", description: "Instrumental créé (prix par défaut: 100€)." });
       }
     }
 
@@ -103,6 +156,10 @@ const AdminInstrumentals = () => {
     setEditingId(null);
     setFormData(defaultFormData);
     fetchInstrumentals();
+    // Rafraîchir les fichiers Drive pour mettre à jour le statut
+    if (driveFiles.length > 0) {
+      scanGoogleDrive();
+    }
   };
 
   const handleEdit = (instrumental: Instrumental) => {
@@ -144,9 +201,18 @@ const AdminInstrumentals = () => {
       .eq("id", id);
 
     if (!error) {
+      toast({
+        title: !currentStatus ? "Activé" : "Désactivé",
+        description: !currentStatus 
+          ? "L'instrumental est maintenant visible pour les utilisateurs." 
+          : "L'instrumental est masqué."
+      });
       fetchInstrumentals();
     }
   };
+
+  // Fichiers Drive qui ne sont pas encore dans la base
+  const newDriveFiles = driveFiles.filter(f => !f.isInDatabase);
 
   return (
     <div className="bg-card rounded-xl border border-border p-6">
@@ -156,122 +222,181 @@ const AdminInstrumentals = () => {
           Gestion des Instrumentaux
         </h2>
         
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setEditingId(null);
-            setFormData(defaultFormData);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Ajouter
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingId ? "Modifier l'instrumental" : "Nouvel instrumental"}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label>Titre *</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                  />
-                </div>
-                
-                <div className="col-span-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-                
-                <div>
-                  <Label>Genre</Label>
-                  <Input
-                    value={formData.genre}
-                    onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-                    placeholder="Hip-Hop, R&B, Pop..."
-                  />
-                </div>
-                
-                <div>
-                  <Label>BPM</Label>
-                  <Input
-                    type="number"
-                    value={formData.bpm}
-                    onChange={(e) => setFormData({ ...formData, bpm: e.target.value })}
-                    placeholder="120"
-                  />
-                </div>
-                
-                <div>
-                  <Label>Tonalité</Label>
-                  <Input
-                    value={formData.key}
-                    onChange={(e) => setFormData({ ...formData, key: e.target.value })}
-                    placeholder="Cm, F#m..."
-                  />
-                </div>
-                
-                <div>
-                  <Label>ID Fichier Google Drive (HQ) *</Label>
-                  <Input
-                    value={formData.drive_file_id}
-                    onChange={(e) => setFormData({ ...formData, drive_file_id: e.target.value })}
-                    placeholder="1abc123..."
-                    required
-                  />
-                </div>
-                
-                <div className="col-span-2">
-                  <Label>URL Preview Audio (MP3)</Label>
-                  <Input
-                    value={formData.preview_url}
-                    onChange={(e) => setFormData({ ...formData, preview_url: e.target.value })}
-                    placeholder="https://..."
-                  />
-                </div>
-                
-                <div className="col-span-2">
-                  <Label>URL Image de couverture</Label>
-                  <Input
-                    value={formData.cover_image_url}
-                    onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
-                    placeholder="https://..."
-                  />
-                </div>
-                
-                <div className="col-span-2 flex items-center gap-2">
-                  <Switch
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                  />
-                  <Label>Actif (visible sur le site)</Label>
-                </div>
-              </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={scanGoogleDrive}
+            disabled={scanningDrive}
+          >
+            {scanningDrive ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Scan...
+              </>
+            ) : (
+              <>
+                <FolderSearch className="h-4 w-4 mr-2" />
+                Scanner Drive
+              </>
+            )}
+          </Button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingId(null);
+              setFormData(defaultFormData);
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingId ? "Modifier l'instrumental" : "Nouvel instrumental"}
+                </DialogTitle>
+              </DialogHeader>
               
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer"}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label>Titre *</Label>
+                    <Input
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Genre</Label>
+                    <Input
+                      value={formData.genre}
+                      onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
+                      placeholder="Hip-Hop, R&B, Pop..."
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>BPM</Label>
+                    <Input
+                      type="number"
+                      value={formData.bpm}
+                      onChange={(e) => setFormData({ ...formData, bpm: e.target.value })}
+                      placeholder="120"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>Tonalité</Label>
+                    <Input
+                      value={formData.key}
+                      onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                      placeholder="Cm, F#m..."
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label>ID Fichier Google Drive (HQ) *</Label>
+                    <Input
+                      value={formData.drive_file_id}
+                      onChange={(e) => setFormData({ ...formData, drive_file_id: e.target.value })}
+                      placeholder="1abc123..."
+                      required
+                    />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <Label>URL Preview Audio (MP3)</Label>
+                    <Input
+                      value={formData.preview_url}
+                      onChange={(e) => setFormData({ ...formData, preview_url: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <Label>URL Image de couverture</Label>
+                    <Input
+                      value={formData.cover_image_url}
+                      onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  
+                  <div className="col-span-2 flex items-center gap-2">
+                    <Switch
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                    />
+                    <Label>Visible sur le site (activer pour afficher aux utilisateurs)</Label>
+                  </div>
+                  
+                  <div className="col-span-2 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Euro className="h-4 w-4" />
+                      Prix par défaut: <strong className="text-foreground">{DEFAULT_PRICE}€</strong> (modifiable via les licences)
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Annuler
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Nouveaux fichiers Drive */}
+      {newDriveFiles.length > 0 && (
+        <div className="mb-6 p-4 bg-neon-gold/10 rounded-lg border border-neon-gold/30">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <FolderSearch className="h-4 w-4 text-neon-gold" />
+            Nouveaux fichiers dans Google Drive ({newDriveFiles.length})
+          </h3>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {newDriveFiles.map((file) => (
+              <div 
+                key={file.id}
+                className="flex items-center justify-between p-2 bg-background/50 rounded"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(file.createdTime).toLocaleDateString()}
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={() => handleAddFromDrive(file)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Ajouter
                 </Button>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-8">
@@ -279,14 +404,18 @@ const AdminInstrumentals = () => {
         </div>
       ) : instrumentals.length === 0 ? (
         <p className="text-center text-muted-foreground py-8">
-          Aucun instrumental. Cliquez sur "Ajouter" pour en créer un.
+          Aucun instrumental. Scannez Google Drive ou cliquez sur "Ajouter" pour en créer un.
         </p>
       ) : (
         <div className="space-y-3">
           {instrumentals.map((instrumental) => (
             <div 
               key={instrumental.id}
-              className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg"
+              className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
+                instrumental.is_active 
+                  ? "bg-green-500/10 border border-green-500/30" 
+                  : "bg-muted/50 opacity-60"
+              }`}
             >
               {instrumental.cover_image_url ? (
                 <img 
@@ -313,7 +442,7 @@ const AdminInstrumentals = () => {
                   variant="ghost"
                   size="icon"
                   onClick={() => toggleActive(instrumental.id, instrumental.is_active)}
-                  title={instrumental.is_active ? "Désactiver" : "Activer"}
+                  title={instrumental.is_active ? "Masquer" : "Afficher"}
                 >
                   {instrumental.is_active ? (
                     <Eye className="h-4 w-4 text-green-500" />

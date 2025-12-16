@@ -34,6 +34,8 @@ type PromoEffects = {
   skipFormFields: boolean;
   autoSelectService: SessionType;
   discounts: Record<string, number>;
+  customPrices: Record<string, number>;
+  requireFullPayment: boolean;
 };
 
 const BookingSection = () => {
@@ -106,6 +108,19 @@ const BookingSection = () => {
         });
         return acc;
       }, {} as Record<string, number>),
+      customPrices: activePromos.reduce((acc, promo) => {
+        Object.entries(promo.customPrices || {}).forEach(([key, value]) => {
+          // Custom price overrides - use the lowest custom price if multiple
+          if (value !== undefined && value !== null) {
+            const currentPrice = acc[key as keyof typeof acc];
+            if (currentPrice === undefined || value < currentPrice) {
+              acc[key as keyof typeof acc] = value as number;
+            }
+          }
+        });
+        return acc;
+      }, {} as Record<string, number>),
+      requireFullPayment: activePromos.some(p => p.requireFullPayment),
     };
   }, [activePromos, isAdmin]);
 
@@ -144,6 +159,8 @@ const BookingSection = () => {
         skipFormFields: data.skipFormFields,
         autoSelectService: data.autoSelectService,
         discounts: data.discounts || {},
+        customPrices: data.customPrices || {},
+        requireFullPayment: data.requireFullPayment || false,
       };
       
       setActivePromos([...activePromos, validatedPromo]);
@@ -194,11 +211,23 @@ const BookingSection = () => {
     "podcast": 40, // par minute
   };
 
+  // Get effective price (custom price from promo or base price)
+  const getEffectivePrice = (service: string): number => {
+    const customPrice = combinedPromoEffects.customPrices?.[service];
+    if (customPrice !== undefined && customPrice !== null) {
+      return customPrice;
+    }
+    return pricing[service] || 0;
+  };
+
   // Pour les services immédiats, pas de notion d'heures
   const isImmediateService = sessionType && IMMEDIATE_SERVICES.includes(sessionType);
   
   // Check if VIP calendar should be available (vip777 with full calendar visibility)
   const showVIPCalendarButton = combinedPromoEffects.fullCalendarVisibility && !isImmediateService;
+  
+  // Check if full payment is required by promo code
+  const requireFullPayment = combinedPromoEffects.requireFullPayment;
   
   // Debug logging
   console.log("VIP Debug:", { 
@@ -208,19 +237,22 @@ const BookingSection = () => {
     isImmediateService,
     showVIPCalendarButton,
     skipPayment,
-    showVIPCalendar
+    showVIPCalendar,
+    customPrices: combinedPromoEffects.customPrices,
+    requireFullPayment
   });
 
   const totalPrice = useMemo(() => {
     if (!sessionType) return 0;
+    const effectivePrice = getEffectivePrice(sessionType);
     if (sessionType === "podcast") {
-      return podcastMinutes * pricing[sessionType];
+      return podcastMinutes * effectivePrice;
     }
     if (isImmediateService) {
-      return pricing[sessionType];
+      return effectivePrice;
     }
-    return hours * pricing[sessionType];
-  }, [sessionType, hours, podcastMinutes, isImmediateService]);
+    return hours * effectivePrice;
+  }, [sessionType, hours, podcastMinutes, isImmediateService, combinedPromoEffects.customPrices]);
 
   // Calculate promo discount
   const promoDiscount = useMemo(() => {
@@ -232,9 +264,16 @@ const BookingSection = () => {
   const finalPrice = totalPrice - promoDiscount;
 
   // Location sèche = paiement complet, analog-mastering = 80€ acompte, autres = 50% acompte
+  // Si requireFullPayment (code promo prixdami777), paiement à 100%
   const paymentAmount = useMemo(() => {
     if (!sessionType) return 0;
     if (skipPayment) return 0; // VIP777 + without-engineer = free booking
+    
+    // Si le code promo exige un paiement complet
+    if (requireFullPayment) {
+      return finalPrice; // 100% paiement
+    }
+    
     if (sessionType === "without-engineer") {
       return finalPrice; // Paiement complet
     }
@@ -242,9 +281,10 @@ const BookingSection = () => {
       return Math.max(0, 80 - promoDiscount); // Acompte fixe de 80€ avec réduction
     }
     return Math.ceil(finalPrice / 2); // 50% acompte
-  }, [sessionType, finalPrice, skipPayment, promoDiscount]);
+  }, [sessionType, finalPrice, skipPayment, promoDiscount, requireFullPayment]);
 
-  const isDeposit = sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering" || sessionType === "podcast";
+  // isDeposit = false si paiement complet requis par promo code
+  const isDeposit = !requireFullPayment && (sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering" || sessionType === "podcast");
 
   // Fetch PayPal client ID
   useEffect(() => {
