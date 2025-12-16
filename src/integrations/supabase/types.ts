@@ -47,6 +47,147 @@ export type Database = {
         }
         Relationships: []
       }
+      instrumental_licenses: {
+        Row: {
+          created_at: string
+          description: string | null
+          features: string[] | null
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      instrumental_purchases: {
+        Row: {
+          amount_paid: number
+          buyer_email: string
+          buyer_name: string | null
+          created_at: string
+          download_count: number
+          download_expires_at: string
+          download_token: string
+          id: string
+          instrumental_id: string
+          license_id: string
+          payment_id: string | null
+          payment_method: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_paid: number
+          buyer_email: string
+          buyer_name?: string | null
+          created_at?: string
+          download_count?: number
+          download_expires_at: string
+          download_token: string
+          id?: string
+          instrumental_id: string
+          license_id: string
+          payment_id?: string | null
+          payment_method?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number
+          buyer_email?: string
+          buyer_name?: string | null
+          created_at?: string
+          download_count?: number
+          download_expires_at?: string
+          download_token?: string
+          id?: string
+          instrumental_id?: string
+          license_id?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrumental_purchases_instrumental_id_fkey"
+            columns: ["instrumental_id"]
+            isOneToOne: false
+            referencedRelation: "instrumentals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instrumental_purchases_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "instrumental_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instrumentals: {
+        Row: {
+          bpm: number | null
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          drive_file_id: string
+          genre: string | null
+          id: string
+          is_active: boolean
+          key: string | null
+          preview_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bpm?: number | null
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          drive_file_id: string
+          genre?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string | null
+          preview_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bpm?: number | null
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          drive_file_id?: string
+          genre?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string | null
+          preview_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       promo_codes: {
         Row: {
           auto_select_service: string | null

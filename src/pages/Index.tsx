@@ -3,6 +3,7 @@ import Hero from "@/components/Hero";
 import GearSection from "@/components/GearSection";
 import PricingSection from "@/components/PricingSection";
 import BookingSection from "@/components/BookingSection";
+import InstrumentalsSection from "@/components/InstrumentalsSection";
 import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
 import AdminPanel from "@/components/AdminPanel";
@@ -18,6 +19,7 @@ const Index = () => {
         <Hero />
       </div>
       <GearSection />
+      <InstrumentalsSection />
       <PricingSection />
       <BookingSection />
       <Footer />

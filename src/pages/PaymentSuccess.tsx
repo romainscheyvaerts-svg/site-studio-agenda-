@@ -15,6 +15,7 @@ const PaymentSuccess = () => {
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
     const paymentType = searchParams.get("payment");
+    const type = searchParams.get("type");
     
     // If PayPal or SEPA payment (already processed before redirect)
     if (paymentType === "paypal" || paymentType === "sepa") {
@@ -41,36 +42,66 @@ const PaymentSuccess = () => {
 
         if (data?.paid) {
           setIsSuccess(true);
-          
-          // Create booking via paypal-webhook (reusing existing logic)
-          const { error: bookingError } = await supabase.functions.invoke("paypal-webhook", {
-            body: {
-              orderId: `STRIPE-${sessionId}`,
-              payerName: data.metadata?.name || "",
-              payerEmail: data.customerEmail || "",
-              phone: data.metadata?.phone || "",
-              sessionType: data.metadata?.sessionType || "",
-              date: data.metadata?.date || "",
-              time: data.metadata?.time || "",
-              hours: parseInt(data.metadata?.hours || "0"),
-              totalAmount: parseFloat(data.metadata?.totalPrice || data.amount?.toString() || "0"),
-              message: data.metadata?.message || "",
-              isCashPayment: false,
-              podcastMinutes: data.metadata?.podcastMinutes ? parseInt(data.metadata.podcastMinutes) : undefined,
-            },
-          });
 
-          if (bookingError) {
-            console.error("Booking creation error:", bookingError);
-            toast({
-              title: "Paiement réussi",
-              description: "Votre paiement a été accepté. Nous vous contacterons pour confirmer votre réservation.",
+          // Check if this is an instrumental purchase
+          if (type === "instrumental" || data.metadata?.type === "instrumental") {
+            // Deliver the instrumental
+            const { error: deliveryError } = await supabase.functions.invoke("deliver-instrumental", {
+              body: {
+                instrumentalId: data.metadata?.instrumentalId,
+                licenseId: data.metadata?.licenseId,
+                paymentId: sessionId,
+                paymentMethod: "stripe",
+                amountPaid: parseFloat(data.metadata?.amount || data.amount?.toString() || "0"),
+                buyerEmail: data.metadata?.buyerEmail || data.customerEmail,
+                buyerName: data.metadata?.buyerName,
+                userId: data.metadata?.userId
+              },
             });
+
+            if (deliveryError) {
+              console.error("Delivery error:", deliveryError);
+              toast({
+                title: "Paiement réussi",
+                description: "Votre instrumental sera envoyé par email sous peu.",
+              });
+            } else {
+              toast({
+                title: "Achat confirmé ! 🎵",
+                description: "Votre instrumental a été envoyé par email. Vérifiez votre boîte de réception.",
+              });
+            }
           } else {
-            toast({
-              title: "Paiement confirmé ! 🎉",
-              description: "Votre réservation a été enregistrée. Un email de confirmation vous a été envoyé.",
+            // Studio booking flow
+            const { error: bookingError } = await supabase.functions.invoke("paypal-webhook", {
+              body: {
+                orderId: `STRIPE-${sessionId}`,
+                payerName: data.metadata?.name || "",
+                payerEmail: data.customerEmail || "",
+                phone: data.metadata?.phone || "",
+                sessionType: data.metadata?.sessionType || "",
+                date: data.metadata?.date || "",
+                time: data.metadata?.time || "",
+                hours: parseInt(data.metadata?.hours || "0"),
+                totalAmount: parseFloat(data.metadata?.totalPrice || data.amount?.toString() || "0"),
+                message: data.metadata?.message || "",
+                isCashPayment: false,
+                podcastMinutes: data.metadata?.podcastMinutes ? parseInt(data.metadata.podcastMinutes) : undefined,
+              },
             });
+
+            if (bookingError) {
+              console.error("Booking creation error:", bookingError);
+              toast({
+                title: "Paiement réussi",
+                description: "Votre paiement a été accepté. Nous vous contacterons pour confirmer votre réservation.",
+              });
+            } else {
+              toast({
+                title: "Paiement confirmé ! 🎉",
+                description: "Votre réservation a été enregistrée. Un email de confirmation vous a été envoyé.",
+              });
+            }
           }
         } else {
           toast({
