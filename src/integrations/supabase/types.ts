@@ -239,6 +239,69 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_config: {
+        Row: {
+          created_at: string
+          discount_percentage: number
+          id: string
+          is_active: boolean
+          sale_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_percentage?: number
+          id?: string
+          is_active?: boolean
+          sale_name?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_percentage?: number
+          id?: string
+          is_active?: boolean
+          sale_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      services: {
+        Row: {
+          base_price: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name_fr: string
+          price_unit: string
+          service_key: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          base_price: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_fr: string
+          price_unit?: string
+          service_key: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_fr?: string
+          price_unit?: string
+          service_key?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
