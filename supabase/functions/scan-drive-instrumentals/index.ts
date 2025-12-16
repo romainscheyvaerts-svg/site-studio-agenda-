@@ -67,8 +67,8 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   return tokenData.access_token;
 }
 
-// Folder ID for instrumentals
-const INSTRUMENTALS_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Folder ID for instrumentals - Updated folder
+const INSTRUMENTALS_FOLDER_ID = "1fo_SnmEfdSM2PDv90ujDUzkDhR3KRUVu";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
