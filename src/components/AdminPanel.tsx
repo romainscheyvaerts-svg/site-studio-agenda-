@@ -6,6 +6,7 @@ import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp } from "lu
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import AdminInstrumentals from "./AdminInstrumentals";
 
 interface PromoCode {
   id: string;
@@ -277,6 +278,9 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               </div>
             )}
           </div>
+
+          {/* Instrumentals Management */}
+          <AdminInstrumentals />
 
           <div className="pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground text-center">

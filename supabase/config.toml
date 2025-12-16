@@ -47,3 +47,12 @@ verify_jwt = false
 
 [functions.get-stripe-publishable-key]
 verify_jwt = false
+
+[functions.deliver-instrumental]
+verify_jwt = false
+
+[functions.get-download]
+verify_jwt = false
+
+[functions.create-instrumental-payment]
+verify_jwt = false
