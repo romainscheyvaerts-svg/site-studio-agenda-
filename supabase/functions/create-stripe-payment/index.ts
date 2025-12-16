@@ -6,6 +6,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per IP
+
+function getClientIP(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+         req.headers.get("x-real-ip") || 
+         "unknown";
+}
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  
+  if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-STRIPE-PAYMENT] ${step}${detailsStr}`);
@@ -14,6 +42,16 @@ const logStep = (step: string, details?: any) => {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Rate limiting check
+  const clientIP = getClientIP(req);
+  if (!checkRateLimit(clientIP)) {
+    logStep("Rate limit exceeded", { ip: clientIP });
+    return new Response(
+      JSON.stringify({ error: "Too many requests" }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
