@@ -128,7 +128,7 @@ const AdminInstrumentals = () => {
     setIsDialogOpen(true);
   };
 
-  // Play audio preview from Google Drive
+  // Play audio preview from Google Drive via proxy
   const playDriveFile = (fileId: string) => {
     if (playingDriveId === fileId) {
       // Stop playing
@@ -142,8 +142,8 @@ const AdminInstrumentals = () => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      // Create Drive preview URL
-      const previewUrl = `https://docs.google.com/uc?export=open&id=${fileId}`;
+      // Use streaming proxy
+      const previewUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${fileId}`;
       audioRef.current = new Audio(previewUrl);
       audioRef.current.play().catch(err => {
         console.error("Playback error:", err);
@@ -171,8 +171,8 @@ const AdminInstrumentals = () => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      // Use preview_url if available, otherwise use Drive URL
-      const url = instrumental.preview_url || `https://docs.google.com/uc?export=open&id=${fileId}`;
+      // Use streaming proxy for reliable playback
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${fileId}`;
       audioRef.current = new Audio(url);
       audioRef.current.play().catch(err => {
         console.error("Playback error:", err);
