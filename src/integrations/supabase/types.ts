@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_users: {
+        Row: {
+          blocked_at: string
+          blocked_by: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chatbot_config: {
+        Row: {
+          created_at: string
+          id: string
+          system_prompt: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          system_prompt: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          system_prompt?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_drive_folders: {
         Row: {
           client_email: string

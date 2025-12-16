@@ -23,7 +23,7 @@ const GearSection = () => {
       features: ["Large diaphragme", "3 directivités", "Son légendaire"],
     },
     {
-      name: "Préamp & Console",
+      name: "Préampli",
       brand: "SSL",
       categoryKey: "gear.preamp",
       descriptionKey: "gear.preamp_desc",

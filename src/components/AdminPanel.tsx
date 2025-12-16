@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
+import AdminUserManagement from "./AdminUserManagement";
+import AdminChatbotConfig from "./AdminChatbotConfig";
 
 interface PromoCode {
   id: string;
@@ -32,7 +34,7 @@ interface AdminPanelProps {
 const AdminPanel = ({ inline = false }: AdminPanelProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isExpanded, setIsExpanded] = useState(true); // Always start expanded
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,90 +109,12 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
     return features.length > 0 ? features.join(" • ") : "Aucun effet";
   };
 
-  // Inline mode - renders directly in the page
+  // Inline mode - renders nothing (removed from admin banner)
   if (inline) {
-    return (
-      <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Tag className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-foreground">Gestion des codes promo</span>
-            <span className="text-xs text-muted-foreground">
-              ({promoCodes.filter(p => p.is_active).length} actifs)
-            </span>
-          </div>
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-          )}
-        </button>
-        
-        {isExpanded && (
-          <div className="p-4 border-t border-border">
-            {loading ? (
-              <div className="text-center py-4 text-muted-foreground">
-                Chargement...
-              </div>
-            ) : promoCodes.length === 0 ? (
-              <div className="text-center py-4 text-muted-foreground">
-                Aucun code promo configuré
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {promoCodes.map(promo => (
-                  <div
-                    key={promo.id}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border transition-colors",
-                      promo.is_active
-                        ? "bg-green-500/10 border-green-500/30"
-                        : "bg-muted/30 border-border opacity-60"
-                    )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-semibold text-foreground text-sm">
-                          {promo.code}
-                        </span>
-                        {promo.is_active ? (
-                          <Check className="w-3 h-3 text-green-500" />
-                        ) : (
-                          <AlertCircle className="w-3 h-3 text-muted-foreground" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {getPromoDescription(promo)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 ml-3">
-                      <Label
-                        htmlFor={`inline-promo-${promo.id}`}
-                        className="text-xs text-muted-foreground cursor-pointer"
-                      >
-                        {promo.is_active ? "Actif" : "Inactif"}
-                      </Label>
-                      <Switch
-                        id={`inline-promo-${promo.id}`}
-                        checked={promo.is_active}
-                        onCheckedChange={() => togglePromoCode(promo.id, promo.is_active)}
-                        disabled={updating === promo.id}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
+    return null;
   }
 
-  // Floating panel mode (original behavior)
+  // Floating panel mode
   if (!isOpen) {
     return (
       <Button
@@ -214,28 +138,15 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
             <Settings className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">Panneau Admin</h2>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                setIsOpen(false);
-                navigate('/instrumentals');
-              }}
-              className="gap-2"
-            >
-              <Music className="w-4 h-4" />
-              Config Instrumentaux
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
-          <div className="mb-4">
+        <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)] space-y-6">
+          {/* Promo Codes Management */}
+          <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
               <Tag className="w-4 h-4" />
               Gestion des codes promo
@@ -297,12 +208,16 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
           </div>
 
           {/* Services Pricing Management */}
-          <div className="mb-6">
-            <AdminServicesPricing />
-          </div>
+          <AdminServicesPricing />
 
           {/* Instrumentals Management */}
           <AdminInstrumentals />
+
+          {/* User Management */}
+          <AdminUserManagement />
+
+          {/* Chatbot Configuration */}
+          <AdminChatbotConfig />
 
           <div className="pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground text-center">
