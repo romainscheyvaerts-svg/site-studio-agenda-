@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp, Euro } from "lucide-react";
+import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp, Euro, Music } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,7 @@ interface AdminPanelProps {
 
 const AdminPanel = ({ inline = false }: AdminPanelProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(true); // Always start expanded
   const [isOpen, setIsOpen] = useState(false);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
@@ -212,9 +214,23 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
             <Settings className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">Panneau Admin</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/instrumentals');
+              }}
+              className="gap-2"
+            >
+              <Music className="w-4 h-4" />
+              Config Instrumentaux
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Content */}
