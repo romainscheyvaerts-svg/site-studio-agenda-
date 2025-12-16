@@ -1492,6 +1492,17 @@ serve(async (req) => {
 
       console.log("[EMAIL] Confirmation email sent successfully:", emailResponse);
 
+      // Send duplicate of client confirmation email to admin
+      console.log("[EMAIL] Sending duplicate confirmation to admin...");
+      const adminDuplicateResponse = await resend.emails.send({
+        from: "Make Music Studio <onboarding@resend.dev>",
+        reply_to: "prod.makemusic@gmail.com",
+        to: ["romain.scheyvaerts@gmail.com"],
+        subject: `[COPIE] ${emailSubject}`,
+        html: emailHtml,
+      });
+      console.log("[EMAIL] Admin duplicate confirmation sent:", adminDuplicateResponse);
+
       // Send notification email to admin (romain.scheyvaerts@gmail.com because Resend test mode)
       console.log("[EMAIL] Sending notification to admin...");
       const paymentStatusAdmin = isCashPayment ? "💰 À payer au studio" : "✅ Payé";
