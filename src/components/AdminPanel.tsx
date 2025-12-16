@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp, Euro } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AdminInstrumentals from "./AdminInstrumentals";
+import AdminServicesPricing from "./AdminServicesPricing";
 
 interface PromoCode {
   id: string;
@@ -277,6 +278,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Services Pricing Management */}
+          <div className="mb-6">
+            <AdminServicesPricing />
           </div>
 
           {/* Instrumentals Management */}

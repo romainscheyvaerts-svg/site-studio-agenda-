@@ -1,5 +1,8 @@
 project_id = "aafjeezfrmxssehnpwct"
 
+[functions.scan-drive-instrumentals]
+verify_jwt = true
+
 [functions.get-paypal-client-id]
 verify_jwt = false
 

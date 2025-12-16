@@ -193,6 +193,8 @@ export type Database = {
           auto_select_service: string | null
           code: string
           created_at: string
+          custom_price_with_engineer: number | null
+          custom_price_without_engineer: number | null
           discount_mastering: number | null
           discount_mixing: number | null
           discount_recording: number | null
@@ -200,6 +202,7 @@ export type Database = {
           full_calendar_visibility: boolean
           id: string
           is_active: boolean
+          require_full_payment: boolean | null
           skip_form_fields: boolean
           skip_identity_verification: boolean
           skip_payment: boolean
@@ -209,6 +212,8 @@ export type Database = {
           auto_select_service?: string | null
           code: string
           created_at?: string
+          custom_price_with_engineer?: number | null
+          custom_price_without_engineer?: number | null
           discount_mastering?: number | null
           discount_mixing?: number | null
           discount_recording?: number | null
@@ -216,6 +221,7 @@ export type Database = {
           full_calendar_visibility?: boolean
           id?: string
           is_active?: boolean
+          require_full_payment?: boolean | null
           skip_form_fields?: boolean
           skip_identity_verification?: boolean
           skip_payment?: boolean
@@ -225,6 +231,8 @@ export type Database = {
           auto_select_service?: string | null
           code?: string
           created_at?: string
+          custom_price_with_engineer?: number | null
+          custom_price_without_engineer?: number | null
           discount_mastering?: number | null
           discount_mixing?: number | null
           discount_recording?: number | null
@@ -232,6 +240,7 @@ export type Database = {
           full_calendar_visibility?: boolean
           id?: string
           is_active?: boolean
+          require_full_payment?: boolean | null
           skip_form_fields?: boolean
           skip_identity_verification?: boolean
           skip_payment?: boolean
