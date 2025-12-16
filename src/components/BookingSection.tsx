@@ -89,9 +89,11 @@ const BookingSection = () => {
         fullCalendarVisibility: true,
         skipPayment: true,
         skipIdentityVerification: true,
-        skipFormFields: true, // Admin can skip name/phone fields
+        skipFormFields: true,
         autoSelectService: null as SessionType,
         discounts: {} as Record<string, number>,
+        customPrices: {} as Record<string, number>,
+        requireFullPayment: false,
       };
     }
     
