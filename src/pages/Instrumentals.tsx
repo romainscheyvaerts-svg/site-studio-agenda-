@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music, Search, Filter } from "lucide-react";
+import { Music, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
@@ -22,13 +21,18 @@ interface Instrumental {
   key?: string;
   preview_url?: string;
   cover_image_url?: string;
+  drive_file_id?: string;
 }
+
+// Helper to get audio URL from Google Drive file ID
+const getDriveAudioUrl = (fileId: string) => {
+  return `https://docs.google.com/uc?export=download&id=${fileId}`;
+};
 
 const Instrumentals = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [instrumentals, setInstrumentals] = useState<Instrumental[]>([]);
   const [filteredInstrumentals, setFilteredInstrumentals] = useState<Instrumental[]>([]);
@@ -79,22 +83,17 @@ const Instrumentals = () => {
     setFilteredInstrumentals(filtered);
   }, [searchQuery, selectedGenre, instrumentals]);
 
+  // Get the audio source URL for an instrumental
+  const getAudioSrc = (instrumental: Instrumental): string | null => {
+    if (instrumental.preview_url) return instrumental.preview_url;
+    if (instrumental.drive_file_id) return getDriveAudioUrl(instrumental.drive_file_id);
+    return null;
+  };
+
   const handlePlay = (instrumental: Instrumental) => {
     if (currentPlaying?.id === instrumental.id) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
       setCurrentPlaying(null);
     } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      if (instrumental.preview_url) {
-        audioRef.current = new Audio(instrumental.preview_url);
-        audioRef.current.play();
-        audioRef.current.onended = () => setCurrentPlaying(null);
-      }
       setCurrentPlaying(instrumental);
     }
   };
@@ -178,13 +177,15 @@ const Instrumentals = () => {
           </div>
 
           {/* Current Playing Player */}
-          {currentPlaying && currentPlaying.preview_url && (
+          {currentPlaying && getAudioSrc(currentPlaying) && (
             <div className="mb-8 max-w-2xl mx-auto sticky top-20 z-40">
               <AudioPlayer
-                src={currentPlaying.preview_url}
+                src={getAudioSrc(currentPlaying)!}
                 title={currentPlaying.title}
                 artist="Make Music"
                 coverImage={currentPlaying.cover_image_url}
+                autoPlay
+                onEnded={() => setCurrentPlaying(null)}
               />
             </div>
           )}
