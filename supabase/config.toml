@@ -62,3 +62,12 @@ verify_jwt = false
 
 [functions.stream-instrumental]
 verify_jwt = false
+
+[functions.send-admin-email]
+verify_jwt = true
+
+[functions.send-booking-notification]
+verify_jwt = false
+
+[functions.create-client-subfolder]
+verify_jwt = false

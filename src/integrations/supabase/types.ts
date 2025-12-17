@@ -259,10 +259,15 @@ export type Database = {
           description: string | null
           drive_file_id: string
           genre: string | null
+          has_stems: boolean | null
           id: string
           is_active: boolean
           key: string | null
           preview_url: string | null
+          price_base: number | null
+          price_exclusive: number | null
+          price_stems: number | null
+          stems_folder_id: string | null
           title: string
           updated_at: string
         }
@@ -273,10 +278,15 @@ export type Database = {
           description?: string | null
           drive_file_id: string
           genre?: string | null
+          has_stems?: boolean | null
           id?: string
           is_active?: boolean
           key?: string | null
           preview_url?: string | null
+          price_base?: number | null
+          price_exclusive?: number | null
+          price_stems?: number | null
+          stems_folder_id?: string | null
           title: string
           updated_at?: string
         }
@@ -287,10 +297,15 @@ export type Database = {
           description?: string | null
           drive_file_id?: string
           genre?: string | null
+          has_stems?: boolean | null
           id?: string
           is_active?: boolean
           key?: string | null
           preview_url?: string | null
+          price_base?: number | null
+          price_exclusive?: number | null
+          price_stems?: number | null
+          stems_folder_id?: string | null
           title?: string
           updated_at?: string
         }
