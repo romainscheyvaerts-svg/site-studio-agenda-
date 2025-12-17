@@ -2,10 +2,13 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { 
   Mic, Building2, Music, Headphones, Disc, Radio, 
-  Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2
+  Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2,
+  Mail, FolderOpen, CreditCard
 } from "lucide-react";
 import AdminCalendar from "./AdminCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -39,7 +42,11 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [customTitle, setCustomTitle] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [includeStripeLink, setIncludeStripeLink] = useState(false);
+  const [includeDriveLink, setIncludeDriveLink] = useState(false);
 
   const pricing: Record<string, number> = {
     "with-engineer": 45,
@@ -108,6 +115,51 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
 
   const handleCloseCalendar = () => {
     setShowCalendar(false);
+  };
+
+  const handleSendEmail = async () => {
+    if (!clientEmail) {
+      toast({
+        title: "Email requis",
+        description: "Veuillez entrer l'email du client.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-admin-email", {
+        body: {
+          clientEmail,
+          clientName,
+          sessionType: selectedService,
+          sessionDate: selectedDate,
+          sessionTime: selectedTime,
+          hours: isHourlyService ? hours : (isPodcast ? podcastMinutes : 1),
+          totalPrice: finalPrice,
+          includeStripeLink,
+          includeDriveLink,
+          customMessage,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email envoyé !",
+        description: `Email envoyé à ${clientEmail}${data.stripePaymentUrl ? " avec lien de paiement Stripe" : ""}${data.driveFolderLink ? " et dossier Drive" : ""}.`,
+      });
+    } catch (err: any) {
+      console.error("Email error:", err);
+      toast({
+        title: "Erreur",
+        description: err.message || "Impossible d'envoyer l'email.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const services = [
@@ -251,7 +303,7 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
               </div>
             </div>
 
-            {/* Discount input */}
+            {/* Discount & Client info */}
             <div className="space-y-4">
               <div>
                 <Label className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
@@ -283,9 +335,6 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                     placeholder="Ex: SESSION ENREGISTREMENT - Artiste"
                     className="bg-secondary/50 border-border"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Laissez vide pour générer automatiquement : "SESSION [Service] - [Client]"
-                  </p>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground mb-2 block">
@@ -300,7 +349,7 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground mb-2 block">
-                    Email du client (optionnel)
+                    Email du client
                   </Label>
                   <Input
                     type="email"
@@ -330,7 +379,6 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                           "podcast": "Podcast"
                         };
                         
-                        // Use custom title if provided, otherwise generate automatically
                         const title = customTitle.trim() 
                           ? customTitle.trim()
                           : clientName 
@@ -371,7 +419,7 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                         console.error("Error creating event:", err);
                         toast({
                           title: "Erreur",
-                          description: "Impossible de créer l'événement. Réessayez.",
+                          description: "Impossible de créer l'événement.",
                           variant: "destructive",
                         });
                       } finally {
@@ -410,6 +458,75 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
               )}
             </div>
           </div>
+
+          {/* Email Section */}
+          {clientEmail && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <h4 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-primary" />
+                ENVOYER UN EMAIL AU CLIENT
+              </h4>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm text-muted-foreground mb-2 block">
+                    Message personnalisé (optionnel)
+                  </Label>
+                  <Textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    placeholder="Ajoutez un message pour le client..."
+                    className="bg-secondary/50 border-border"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="includeStripe"
+                      checked={includeStripeLink}
+                      onCheckedChange={(checked) => setIncludeStripeLink(checked as boolean)}
+                    />
+                    <Label htmlFor="includeStripe" className="text-sm flex items-center gap-1 cursor-pointer">
+                      <CreditCard className="w-4 h-4 text-primary" />
+                      Inclure lien Stripe
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="includeDrive"
+                      checked={includeDriveLink}
+                      onCheckedChange={(checked) => setIncludeDriveLink(checked as boolean)}
+                    />
+                    <Label htmlFor="includeDrive" className="text-sm flex items-center gap-1 cursor-pointer">
+                      <FolderOpen className="w-4 h-4 text-amber-500" />
+                      Créer dossier Drive
+                    </Label>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail || !clientEmail}
+                  className="w-full"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4 mr-2" />
+                      ENVOYER L'EMAIL
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

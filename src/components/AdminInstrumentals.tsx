@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2 } from "lucide-react";
+import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2, Layers, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface Instrumental {
   id: string;
@@ -20,6 +21,11 @@ interface Instrumental {
   cover_image_url?: string;
   drive_file_id: string;
   is_active: boolean;
+  price_base?: number;
+  price_stems?: number;
+  price_exclusive?: number;
+  has_stems?: boolean;
+  stems_folder_id?: string;
 }
 
 interface DriveFile {
@@ -30,6 +36,9 @@ interface DriveFile {
   size: string;
   isInDatabase: boolean;
   webContentLink?: string;
+  hasStemsFolder?: boolean;
+  stemsFolderId?: string;
+  stemsFolderName?: string;
 }
 
 const defaultFormData = {
@@ -42,10 +51,13 @@ const defaultFormData = {
   cover_image_url: "",
   drive_file_id: "",
   drive_file_name: "",
-  is_active: false
+  is_active: false,
+  price_base: "100",
+  price_stems: "150",
+  price_exclusive: "500",
+  has_stems: false,
+  stems_folder_id: "",
 };
-
-const DEFAULT_PRICE = 100;
 
 const AdminInstrumentals = () => {
   const { toast } = useToast();
@@ -60,6 +72,7 @@ const AdminInstrumentals = () => {
   const [saving, setSaving] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playingDriveId, setPlayingDriveId] = useState<string | null>(null);
+  const [savingPrices, setSavingPrices] = useState<Record<string, boolean>>({});
 
   const fetchInstrumentals = async () => {
     const { data, error } = await supabase
@@ -84,7 +97,7 @@ const AdminInstrumentals = () => {
         setDriveFiles(data.files);
         toast({
           title: "Scan terminé",
-          description: `${data.newFiles} nouveau(x) fichier(s) trouvé(s) sur ${data.totalInDrive} au total.`
+          description: `${data.newFiles} nouveau(x) fichier(s), ${data.stemsFoldersFound || 0} dossier(s) stems trouvé(s).`
         });
       }
     } catch (err: any) {
@@ -101,10 +114,8 @@ const AdminInstrumentals = () => {
 
   useEffect(() => {
     fetchInstrumentals();
-    // Auto-scan Drive pour récupérer les noms des fichiers
     scanGoogleDrive();
     
-    // Cleanup audio on unmount
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -114,7 +125,6 @@ const AdminInstrumentals = () => {
   }, []);
 
   const handleAddFromDrive = (file: DriveFile) => {
-    // Extraire le titre du nom du fichier (sans extension)
     const titleWithoutExt = file.name.replace(/\.(mp3|wav|flac|m4a)$/i, "");
     
     setEditingId(null);
@@ -123,33 +133,31 @@ const AdminInstrumentals = () => {
       title: titleWithoutExt,
       drive_file_id: file.id,
       drive_file_name: file.name,
-      is_active: false
+      is_active: false,
+      has_stems: file.hasStemsFolder || false,
+      stems_folder_id: file.stemsFolderId || "",
     });
     setIsDialogOpen(true);
   };
 
-  // Play audio preview from Google Drive via proxy
   const playDriveFile = (fileId: string) => {
     if (playingDriveId === fileId) {
-      // Stop playing
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
       setPlayingDriveId(null);
     } else {
-      // Stop any current playback
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      // Use streaming proxy
       const previewUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${fileId}`;
       audioRef.current = new Audio(previewUrl);
       audioRef.current.play().catch(err => {
         console.error("Playback error:", err);
         toast({
           title: "Erreur de lecture",
-          description: "Impossible de lire le fichier. Vérifiez les permissions du fichier Google Drive.",
+          description: "Impossible de lire le fichier.",
           variant: "destructive"
         });
       });
@@ -171,7 +179,6 @@ const AdminInstrumentals = () => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      // Use streaming proxy for reliable playback
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${fileId}`;
       audioRef.current = new Audio(url);
       audioRef.current.play().catch(err => {
@@ -201,7 +208,12 @@ const AdminInstrumentals = () => {
       preview_url: formData.preview_url || null,
       cover_image_url: formData.cover_image_url || null,
       drive_file_id: formData.drive_file_id,
-      is_active: formData.is_active
+      is_active: formData.is_active,
+      price_base: parseFloat(formData.price_base) || 100,
+      price_stems: parseFloat(formData.price_stems) || 150,
+      price_exclusive: parseFloat(formData.price_exclusive) || 500,
+      has_stems: formData.has_stems,
+      stems_folder_id: formData.stems_folder_id || null,
     };
 
     if (editingId) {
@@ -223,7 +235,7 @@ const AdminInstrumentals = () => {
       if (error) {
         toast({ title: "Erreur", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Succès", description: "Instrumental créé (prix par défaut: 100€)." });
+        toast({ title: "Succès", description: "Instrumental créé." });
       }
     }
 
@@ -232,14 +244,12 @@ const AdminInstrumentals = () => {
     setEditingId(null);
     setFormData(defaultFormData);
     fetchInstrumentals();
-    // Rafraîchir les fichiers Drive pour mettre à jour le statut
     if (driveFiles.length > 0) {
       scanGoogleDrive();
     }
   };
 
   const handleEdit = (instrumental: Instrumental) => {
-    // Trouver le nom du fichier Drive si disponible
     const driveFile = driveFiles.find(f => f.id === instrumental.drive_file_id);
     
     setEditingId(instrumental.id);
@@ -253,7 +263,12 @@ const AdminInstrumentals = () => {
       cover_image_url: instrumental.cover_image_url || "",
       drive_file_id: instrumental.drive_file_id,
       drive_file_name: driveFile?.name || "",
-      is_active: instrumental.is_active
+      is_active: instrumental.is_active,
+      price_base: instrumental.price_base?.toString() || "100",
+      price_stems: instrumental.price_stems?.toString() || "150",
+      price_exclusive: instrumental.price_exclusive?.toString() || "500",
+      has_stems: instrumental.has_stems || false,
+      stems_folder_id: instrumental.stems_folder_id || "",
     });
     setIsDialogOpen(true);
   };
@@ -284,14 +299,31 @@ const AdminInstrumentals = () => {
       toast({
         title: !currentStatus ? "Activé" : "Désactivé",
         description: !currentStatus 
-          ? "L'instrumental est maintenant visible pour les utilisateurs." 
+          ? "L'instrumental est maintenant visible." 
           : "L'instrumental est masqué."
       });
       fetchInstrumentals();
     }
   };
 
-  // Fichiers Drive qui ne sont pas encore dans la base
+  const updatePrice = async (id: string, field: 'price_base' | 'price_stems' | 'price_exclusive', value: number) => {
+    setSavingPrices(prev => ({ ...prev, [id]: true }));
+    
+    const { error } = await supabase
+      .from("instrumentals")
+      .update({ [field]: value })
+      .eq("id", id);
+
+    if (!error) {
+      toast({ title: "Prix mis à jour" });
+      fetchInstrumentals();
+    } else {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    }
+    
+    setSavingPrices(prev => ({ ...prev, [id]: false }));
+  };
+
   const newDriveFiles = driveFiles.filter(f => !f.isInDatabase);
 
   return (
@@ -389,7 +421,7 @@ const AdminInstrumentals = () => {
                   </div>
                   
                   <div>
-                    <Label>ID Fichier Google Drive (HQ) *</Label>
+                    <Label>ID Fichier Google Drive *</Label>
                     <Input
                       value={formData.drive_file_id}
                       onChange={(e) => setFormData({ ...formData, drive_file_id: e.target.value })}
@@ -398,13 +430,52 @@ const AdminInstrumentals = () => {
                     />
                   </div>
                   
-                  <div className="col-span-2">
-                    <Label>URL Preview Audio (MP3)</Label>
-                    <Input
-                      value={formData.preview_url}
-                      onChange={(e) => setFormData({ ...formData, preview_url: e.target.value })}
-                      placeholder="https://..."
-                    />
+                  {/* Prix personnalisés */}
+                  <div className="col-span-2 p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
+                    <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <Euro className="h-4 w-4 text-green-500" />
+                      Prix personnalisés
+                    </h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-xs">Prix Base (€)</Label>
+                        <Input
+                          type="number"
+                          value={formData.price_base}
+                          onChange={(e) => setFormData({ ...formData, price_base: e.target.value })}
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs flex items-center gap-1">
+                          Prix Stems (€)
+                          {formData.has_stems && <Badge variant="outline" className="text-xs">Disponible</Badge>}
+                        </Label>
+                        <Input
+                          type="number"
+                          value={formData.price_stems}
+                          onChange={(e) => setFormData({ ...formData, price_stems: e.target.value })}
+                          min="0"
+                          disabled={!formData.has_stems}
+                          className={!formData.has_stems ? "opacity-50" : ""}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Prix Exclusive (€)</Label>
+                        <Input
+                          type="number"
+                          value={formData.price_exclusive}
+                          onChange={(e) => setFormData({ ...formData, price_exclusive: e.target.value })}
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                    {formData.has_stems && (
+                      <p className="text-xs text-green-500 mt-2 flex items-center gap-1">
+                        <Layers className="h-3 w-3" />
+                        Dossier stems détecté: {formData.stems_folder_id?.slice(0, 15)}...
+                      </p>
+                    )}
                   </div>
                   
                   <div className="col-span-2">
@@ -421,14 +492,7 @@ const AdminInstrumentals = () => {
                       checked={formData.is_active}
                       onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                     />
-                    <Label>Visible sur le site (activer pour afficher aux utilisateurs)</Label>
-                  </div>
-                  
-                  <div className="col-span-2 p-3 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Euro className="h-4 w-4" />
-                      Prix par défaut: <strong className="text-foreground">{DEFAULT_PRICE}€</strong> (modifiable via les licences)
-                    </p>
+                    <Label>Visible sur le site</Label>
                   </div>
                 </div>
                 
@@ -472,11 +536,19 @@ const AdminInstrumentals = () => {
                       <Play className="h-4 w-4" />
                     )}
                   </Button>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(file.createdTime).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(file.createdTime).toLocaleDateString()}
+                      </p>
+                      {file.hasStemsFolder && (
+                        <Badge variant="outline" className="text-xs text-green-500 border-green-500/50">
+                          <Layers className="h-3 w-3 mr-1" />
+                          Stems
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <Button 
@@ -498,7 +570,7 @@ const AdminInstrumentals = () => {
         </div>
       ) : instrumentals.length === 0 ? (
         <p className="text-center text-muted-foreground py-8">
-          Aucun instrumental. Scannez Google Drive ou cliquez sur "Ajouter" pour en créer un.
+          Aucun instrumental. Scannez Google Drive ou cliquez sur "Ajouter".
         </p>
       ) : (
         <div className="space-y-3">
@@ -507,80 +579,107 @@ const AdminInstrumentals = () => {
             return (
             <div 
               key={instrumental.id}
-              className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
+              className={`p-4 rounded-lg transition-colors ${
                 instrumental.is_active 
                   ? "bg-green-500/10 border border-green-500/30" 
                   : "bg-muted/50 opacity-60"
               }`}
             >
-              {/* Play Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => playInstrumental(instrumental)}
-                className="shrink-0"
-              >
-                {playingId === instrumental.id ? (
-                  <Pause className="h-5 w-5 text-primary" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </Button>
-
-              {instrumental.cover_image_url ? (
-                <img 
-                  src={instrumental.cover_image_url} 
-                  alt={instrumental.title}
-                  className="w-12 h-12 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Music className="h-5 w-5 text-primary/40" />
-                </div>
-              )}
-              
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-foreground truncate">{instrumental.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {instrumental.genre && `${instrumental.genre} • `}
-                  {instrumental.bpm && `${instrumental.bpm} BPM`}
-                </p>
-                {/* Afficher le nom du fichier Drive */}
-                <p className="text-xs text-primary/70 truncate flex items-center gap-1 mt-0.5">
-                  <Volume2 className="h-3 w-3" />
-                  {driveFile?.name || `ID: ${instrumental.drive_file_id.slice(0, 15)}...`}
-                </p>
-              </div>
-              
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                {/* Play Button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => toggleActive(instrumental.id, instrumental.is_active)}
-                  title={instrumental.is_active ? "Masquer" : "Afficher"}
+                  onClick={() => playInstrumental(instrumental)}
+                  className="shrink-0"
                 >
-                  {instrumental.is_active ? (
-                    <Eye className="h-4 w-4 text-green-500" />
+                  {playingId === instrumental.id ? (
+                    <Pause className="h-5 w-5 text-primary" />
                   ) : (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    <Play className="h-5 w-5" />
                   )}
                 </Button>
+
+                {instrumental.cover_image_url ? (
+                  <img 
+                    src={instrumental.cover_image_url} 
+                    alt={instrumental.title}
+                    className="w-12 h-12 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Music className="h-5 w-5 text-primary/40" />
+                  </div>
+                )}
                 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleEdit(instrumental)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground truncate">{instrumental.title}</h3>
+                    {instrumental.has_stems && (
+                      <Badge variant="outline" className="text-xs text-green-500 border-green-500/50">
+                        <Layers className="h-3 w-3 mr-1" />
+                        Stems
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {instrumental.genre && `${instrumental.genre} • `}
+                    {instrumental.bpm && `${instrumental.bpm} BPM`}
+                  </p>
+                  <p className="text-xs text-primary/70 truncate flex items-center gap-1 mt-0.5">
+                    <Volume2 className="h-3 w-3" />
+                    {driveFile?.name || `ID: ${instrumental.drive_file_id.slice(0, 15)}...`}
+                  </p>
+                </div>
                 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(instrumental.id)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {/* Prix inline */}
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="flex flex-col items-center">
+                    <span className="text-muted-foreground">Base</span>
+                    <span className="font-semibold text-foreground">{instrumental.price_base}€</span>
+                  </div>
+                  {instrumental.has_stems && (
+                    <div className="flex flex-col items-center">
+                      <span className="text-muted-foreground">Stems</span>
+                      <span className="font-semibold text-green-500">{instrumental.price_stems}€</span>
+                    </div>
+                  )}
+                  <div className="flex flex-col items-center">
+                    <span className="text-muted-foreground">Exclu</span>
+                    <span className="font-semibold text-amber-500">{instrumental.price_exclusive}€</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleActive(instrumental.id, instrumental.is_active)}
+                    title={instrumental.is_active ? "Masquer" : "Afficher"}
+                  >
+                    {instrumental.is_active ? (
+                      <Eye className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEdit(instrumental)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(instrumental.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
             </div>
           )})}

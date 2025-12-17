@@ -67,8 +67,14 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   return tokenData.access_token;
 }
 
-// Folder ID for instrumentals - Updated folder
+// Folder ID for instrumentals
 const INSTRUMENTALS_FOLDER_ID = "1fo_SnmEfdSM2PDv90ujDUzkDhR3KRUVu";
+
+// Helper to extract numeric prefix from file name (e.g., "1278" from "1278 - Beat Name.mp3")
+function extractNumericPrefix(fileName: string): string | null {
+  const match = fileName.match(/^(\d+)/);
+  return match ? match[1] : null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -119,9 +125,9 @@ serve(async (req) => {
       "https://www.googleapis.com/auth/drive.readonly",
     ]);
 
-    // List audio files in the folder
+    // List all items in the folder (audio files AND folders for stems)
     const listResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q='${INSTRUMENTALS_FOLDER_ID}'+in+parents+and+(mimeType+contains+'audio'+or+name+contains+'.mp3'+or+name+contains+'.wav'+or+name+contains+'.flac')&fields=files(id,name,mimeType,createdTime,size)`,
+      `https://www.googleapis.com/drive/v3/files?q='${INSTRUMENTALS_FOLDER_ID}'+in+parents&fields=files(id,name,mimeType,createdTime,size)`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -134,14 +140,36 @@ serve(async (req) => {
     }
 
     const listData = await listResponse.json();
-    const driveFiles = listData.files || [];
+    const allItems = listData.files || [];
 
-    console.log(`Found ${driveFiles.length} audio files in Drive folder`);
+    // Separate audio files and folders
+    const audioFiles = allItems.filter((item: any) => 
+      item.mimeType?.includes('audio') || 
+      /\.(mp3|wav|flac|m4a)$/i.test(item.name)
+    );
+    
+    // Find stems folders (pattern: "#### ppp" where #### is a number)
+    const stemsFolders = allItems.filter((item: any) => 
+      item.mimeType === 'application/vnd.google-apps.folder' &&
+      /^\d+\s+ppp$/i.test(item.name.trim())
+    );
+
+    console.log(`Found ${audioFiles.length} audio files and ${stemsFolders.length} stems folders`);
+
+    // Create a map of stems folders by their numeric prefix
+    const stemsFolderMap: Record<string, { id: string; name: string }> = {};
+    for (const folder of stemsFolders) {
+      const prefix = folder.name.match(/^(\d+)/)?.[1];
+      if (prefix) {
+        stemsFolderMap[prefix] = { id: folder.id, name: folder.name };
+        console.log(`Stems folder found: ${folder.name} -> prefix ${prefix}`);
+      }
+    }
 
     // Get existing instrumentals from database
     const { data: existingInstrumentals, error: dbError } = await supabase
       .from("instrumentals")
-      .select("drive_file_id, title");
+      .select("drive_file_id, title, has_stems, stems_folder_id");
 
     if (dbError) {
       console.error("DB error:", dbError);
@@ -150,22 +178,49 @@ serve(async (req) => {
 
     const existingDriveIds = new Set(existingInstrumentals?.map(i => i.drive_file_id) || []);
 
-    // Separate into new and existing files
-    const driveFilesWithStatus = driveFiles.map((file: any) => ({
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType,
-      createdTime: file.createdTime,
-      size: file.size,
-      isInDatabase: existingDriveIds.has(file.id),
-    }));
+    // Map audio files with stems folder info
+    const driveFilesWithStatus = audioFiles.map((file: any) => {
+      const numericPrefix = extractNumericPrefix(file.name);
+      const stemsFolder = numericPrefix ? stemsFolderMap[numericPrefix] : null;
+      
+      return {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        createdTime: file.createdTime,
+        size: file.size,
+        isInDatabase: existingDriveIds.has(file.id),
+        hasStemsFolder: !!stemsFolder,
+        stemsFolderId: stemsFolder?.id || null,
+        stemsFolderName: stemsFolder?.name || null,
+      };
+    });
+
+    // Update existing instrumentals with stems info if changed
+    for (const instrumental of existingInstrumentals || []) {
+      const driveFile = driveFilesWithStatus.find((f: any) => f.id === instrumental.drive_file_id);
+      if (driveFile && (
+        instrumental.has_stems !== driveFile.hasStemsFolder ||
+        instrumental.stems_folder_id !== driveFile.stemsFolderId
+      )) {
+        await supabase
+          .from("instrumentals")
+          .update({
+            has_stems: driveFile.hasStemsFolder,
+            stems_folder_id: driveFile.stemsFolderId
+          })
+          .eq("drive_file_id", instrumental.drive_file_id);
+        console.log(`Updated stems info for: ${instrumental.title}`);
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
         files: driveFilesWithStatus,
-        totalInDrive: driveFiles.length,
+        totalInDrive: audioFiles.length,
         totalInDatabase: existingInstrumentals?.length || 0,
         newFiles: driveFilesWithStatus.filter((f: any) => !f.isInDatabase).length,
+        stemsFoldersFound: stemsFolders.length,
       }),
       {
         status: 200,

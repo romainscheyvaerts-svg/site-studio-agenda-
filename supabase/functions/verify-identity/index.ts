@@ -15,7 +15,133 @@ const verifyIdentitySchema = z.object({
     .trim()
     .min(2, "Name must be at least 2 characters")
     .max(100, "Name must be less than 100 characters"),
+  userEmail: z.string().email().optional(),
 });
+
+// Google Drive folder for identity documents
+const ID_DOCUMENTS_FOLDER_ID = "1M26hUChiBmW-oVl3ijlzslhbFn386ISi";
+
+// Get Google OAuth2 access token using service account
+async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
+  const key = JSON.parse(serviceAccountKey);
+  
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const claimSet = {
+    iss: key.client_email,
+    scope: scopes.join(" "),
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const base64url = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  
+  const headerB64 = base64url(encoder.encode(JSON.stringify(header)));
+  const claimSetB64 = base64url(encoder.encode(JSON.stringify(claimSet)));
+  const signatureInput = `${headerB64}.${claimSetB64}`;
+
+  const pemContent = key.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, "");
+  const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    encoder.encode(signatureInput)
+  );
+
+  const jwt = `${signatureInput}.${base64url(new Uint8Array(signature))}`;
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    console.error("Token exchange failed:", errorText);
+    throw new Error("Failed to get access token");
+  }
+
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
+}
+
+// Upload image to Google Drive
+async function uploadToDrive(
+  accessToken: string,
+  imageBase64: string,
+  fileName: string
+): Promise<{ id: string; webViewLink: string } | null> {
+  try {
+    // Extract base64 data (remove data URL prefix if present)
+    const base64Data = imageBase64.includes(',') 
+      ? imageBase64.split(',')[1] 
+      : imageBase64;
+    
+    // Convert base64 to binary
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Create multipart request
+    const boundary = "-------314159265358979323846";
+    const metadata = {
+      name: fileName,
+      parents: [ID_DOCUMENTS_FOLDER_ID],
+    };
+
+    const body = [
+      `--${boundary}`,
+      'Content-Type: application/json; charset=UTF-8',
+      '',
+      JSON.stringify(metadata),
+      `--${boundary}`,
+      'Content-Type: image/jpeg',
+      'Content-Transfer-Encoding: base64',
+      '',
+      base64Data,
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const uploadResponse = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error("Drive upload failed:", errorText);
+      return null;
+    }
+
+    const fileData = await uploadResponse.json();
+    console.log("Document uploaded to Drive:", fileData.id);
+    return fileData;
+  } catch (error) {
+    console.error("Error uploading to Drive:", error);
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,7 +167,7 @@ serve(async (req) => {
       );
     }
 
-    const { imageBase64, formName } = parseResult.data;
+    const { imageBase64, formName, userEmail } = parseResult.data;
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
@@ -186,11 +312,38 @@ Ne rajoute aucun texte avant ou après le JSON.`,
 
     console.log(`Name comparison: "${normalizedExtracted}" vs "${normalizedForm}" = ${isMatch}`);
 
+    // If verification successful, upload document to Google Drive
+    let documentLink = null;
+    if (isMatch) {
+      const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+      if (serviceAccountKey) {
+        try {
+          const accessToken = await getAccessToken(serviceAccountKey, [
+            "https://www.googleapis.com/auth/drive.file",
+          ]);
+          
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const sanitizedName = formName.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
+          const fileName = `ID_${sanitizedName}_${timestamp}.jpg`;
+          
+          const uploadResult = await uploadToDrive(accessToken, imageBase64, fileName);
+          if (uploadResult) {
+            documentLink = uploadResult.webViewLink || `https://drive.google.com/file/d/${uploadResult.id}/view`;
+            console.log("Document stored in Drive:", documentLink);
+          }
+        } catch (driveError) {
+          console.error("Failed to upload to Drive (non-blocking):", driveError);
+          // Don't fail verification if Drive upload fails
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         verified: isMatch,
         extractedName: `${extractedData.firstName} ${extractedData.lastName}`,
         formName: formName,
+        documentLink,
         error: isMatch ? null : "Le nom sur le document ne correspond pas au nom du formulaire.",
       }),
       {

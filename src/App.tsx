@@ -13,6 +13,7 @@ import PaymentCancel from "./pages/PaymentCancel";
 import Instrumentals from "./pages/Instrumentals";
 import InstrumentalCheckout from "./pages/InstrumentalCheckout";
 import Download from "./pages/Download";
+import Studio from "./pages/Studio";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/instrumentals" element={<Instrumentals />} />
             <Route path="/checkout/instrumental/:instrumentalId/:licenseId" element={<InstrumentalCheckout />} />
             <Route path="/download/:token" element={<Download />} />
+            <Route path="/studio" element={<Studio />} />
             <Route path="/success" element={<PaymentSuccess />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/cancel" element={<PaymentCancel />} />
