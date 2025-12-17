@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          country: string | null
+          created_at: string
+          id: string
+          ip_address: string
+          metadata: Json | null
+          path: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          ip_address: string
+          metadata?: Json | null
+          path?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string
+          metadata?: Json | null
+          path?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      blocked_ips: {
+        Row: {
+          blocked_at: string
+          blocked_by: string
+          id: string
+          ip_address: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by: string
+          id?: string
+          ip_address: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string
+          id?: string
+          ip_address?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       blocked_users: {
         Row: {
           blocked_at: string
