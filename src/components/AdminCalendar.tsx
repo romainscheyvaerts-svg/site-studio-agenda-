@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-
+import AdminEventCreator from "./AdminEventCreator";
 interface TimeSlot {
   hour: number;
   available: boolean;
@@ -52,6 +50,9 @@ const AdminCalendar = ({
   
   // Multi-select for deletion
   const [selectedForDeletion, setSelectedForDeletion] = useState<{ date: string; hour: number; eventId: string }[]>([]);
+  
+  // Show event creator form
+  const [showEventCreator, setShowEventCreator] = useState(false);
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
@@ -360,7 +361,7 @@ const AdminCalendar = ({
             <div className="mt-4 p-4 rounded-xl bg-secondary/50 border border-border">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 {selectedRange && (
-                  <div>
+                  <div className="flex items-center gap-3">
                     <p className="text-sm text-foreground">
                       <Calendar className="w-4 h-4 inline mr-2" />
                       <strong>{format(new Date(selectedRange.date), "EEEE d MMMM", { locale: fr })}</strong>
@@ -371,6 +372,16 @@ const AdminCalendar = ({
                         {selectedRange.endHour - selectedRange.startHour + 1}h
                       </span>
                     </p>
+                    {!showEventCreator && (
+                      <Button
+                        size="sm"
+                        onClick={() => setShowEventCreator(true)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Créer un événement
+                      </Button>
+                    )}
                   </div>
                 )}
                 
@@ -395,12 +406,27 @@ const AdminCalendar = ({
                   </div>
                 )}
                 
-                <Button variant="outline" size="sm" onClick={clearSelection}>
+                <Button variant="outline" size="sm" onClick={() => { clearSelection(); setShowEventCreator(false); }}>
                   <X className="w-4 h-4 mr-1" />
                   Effacer
                 </Button>
               </div>
             </div>
+          )}
+
+          {/* Event Creator Form (inline) */}
+          {showEventCreator && selectedRange && (
+            <AdminEventCreator
+              selectedDate={selectedRange.date}
+              selectedTime={formatHour(selectedRange.startHour)}
+              duration={selectedRange.endHour - selectedRange.startHour + 1}
+              onEventCreated={() => {
+                setShowEventCreator(false);
+                clearSelection();
+                fetchAvailability();
+              }}
+              onCancel={() => setShowEventCreator(false)}
+            />
           )}
         </>
       )}

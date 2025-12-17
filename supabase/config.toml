@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.create-client-subfolder]
 verify_jwt = false
+
+[functions.list-users]
+verify_jwt = true
