@@ -296,7 +296,13 @@ export type Database = {
       sales_config: {
         Row: {
           created_at: string
+          discount_analog_mastering: number | null
+          discount_mastering: number | null
+          discount_mixing: number | null
           discount_percentage: number
+          discount_podcast: number | null
+          discount_with_engineer: number | null
+          discount_without_engineer: number | null
           id: string
           is_active: boolean
           sale_name: string
@@ -304,7 +310,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          discount_analog_mastering?: number | null
+          discount_mastering?: number | null
+          discount_mixing?: number | null
           discount_percentage?: number
+          discount_podcast?: number | null
+          discount_with_engineer?: number | null
+          discount_without_engineer?: number | null
           id?: string
           is_active?: boolean
           sale_name?: string
@@ -312,7 +324,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          discount_analog_mastering?: number | null
+          discount_mastering?: number | null
+          discount_mixing?: number | null
           discount_percentage?: number
+          discount_podcast?: number | null
+          discount_with_engineer?: number | null
+          discount_without_engineer?: number | null
           id?: string
           is_active?: boolean
           sale_name?: string
