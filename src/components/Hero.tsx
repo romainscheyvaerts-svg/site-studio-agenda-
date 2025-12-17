@@ -75,7 +75,7 @@ const Hero = () => {
               <div className="text-sm text-muted-foreground">{t("pricing.per_hour")} + eng.</div>
             </div>
             <div className="text-center border-x border-border">
-              <div className="font-display text-4xl md:text-5xl text-accent text-glow-gold mb-1">22€</div>
+              <div className="font-display text-4xl md:text-5xl text-accent mb-1">22€</div>
               <div className="text-sm text-muted-foreground">{t("pricing.per_hour")} dry</div>
             </div>
             <div className="text-center">

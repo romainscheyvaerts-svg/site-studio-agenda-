@@ -49,6 +49,8 @@ const BookingNotificationSchema = z.object({
   isDeposit: z.boolean().default(false),
   identityDocUrl: z.string().optional(),
   isAdmin: z.boolean().default(false),
+  driveFolderLink: z.string().optional(),
+  isCashPayment: z.boolean().default(false),
 });
 
 const escapeHtml = (str: string) => str
@@ -68,6 +70,26 @@ const getSessionTypeLabel = (type: string): string => {
     "podcast": "Mixage Podcast",
   };
   return labels[type] || type;
+};
+
+// Generate Google Calendar link
+const generateGoogleCalendarLink = (booking: any): string => {
+  const startDateTime = new Date(`${booking.date}T${booking.time}:00`);
+  const endDateTime = new Date(startDateTime.getTime() + (booking.duration || 2) * 60 * 60 * 1000);
+  
+  const formatDateForGoogle = (date: Date) => {
+    return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+  };
+  
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Session Make Music - ${booking.clientName}`,
+    dates: `${formatDateForGoogle(startDateTime)}/${formatDateForGoogle(endDateTime)}`,
+    details: `Session: ${getSessionTypeLabel(booking.sessionType)}\nContact: ${booking.clientPhone || 'Non fourni'}`,
+    location: 'Rue du Sceptre 22, 1050 Ixelles, Bruxelles',
+  });
+  
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 };
 
 serve(async (req) => {
@@ -102,7 +124,16 @@ serve(async (req) => {
 
     const sessionLabel = getSessionTypeLabel(booking.sessionType);
     const bookedBy = booking.isAdmin ? "ADMIN" : "CLIENT";
+    const googleCalendarLink = generateGoogleCalendarLink(booking);
+    const isStudioSession = booking.sessionType === "with-engineer" || booking.sessionType === "without-engineer";
     
+    // Payment status text
+    const paymentStatusText = booking.isCashPayment 
+      ? `<span style="color: #fbbf24;">Montant à payer le jour de la session: ${booking.totalPrice}€</span>`
+      : booking.isDeposit 
+        ? `Acompte payé: ${booking.totalPrice}€ (reste à payer au studio)`
+        : `Paiement confirmé: ${booking.totalPrice}€`;
+
     let identitySection = "";
     if (booking.identityDocUrl && !booking.isAdmin) {
       identitySection = `
@@ -114,8 +145,25 @@ serve(async (req) => {
         </div>
       `;
     }
+    
+    // Drive folder section for client
+    let driveFolderSection = "";
+    if (booking.driveFolderLink) {
+      driveFolderSection = `
+        <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
+          <h4 style="color: #fafafa; margin: 0 0 10px 0;">📁 Votre dossier Google Drive</h4>
+          <p style="color: #a1a1aa; margin: 0 0 10px 0; font-size: 14px;">
+            Vous pouvez déposer vos fichiers audio dans ce dossier partagé :
+          </p>
+          <a href="${escapeHtml(booking.driveFolderLink)}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            Ouvrir le dossier Drive
+          </a>
+        </div>
+      `;
+    }
 
-    const { error: emailError } = await resend.emails.send({
+    // ---------- 1. EMAIL TO ADMIN ----------
+    const { error: adminEmailError } = await resend.emails.send({
       from: "Make Music Studio <onboarding@resend.dev>",
       to: ["romain.scheyvaerts@gmail.com"],
       reply_to: "prod.makemusic@gmail.com",
@@ -140,7 +188,7 @@ serve(async (req) => {
           </div>
 
           <div style="background: #22d3ee; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
-            <h3 style="margin: 0 0 10px 0;">💰 ${booking.isDeposit ? "Acompte payé" : "Montant total"}</h3>
+            <h3 style="margin: 0 0 10px 0;">💰 ${booking.isCashPayment ? "À payer au studio" : booking.isDeposit ? "Acompte payé" : "Montant total"}</h3>
             <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
           </div>
 
@@ -160,12 +208,92 @@ serve(async (req) => {
       `,
     });
 
-    if (emailError) {
-      console.error("[BOOKING-NOTIFICATION] Email error:", emailError);
-      throw emailError;
+    if (adminEmailError) {
+      console.error("[BOOKING-NOTIFICATION] Admin email error:", adminEmailError);
+    } else {
+      console.log("[BOOKING-NOTIFICATION] Admin email sent successfully");
     }
 
-    console.log("[BOOKING-NOTIFICATION] Email sent successfully");
+    // ---------- 2. EMAIL TO CLIENT ----------
+    const { error: clientEmailError } = await resend.emails.send({
+      from: "Make Music Studio <onboarding@resend.dev>",
+      to: [booking.clientEmail],
+      reply_to: "prod.makemusic@gmail.com",
+      subject: `✅ Confirmation de réservation - Make Music Studio`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #22d3ee; margin: 0;">Make Music Studio</h1>
+            <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
+          </div>
+          
+          <h2 style="color: #22d3ee; margin-bottom: 20px;">Merci pour votre réservation, ${escapeHtml(booking.clientName)} !</h2>
+          
+          <p style="color: #fafafa; margin-bottom: 20px;">
+            Votre session a été confirmée. Voici les détails de votre réservation :
+          </p>
+
+          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+            <h3 style="color: #fafafa; margin-top: 0;">📅 Votre session</h3>
+            <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
+            <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
+            <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
+            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ''}
+          </div>
+
+          <div style="background: ${booking.isCashPayment ? '#fbbf24' : '#22d3ee'}; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+            <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">
+              ${booking.isCashPayment ? '💵 À payer au studio' : '💳 Paiement'}
+            </p>
+            <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
+            ${booking.isDeposit && !booking.isCashPayment ? '<p style="font-size: 12px; margin: 5px 0 0 0;">Acompte - Reste à payer au studio</p>' : ''}
+          </div>
+
+          ${driveFolderSection}
+
+          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+            <h3 style="color: #fafafa; margin-top: 0;">📍 Adresse du studio</h3>
+            <p style="color: #fafafa; margin: 0;">
+              <strong>Rue du Sceptre 22</strong><br>
+              1050 Ixelles, Bruxelles
+            </p>
+            <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" 
+               style="display: inline-block; margin-top: 10px; color: #22d3ee; text-decoration: underline;">
+              Voir sur Google Maps
+            </a>
+          </div>
+
+          ${isStudioSession ? `
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${googleCalendarLink}" 
+               style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+              📅 Ajouter à Google Calendar
+            </a>
+          </div>
+          ` : ''}
+
+          <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Contact</h4>
+            <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
+              Téléphone : <a href="tel:+32476094172" style="color: #22d3ee;">+32 476 09 41 72</a><br>
+              Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
+            </p>
+          </div>
+
+          <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
+            À très bientôt au studio ! 🎵<br>
+            L'équipe Make Music
+          </p>
+        </div>
+      `,
+    });
+
+    if (clientEmailError) {
+      console.error("[BOOKING-NOTIFICATION] Client email error:", clientEmailError);
+      throw clientEmailError;
+    }
+    
+    console.log("[BOOKING-NOTIFICATION] Client email sent successfully to", booking.clientEmail);
 
     return new Response(
       JSON.stringify({ success: true }),

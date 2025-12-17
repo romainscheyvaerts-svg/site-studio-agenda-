@@ -138,4 +138,51 @@
     opacity: 0.03;
     pointer-events: none;
   }
+
+  /* Mobile responsiveness fixes */
+  @media (max-width: 768px) {
+    .container {
+      @apply px-4;
+    }
+    
+    /* Prevent text overflow */
+    h1, h2, h3, h4, h5, h6 {
+      @apply break-words;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    /* Fix button overflow on mobile */
+    .btn-group-mobile {
+      @apply flex flex-col gap-2 w-full;
+    }
+    
+    /* Fix grid layouts on mobile */
+    .grid-mobile-stack {
+      @apply grid-cols-1;
+    }
+    
+    /* Fix z-index stacking issues */
+    .mobile-z-fix {
+      @apply relative;
+      isolation: isolate;
+    }
+  }
+
+  /* iOS Safari specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      min-height: -webkit-fill-available;
+    }
+    
+    .min-h-screen {
+      min-height: -webkit-fill-available;
+    }
+  }
+
+  /* Prevent horizontal scroll */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
 }
