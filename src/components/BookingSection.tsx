@@ -706,14 +706,27 @@ const BookingSection = () => {
                   <Shield className="w-8 h-8 text-green-500" />
                   <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowVIPCalendar(!showVIPCalendar)}
-                  className="border-green-500 text-green-500 hover:bg-green-500/10"
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  {showVIPCalendar ? "Fermer l'agenda" : "Voir l'agenda"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <AdminEventCreator 
+                    selectedDate={formData.date}
+                    selectedTime={formData.time}
+                    duration={hours}
+                    onEventCreated={() => {
+                      toast({
+                        title: "Événement créé",
+                        description: "L'événement a été ajouté à l'agenda",
+                      });
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowVIPCalendar(!showVIPCalendar)}
+                    className="border-green-500 text-green-500 hover:bg-green-500/10"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    {showVIPCalendar ? "Fermer l'agenda" : "Voir l'agenda"}
+                  </Button>
+                </div>
               </div>
               <p className="text-muted-foreground mb-4">
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée

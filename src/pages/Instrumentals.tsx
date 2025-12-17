@@ -22,6 +22,10 @@ interface Instrumental {
   preview_url?: string;
   cover_image_url?: string;
   drive_file_id?: string;
+  price_base?: number;
+  price_stems?: number;
+  price_exclusive?: number;
+  has_stems?: boolean;
 }
 
 // Helper to get audio URL from Google Drive file ID via streaming proxy

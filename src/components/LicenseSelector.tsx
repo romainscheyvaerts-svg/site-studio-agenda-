@@ -18,6 +18,10 @@ interface Instrumental {
   id: string;
   title: string;
   cover_image_url?: string;
+  price_base?: number;
+  price_stems?: number;
+  price_exclusive?: number;
+  has_stems?: boolean;
 }
 
 interface LicenseSelectorProps {
@@ -52,15 +56,42 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
         .order("sort_order");
 
       if (!error && data) {
-        setLicenses(data);
+        // Override prices with instrumental-specific prices if available
+        const adjustedLicenses = data.map(license => {
+          let adjustedPrice = license.price;
+          
+          if (instrumental) {
+            // Map license names to instrumental price fields
+            if (license.name === "Basic" && instrumental.price_base !== undefined && instrumental.price_base !== null) {
+              adjustedPrice = instrumental.price_base;
+            } else if (license.name === "Premium" && instrumental.price_stems !== undefined && instrumental.price_stems !== null) {
+              adjustedPrice = instrumental.price_stems;
+            } else if (license.name === "Exclusive" && instrumental.price_exclusive !== undefined && instrumental.price_exclusive !== null) {
+              adjustedPrice = instrumental.price_exclusive;
+            }
+          }
+          
+          return { ...license, price: adjustedPrice };
+        });
+        
+        // Filter out Premium license if instrumental doesn't have stems
+        const filteredLicenses = adjustedLicenses.filter(license => {
+          if (license.name === "Premium" && instrumental && !instrumental.has_stems) {
+            return false;
+          }
+          return true;
+        });
+        
+        setLicenses(filteredLicenses);
       }
       setLoading(false);
     };
 
     if (isOpen) {
+      setLoading(true);
       fetchLicenses();
     }
-  }, [isOpen]);
+  }, [isOpen, instrumental]);
 
   if (!instrumental) return null;
 
@@ -81,20 +112,32 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          <div className={cn(
+            "grid gap-6 mt-6",
+            licenses.length === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-3"
+          )}>
             {licenses.map((license) => (
               <div
                 key={license.id}
                 className={cn(
                   "relative rounded-2xl border-2 border-border/50 bg-card/50 backdrop-blur-sm p-6 transition-all duration-300",
                   "hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1",
-                  license.name === "Premium" && "border-purple-500/50 scale-105"
+                  license.name === "Premium" && "border-purple-500/50 scale-105",
+                  license.name === "Exclusive" && "border-amber-500/50"
                 )}
               >
                 {license.name === "Premium" && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none">
-                      Populaire
+                      Avec Stems
+                    </Badge>
+                  </div>
+                )}
+                
+                {license.name === "Exclusive" && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none">
+                      Exclusivité totale
                     </Badge>
                   </div>
                 )}
@@ -149,7 +192,7 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
   );
 };
 
-// Badge component for the "Populaire" tag
+// Badge component for tags
 const Badge = ({ className, children }: { className?: string; children: React.ReactNode }) => (
   <span className={cn("px-3 py-1 text-xs font-semibold rounded-full", className)}>
     {children}
