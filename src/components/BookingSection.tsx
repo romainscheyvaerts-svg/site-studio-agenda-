@@ -12,7 +12,6 @@ import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
 import AdminCalendar from "./AdminCalendar";
-import AdminEventCreator from "./AdminEventCreator";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
@@ -734,19 +733,6 @@ const BookingSection = () => {
               {/* Admin-only Calendar viewer */}
               {showVIPCalendar && (
                 <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500">
-                  <div className="flex justify-end mb-4">
-                    <AdminEventCreator 
-                      selectedDate={formData.date}
-                      selectedTime={formData.time}
-                      duration={hours}
-                      onEventCreated={() => {
-                        toast({
-                          title: "Événement créé",
-                          description: "L'événement a été ajouté à l'agenda",
-                        });
-                      }}
-                    />
-                  </div>
                   <AdminCalendar
                     onSelectSlot={(date, time, duration) => {
                       setFormData(prev => ({ ...prev, date, time }));

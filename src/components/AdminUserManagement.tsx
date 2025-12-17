@@ -16,6 +16,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface RegisteredUser {
+  id: string;
+  email: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  phone: string | null;
+  user_metadata?: {
+    full_name?: string;
+    phone?: string;
+  };
+}
+
 interface UserActivity {
   user_id: string | null;
   user_email: string | null;
@@ -57,6 +69,7 @@ async function getCountryFromIP(ip: string): Promise<string | null> {
 const AdminUserManagement = () => {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>([]);
@@ -64,10 +77,20 @@ const AdminUserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [blockConfirm, setBlockConfirm] = useState<{ type: "user" | "ip"; id: string; email?: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<"registered" | "activity">("registered");
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Fetch registered users from edge function
+      const { data: usersData, error: usersError } = await supabase.functions.invoke("list-users");
+      
+      if (!usersError && usersData?.users) {
+        setRegisteredUsers(usersData.users);
+      } else {
+        console.error("Error fetching users:", usersError);
+      }
+
       // Fetch blocked users
       const { data: blocked, error: blockedError } = await supabase
         .from("blocked_users")
@@ -292,6 +315,16 @@ const AdminUserManagement = () => {
     );
   });
 
+  const filteredRegisteredUsers = registeredUsers.filter(user => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      user.email?.toLowerCase().includes(search) ||
+      user.user_metadata?.full_name?.toLowerCase().includes(search) ||
+      user.phone?.toLowerCase().includes(search)
+    );
+  });
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
       day: "2-digit",
@@ -312,7 +345,7 @@ const AdminUserManagement = () => {
           <Users className="w-5 h-5 text-primary" />
           <span className="font-display text-lg text-foreground">GESTION UTILISATEURS</span>
           <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-            {blockedUsers.length} bloqué(s) • {blockedIPs.length} IP
+            {registeredUsers.length} inscrit(s) • {blockedUsers.length} bloqué(s)
           </span>
         </div>
         {expanded ? (
@@ -328,7 +361,7 @@ const AdminUserManagement = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par email, IP ou pays..."
+                placeholder="Rechercher par email, nom, IP ou pays..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -339,6 +372,32 @@ const AdminUserManagement = () => {
             </Button>
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-2 border-b border-border pb-2">
+            <button
+              onClick={() => setActiveTab("registered")}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
+                activeTab === "registered"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              Comptes inscrits ({filteredRegisteredUsers.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("activity")}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
+                activeTab === "activity"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              Activité récente ({filteredActivities.length})
+            </button>
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
@@ -346,11 +405,119 @@ const AdminUserManagement = () => {
             </div>
           ) : (
             <>
+              {/* Registered Users List */}
+              {activeTab === "registered" && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    Comptes inscrits ({filteredRegisteredUsers.length})
+                  </h4>
+                  
+                  {filteredRegisteredUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3 bg-secondary/50 rounded-lg">
+                      Aucun compte trouvé
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {filteredRegisteredUsers.map((user) => {
+                        const userBlocked = isUserBlocked(user.id);
+                        
+                        return (
+                          <div
+                            key={user.id}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border",
+                              userBlocked
+                                ? "bg-destructive/10 border-destructive/30"
+                                : "bg-secondary/50 border-border"
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-foreground flex items-center gap-1">
+                                  <Mail className="w-3 h-3 text-primary" />
+                                  {user.email || "Email inconnu"}
+                                </span>
+                                {user.user_metadata?.full_name && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ({user.user_metadata.full_name})
+                                  </span>
+                                )}
+                                {userBlocked && (
+                                  <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded">
+                                    BLOQUÉ
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Inscrit le {formatDate(user.created_at)}
+                                </span>
+                                {user.last_sign_in_at && (
+                                  <span className="text-primary">
+                                    Dernière connexion: {formatDate(user.last_sign_in_at)}
+                                  </span>
+                                )}
+                                {user.phone && (
+                                  <span>📞 {user.phone}</span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 ml-2">
+                              {!userBlocked ? (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => setBlockConfirm({ 
+                                    type: "user", 
+                                    id: user.id, 
+                                    email: user.email || undefined 
+                                  })}
+                                  disabled={actionLoading === user.id}
+                                  className="text-xs"
+                                >
+                                  {actionLoading === user.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Ban className="w-3 h-3 mr-1" />
+                                      Bloquer
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUnblockUser(user.id)}
+                                  disabled={actionLoading === user.id}
+                                  className="text-xs"
+                                >
+                                  {actionLoading === user.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    "Débloquer"
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* User Activities List */}
+              {activeTab === "activity" && (
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <Users className="w-4 h-4 text-primary" />
-                  Utilisateurs actifs ({filteredActivities.length})
+                  Activité récente ({filteredActivities.length})
                 </h4>
                 
                 {filteredActivities.length === 0 ? (
@@ -495,6 +662,7 @@ const AdminUserManagement = () => {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Blocked users summary */}
               {blockedUsers.length > 0 && (
