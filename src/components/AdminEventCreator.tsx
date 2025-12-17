@@ -68,6 +68,9 @@ const AdminEventCreator = ({
   const [eventData, setEventData] = useState({
     title: "",
     clientName: "",
+    clientEmail: "",
+    totalPrice: 0,
+    sendConfirmationEmail: false,
     description: "",
     date: selectedDate || "",
     time: selectedTime || "",
@@ -160,6 +163,34 @@ const AdminEventCreator = ({
 
       if (error) throw error;
 
+      // Optional: send confirmation email to the client (for admin-created reservations)
+      if (eventData.sendConfirmationEmail && eventData.clientEmail) {
+        const { error: emailError } = await supabase.functions.invoke("send-booking-notification", {
+          body: {
+            clientName: eventData.clientName || eventData.clientEmail.split("@")[0],
+            clientEmail: eventData.clientEmail,
+            clientPhone: "",
+            sessionType: "admin-event",
+            date: eventData.date,
+            time: eventData.time,
+            duration: eventData.hours,
+            totalPrice: Number(eventData.totalPrice) || 0,
+            isDeposit: false,
+            isAdmin: true,
+            isCashPayment: false,
+          },
+        });
+
+        if (emailError) {
+          console.error("Admin event confirmation email error:", emailError);
+          toast({
+            title: "Événement créé",
+            description: "Événement créé, mais l'email de confirmation n'a pas pu être envoyé.",
+            variant: "destructive",
+          });
+        }
+      }
+
       toast({
         title: "Événement créé !",
         description: `L'événement "${eventData.title}" a été ajouté à l'agenda.`,
@@ -169,6 +200,9 @@ const AdminEventCreator = ({
       setEventData({
         title: "",
         clientName: "",
+        clientEmail: "",
+        totalPrice: 0,
+        sendConfirmationEmail: false,
         description: "",
         date: "",
         time: "",
@@ -364,6 +398,50 @@ const AdminEventCreator = ({
                 placeholder="Nom du client"
                 className="bg-secondary/50 border-border"
               />
+            </div>
+
+            {/* Optional confirmation email */}
+            <div className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-foreground">Email de confirmation</Label>
+                  <p className="text-xs text-muted-foreground">Cochez pour envoyer une confirmation au client (réservation admin).</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={eventData.sendConfirmationEmail}
+                  onChange={(e) => setEventData({ ...eventData, sendConfirmationEmail: e.target.checked })}
+                  className="h-4 w-4 accent-[hsl(var(--primary))]"
+                />
+              </div>
+
+              {eventData.sendConfirmationEmail && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="client-email">Email client *</Label>
+                    <Input
+                      id="client-email"
+                      type="email"
+                      value={eventData.clientEmail}
+                      onChange={(e) => setEventData({ ...eventData, clientEmail: e.target.value })}
+                      placeholder="client@email.com"
+                      className="bg-secondary/50 border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="total-price">Montant (€)</Label>
+                    <Input
+                      id="total-price"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={eventData.totalPrice}
+                      onChange={(e) => setEventData({ ...eventData, totalPrice: Number(e.target.value) })}
+                      className="bg-secondary/50 border-border"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Date and Time (manual override) */}

@@ -611,13 +611,23 @@ const BookingSection = () => {
     setCashOnlyLoading(true);
     
     try {
+      const effectiveEmail = user?.email || formData.email;
+      if (!effectiveEmail) {
+        toast({
+          title: "Email requis",
+          description: "Veuillez utiliser l'email de votre compte (connexion requise).",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Call the paypal-webhook directly to create calendar event and send email
       // Use the same field names as PayPal webhook expects
       const { data, error } = await supabase.functions.invoke("paypal-webhook", {
         body: {
           orderId: `CASH-${Date.now()}`,
-          payerName: formData.name || "Client VIP",
-          payerEmail: formData.email || "vip@makemusicstudio.be",
+          payerName: formData.name || "Client",
+          payerEmail: effectiveEmail,
           phone: formData.phone || "",
           sessionType: sessionType,
           date: formData.date,
@@ -1202,11 +1212,21 @@ const BookingSection = () => {
                     // Call the booking function
                     setCashOnlyLoading(true);
                     try {
+                      const effectiveEmail = user?.email || updatedFormData.email;
+                      if (!effectiveEmail) {
+                        toast({
+                          title: "Email requis",
+                          description: "Veuillez utiliser l'email de votre compte (connexion requise).",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
                       const { data, error } = await supabase.functions.invoke("paypal-webhook", {
                         body: {
                           orderId: `VIP-${Date.now()}`,
-                          payerName: updatedFormData.name || "Client VIP",
-                          payerEmail: updatedFormData.email || "vip@makemusicstudio.be",
+                          payerName: updatedFormData.name || "Client",
+                          payerEmail: effectiveEmail,
                           phone: updatedFormData.phone || "",
                           sessionType: sessionType,
                           date: date,

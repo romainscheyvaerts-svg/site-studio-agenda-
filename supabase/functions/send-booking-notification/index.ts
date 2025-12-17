@@ -68,6 +68,7 @@ const getSessionTypeLabel = (type: string): string => {
     "mastering": "Mastering (60€)",
     "analog-mastering": "Mastering Analogique (100€/piste)",
     "podcast": "Mixage Podcast",
+    "admin-event": "Réservation (créée par admin)",
   };
   return labels[type] || type;
 };
