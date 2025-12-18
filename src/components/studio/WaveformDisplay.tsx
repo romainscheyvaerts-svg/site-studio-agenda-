@@ -27,41 +27,57 @@ const WaveformDisplay = memo(({
     if (!ctx) return;
 
     // Clear canvas
+    ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, width, height);
 
-    // Get audio data
-    const data = audioBuffer.getChannelData(0);
-    const step = Math.ceil(data.length / width);
+    // Get audio data - mix channels if stereo
+    let data: Float32Array;
+    if (audioBuffer.numberOfChannels > 1) {
+      const left = audioBuffer.getChannelData(0);
+      const right = audioBuffer.getChannelData(1);
+      data = new Float32Array(left.length);
+      for (let i = 0; i < left.length; i++) {
+        data[i] = (left[i] + right[i]) / 2;
+      }
+    } else {
+      data = audioBuffer.getChannelData(0);
+    }
+
+    const step = Math.max(1, Math.floor(data.length / width));
     const amp = height / 2;
 
+    // Draw waveform as filled bars from center
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(0, amp);
-
-    // Draw waveform
+    
     for (let i = 0; i < width; i++) {
       let min = 1.0;
       let max = -1.0;
 
-      for (let j = 0; j < step; j++) {
-        const datum = data[i * step + j];
-        if (datum < min) min = datum;
-        if (datum > max) max = datum;
+      const startIdx = i * step;
+      const endIdx = Math.min(startIdx + step, data.length);
+      
+      for (let j = startIdx; j < endIdx; j++) {
+        const datum = data[j];
+        if (datum !== undefined) {
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
+        }
       }
 
-      // Draw both positive and negative parts
-      const yMin = (1 + min) * amp;
-      const yMax = (1 + max) * amp;
+      // Calculate y positions - draw from center
+      const yTop = amp - (max * amp);
+      const yBottom = amp - (min * amp);
+      const barHeight = Math.max(1, yBottom - yTop);
       
-      ctx.fillRect(i, yMin, 1, yMax - yMin);
+      ctx.fillRect(i, yTop, 1, barHeight);
     }
 
     // Add gradient overlay for depth
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, "rgba(255, 255, 255, 0.1)");
+    gradient.addColorStop(0, "rgba(255, 255, 255, 0.15)");
     gradient.addColorStop(0.5, "rgba(255, 255, 255, 0)");
-    gradient.addColorStop(1, "rgba(0, 0, 0, 0.1)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.15)");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 

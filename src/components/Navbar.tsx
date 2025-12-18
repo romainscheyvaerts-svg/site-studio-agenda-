@@ -57,9 +57,6 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-              <Mic className="w-5 h-5 text-primary" />
-            </div>
             <span className="font-display text-2xl text-foreground">MAKE<span className="text-primary">MUSIC</span></span>
           </div>
 

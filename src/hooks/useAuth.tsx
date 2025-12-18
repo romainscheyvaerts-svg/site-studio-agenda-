@@ -21,6 +21,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Log activity
+  const logActivity = async (action: string, userEmail?: string, userId?: string) => {
+    try {
+      await supabase.from("activity_logs").insert({
+        action,
+        user_email: userEmail || null,
+        user_id: userId || null,
+        ip_address: "client",
+        path: window.location.pathname,
+      });
+    } catch (error) {
+      console.error("Failed to log activity:", error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -28,6 +43,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Log auth events
+        if (event === "SIGNED_IN" && session?.user) {
+          logActivity("login", session.user.email, session.user.id);
+        } else if (event === "SIGNED_OUT") {
+          logActivity("logout");
+        }
       }
     );
 

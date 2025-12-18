@@ -6,16 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Play, Pause, Square, SkipBack, Volume2, 
   Plus, Trash2, Music, Mic, Upload, Save, FolderOpen, 
   Undo, Redo, Copy, Scissors, ZoomIn, ZoomOut,
-  Magnet, Download, CopyPlus, Loader2
+  Magnet, Download, CopyPlus, Loader2, Headphones, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
+import ChatBot from "@/components/ChatBot";
 import WaveformDisplay from "@/components/studio/WaveformDisplay";
 import VintageKnob from "@/components/studio/VintageKnob";
 import VUMeter from "@/components/studio/VUMeter";
@@ -106,6 +108,7 @@ const Studio = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [savedProjects, setSavedProjects] = useState<{name: string, id: string, folderId?: string}[]>([]);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [showHeadphoneTip, setShowHeadphoneTip] = useState(true);
   
   // Refs
   const playbackIntervalRef = useRef<number | null>(null);
@@ -196,13 +199,13 @@ const Studio = () => {
     metronomeGainRef.current.connect(audioContextRef.current.destination);
     
     const initialTracks: Track[] = [
-      createTrack("master", "Master", "instrumental", "hsl(0 0% 60%)"),
       createTrack("inst-1", "Instrumental 1", "instrumental", TRACK_COLORS[0]),
       createTrack("inst-2", "Instrumental 2", "instrumental", TRACK_COLORS[1]),
       createTrack("vocal-1", "Voix Lead", "vocal", TRACK_COLORS[2]),
       createTrack("vocal-2", "Voix Backing 1", "vocal", TRACK_COLORS[3]),
       createTrack("vocal-3", "Voix Backing 2", "vocal", TRACK_COLORS[4]),
       createTrack("vocal-4", "Ad-libs", "vocal", TRACK_COLORS[5]),
+      createTrack("master", "Master", "instrumental", "hsl(0 0% 60%)"),
     ];
     setTracks(initialTracks);
     fetchInstrumentals();
@@ -1117,8 +1120,24 @@ const Studio = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <Navbar />
+      <ChatBot />
       
       <div className="pt-16 flex flex-col h-screen">
+        {/* Headphone Tip Alert */}
+        {showHeadphoneTip && (
+          <Alert className="mx-4 mt-2 bg-amber-500/10 border-amber-500/30 text-amber-200">
+            <Headphones className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                <strong>Conseil :</strong> Pour éviter la latence lors de l'enregistrement, utilisez des écouteurs filaires plutôt que Bluetooth.
+              </span>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setShowHeadphoneTip(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {/* Header Bar */}
         <div className="h-14 bg-zinc-900 border-b border-zinc-800 flex items-center px-4 gap-4 shrink-0">
           <Input
