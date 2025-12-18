@@ -16,10 +16,11 @@ const verifyIdentitySchema = z.object({
     .min(2, "Name must be at least 2 characters")
     .max(100, "Name must be less than 100 characters"),
   userEmail: z.string().email().optional(),
+  userName: z.string().optional(),
 });
 
-// Google Drive folder for identity documents
-const ID_DOCUMENTS_FOLDER_ID = "1M26hUChiBmW-oVl3ijlzslhbFn386ISi";
+// Parent folder for all client folders
+const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
 // Get Google OAuth2 access token using service account
 async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
@@ -77,30 +78,77 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   return tokenData.access_token;
 }
 
+// Find or create a folder in Google Drive
+async function findOrCreateFolder(
+  accessToken: string,
+  name: string,
+  parentId: string
+): Promise<string> {
+  // Search for existing folder
+  const query = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  
+  const searchResponse = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const searchData = await searchResponse.json();
+
+  if (searchData.files && searchData.files.length > 0) {
+    return searchData.files[0].id;
+  }
+
+  // Create new folder
+  const metadata = {
+    name,
+    mimeType: "application/vnd.google-apps.folder",
+    parents: [parentId],
+  };
+
+  const createResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(metadata),
+  });
+
+  const createData = await createResponse.json();
+  console.log(`Created folder "${name}":`, createData.id);
+  return createData.id;
+}
+
+// Check if ID folder has any files
+async function checkIdFolderHasFiles(accessToken: string, idFolderId: string): Promise<boolean> {
+  const query = `'${idFolderId}' in parents and trashed=false`;
+  
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await response.json();
+  
+  return data.files && data.files.length > 0;
+}
+
 // Upload image to Google Drive
 async function uploadToDrive(
   accessToken: string,
   imageBase64: string,
-  fileName: string
+  fileName: string,
+  parentFolderId: string
 ): Promise<{ id: string; webViewLink: string } | null> {
   try {
     // Extract base64 data (remove data URL prefix if present)
     const base64Data = imageBase64.includes(',') 
       ? imageBase64.split(',')[1] 
       : imageBase64;
-    
-    // Convert base64 to binary
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
 
     // Create multipart request
     const boundary = "-------314159265358979323846";
     const metadata = {
       name: fileName,
-      parents: [ID_DOCUMENTS_FOLDER_ID],
+      parents: [parentFolderId],
     };
 
     const body = [
@@ -167,8 +215,47 @@ serve(async (req) => {
       );
     }
 
-    const { imageBase64, formName, userEmail } = parseResult.data;
+    const { imageBase64, formName, userEmail, userName } = parseResult.data;
 
+    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    if (!serviceAccountKey) {
+      throw new Error("Google service account key not configured");
+    }
+
+    const accessToken = await getAccessToken(serviceAccountKey, [
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/drive",
+    ]);
+
+    // Determine client folder name
+    const clientFolderName = userName || userEmail?.split("@")[0] || formName.replace(/[^a-zA-Z0-9\s]/g, "").substring(0, 30);
+    
+    // Find or create client folder
+    const clientFolderId = await findOrCreateFolder(accessToken, clientFolderName, PARENT_FOLDER_ID);
+    
+    // Find or create ID subfolder
+    const idFolderId = await findOrCreateFolder(accessToken, "ID", clientFolderId);
+    
+    // Check if ID folder already has documents - skip verification if so
+    const hasExistingId = await checkIdFolderHasFiles(accessToken, idFolderId);
+    
+    if (hasExistingId) {
+      console.log(`[SKIP-VERIFICATION] User ${clientFolderName} already has ID document, skipping verification`);
+      return new Response(
+        JSON.stringify({
+          verified: true,
+          skipped: true,
+          message: "Document d'identité déjà vérifié précédemment",
+          documentLink: `https://drive.google.com/drive/folders/${idFolderId}`,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Proceed with AI verification
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
       throw new Error("API key not configured");
@@ -312,29 +399,22 @@ Ne rajoute aucun texte avant ou après le JSON.`,
 
     console.log(`Name comparison: "${normalizedExtracted}" vs "${normalizedForm}" = ${isMatch}`);
 
-    // If verification successful, upload document to Google Drive
+    // If verification successful, upload document to client's ID folder
     let documentLink = null;
     if (isMatch) {
-      const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-      if (serviceAccountKey) {
-        try {
-          const accessToken = await getAccessToken(serviceAccountKey, [
-            "https://www.googleapis.com/auth/drive.file",
-          ]);
-          
-          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-          const sanitizedName = formName.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
-          const fileName = `ID_${sanitizedName}_${timestamp}.jpg`;
-          
-          const uploadResult = await uploadToDrive(accessToken, imageBase64, fileName);
-          if (uploadResult) {
-            documentLink = uploadResult.webViewLink || `https://drive.google.com/file/d/${uploadResult.id}/view`;
-            console.log("Document stored in Drive:", documentLink);
-          }
-        } catch (driveError) {
-          console.error("Failed to upload to Drive (non-blocking):", driveError);
-          // Don't fail verification if Drive upload fails
+      try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const sanitizedName = formName.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
+        const fileName = `ID_${sanitizedName}_${timestamp}.jpg`;
+        
+        const uploadResult = await uploadToDrive(accessToken, imageBase64, fileName, idFolderId);
+        if (uploadResult) {
+          documentLink = uploadResult.webViewLink || `https://drive.google.com/file/d/${uploadResult.id}/view`;
+          console.log("Document stored in client's ID folder:", documentLink);
         }
+      } catch (driveError) {
+        console.error("Failed to upload to Drive (non-blocking):", driveError);
+        // Don't fail verification if Drive upload fails
       }
     }
 
@@ -344,6 +424,7 @@ Ne rajoute aucun texte avant ou après le JSON.`,
         extractedName: `${extractedData.firstName} ${extractedData.lastName}`,
         formName: formName,
         documentLink,
+        idFolderLink: `https://drive.google.com/drive/folders/${idFolderId}`,
         error: isMatch ? null : "Le nom sur le document ne correspond pas au nom du formulaire.",
       }),
       {

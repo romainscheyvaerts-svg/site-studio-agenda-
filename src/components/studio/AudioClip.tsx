@@ -8,6 +8,7 @@ export interface ClipData {
   duration: number;
   audioBuffer: AudioBuffer;
   offset: number;
+  originalDuration?: number;
   name?: string;
   color?: string;
 }
