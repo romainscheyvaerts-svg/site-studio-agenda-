@@ -74,9 +74,9 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
           return { ...license, price: adjustedPrice };
         });
         
-        // Filter out Premium license if instrumental doesn't have stems
+        // Filter out Premium and Exclusive licenses if instrumental doesn't have stems
         const filteredLicenses = adjustedLicenses.filter(license => {
-          if (license.name === "Premium" && instrumental && !instrumental.has_stems) {
+          if ((license.name === "Premium" || license.name === "Exclusive") && instrumental && !instrumental.has_stems) {
             return false;
           }
           return true;

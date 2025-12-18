@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { 
-  Play, Pause, Square, Circle, SkipBack, Volume2, VolumeX, 
+  Play, Pause, Square, SkipBack, Volume2, 
   Plus, Trash2, Music, Mic, Upload, Save, FolderOpen, 
-  Undo, Redo, Copy, Scissors, Settings, ZoomIn, ZoomOut,
-  Grid3X3, Magnet
+  Undo, Redo, Copy, Scissors, ZoomIn, ZoomOut,
+  Magnet, Download, CopyPlus
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -46,8 +46,14 @@ interface Instrumental {
   drive_file_id: string;
 }
 
+interface HistoryState {
+  tracks: Track[];
+  currentTime: number;
+}
+
 const TRACK_HEIGHT = 80;
 const DEFAULT_PIXELS_PER_SECOND = 50;
+const MAX_TRACKS = 20;
 
 const TRACK_COLORS = [
   "hsl(var(--primary))",
@@ -65,6 +71,8 @@ const Studio = () => {
   const { user } = useAuth();
   const audioContextRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
+  const metronomeGainRef = useRef<GainNode | null>(null);
+  const metronomeIntervalRef = useRef<number | null>(null);
   
   // Transport state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -81,28 +89,61 @@ const Studio = () => {
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
   const [clipboard, setClipboard] = useState<ClipData[]>([]);
   
+  // History for undo/redo
+  const [history, setHistory] = useState<HistoryState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoingRef = useRef(false);
+  
   // View state
   const [pixelsPerSecond, setPixelsPerSecond] = useState(DEFAULT_PIXELS_PER_SECOND);
   const [snapResolution, setSnapResolution] = useState<"bar" | "beat" | "16th" | "off">("16th");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [savedProjects, setSavedProjects] = useState<{name: string, id: string}[]>([]);
   
   // Refs
   const playbackIntervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+  const recordStartTimeRef = useRef<number>(0);
   const timelineRef = useRef<HTMLDivElement>(null);
   const activeSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
+
+  // Save history state
+  const saveHistory = useCallback(() => {
+    if (isUndoingRef.current) return;
+    
+    const state: HistoryState = {
+      tracks: JSON.parse(JSON.stringify(tracks.map(t => ({
+        ...t,
+        clips: t.clips.map(c => ({ ...c, audioBuffer: undefined }))
+      })))),
+      currentTime,
+    };
+    
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(state);
+      if (newHistory.length > 50) newHistory.shift(); // Limit history size
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [tracks, currentTime, historyIndex]);
 
   // Audio recorder
   const handleRecordingComplete = useCallback((audioBuffer: AudioBuffer) => {
     const armedTrack = tracks.find(t => t.armed);
     if (!armedTrack) return;
 
+    const recordStartTime = recordStartTimeRef.current;
+    
     const newClip: ClipData = {
       id: `clip-${Date.now()}`,
-      startTime: currentTime - audioBuffer.duration,
+      startTime: recordStartTime,
       duration: audioBuffer.duration,
       audioBuffer,
       offset: 0,
+      originalDuration: audioBuffer.duration,
       name: `Recording ${new Date().toLocaleTimeString()}`,
       color: armedTrack.color,
     };
@@ -117,7 +158,9 @@ const Studio = () => {
       title: "Enregistrement terminé",
       description: `Clip ajouté à ${armedTrack.name}`,
     });
-  }, [tracks, currentTime, toast]);
+    
+    saveHistory();
+  }, [tracks, toast, saveHistory]);
 
   const { 
     isRecording, 
@@ -134,6 +177,10 @@ const Studio = () => {
     audioContextRef.current = new AudioContext();
     masterGainRef.current = audioContextRef.current.createGain();
     masterGainRef.current.connect(audioContextRef.current.destination);
+    
+    metronomeGainRef.current = audioContextRef.current.createGain();
+    metronomeGainRef.current.gain.value = 0.3;
+    metronomeGainRef.current.connect(audioContextRef.current.destination);
     
     const initialTracks: Track[] = [
       createTrack("inst-1", "Instrumental 1", "instrumental", TRACK_COLORS[0]),
@@ -187,6 +234,49 @@ const Studio = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   };
 
+  // Metronome
+  const playMetronomeTick = useCallback((isAccent: boolean = false) => {
+    if (!audioContextRef.current || !metronomeGainRef.current) return;
+    
+    const oscillator = audioContextRef.current.createOscillator();
+    const gainNode = audioContextRef.current.createGain();
+    
+    oscillator.type = "sine";
+    oscillator.frequency.value = isAccent ? 1000 : 800;
+    
+    gainNode.gain.setValueAtTime(0.5, audioContextRef.current.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.05);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(metronomeGainRef.current);
+    
+    oscillator.start(audioContextRef.current.currentTime);
+    oscillator.stop(audioContextRef.current.currentTime + 0.05);
+  }, []);
+
+  // Start metronome
+  const startMetronome = useCallback(() => {
+    if (!metronomeEnabled || metronomeIntervalRef.current) return;
+    
+    const beatDuration = 60000 / bpm;
+    let beatCount = 0;
+    
+    const tick = () => {
+      playMetronomeTick(beatCount % 4 === 0);
+      beatCount++;
+    };
+    
+    tick(); // First tick immediately
+    metronomeIntervalRef.current = window.setInterval(tick, beatDuration);
+  }, [bpm, metronomeEnabled, playMetronomeTick]);
+
+  const stopMetronome = useCallback(() => {
+    if (metronomeIntervalRef.current) {
+      clearInterval(metronomeIntervalRef.current);
+      metronomeIntervalRef.current = null;
+    }
+  }, []);
+
   // Playback controls
   const handlePlay = useCallback(() => {
     if (!audioContextRef.current || !masterGainRef.current) return;
@@ -204,6 +294,7 @@ const Studio = () => {
       
       track.clips.forEach(clip => {
         if (clip.startTime + clip.duration <= currentTime) return;
+        if (!clip.audioBuffer) return;
         
         const source = audioContextRef.current!.createBufferSource();
         source.buffer = clip.audioBuffer;
@@ -222,6 +313,11 @@ const Studio = () => {
       });
     });
 
+    // Start metronome if enabled
+    if (metronomeEnabled) {
+      startMetronome();
+    }
+
     playbackIntervalRef.current = window.setInterval(() => {
       if (audioContextRef.current) {
         const newTime = audioContextRef.current.currentTime - startTimeRef.current;
@@ -231,10 +327,11 @@ const Studio = () => {
         }
       }
     }, 50);
-  }, [currentTime, duration, tracks]);
+  }, [currentTime, duration, tracks, metronomeEnabled, startMetronome]);
 
   const handlePause = useCallback(() => {
     setIsPlaying(false);
+    stopMetronome();
     
     activeSourcesRef.current.forEach(source => {
       try { source.stop(); } catch {}
@@ -244,7 +341,7 @@ const Studio = () => {
     if (playbackIntervalRef.current) {
       clearInterval(playbackIntervalRef.current);
     }
-  }, []);
+  }, [stopMetronome]);
 
   const handleStop = useCallback(() => {
     handlePause();
@@ -259,13 +356,14 @@ const Studio = () => {
     if (!armedTrack) {
       toast({
         title: "Aucune piste armée",
-        description: "Armez une piste vocale pour enregistrer (bouton REC)",
+        description: "Cliquez sur le bouton rouge d'une piste vocale pour l'armer",
         variant: "destructive",
       });
       return;
     }
 
     if (!isRecording) {
+      recordStartTimeRef.current = currentTime;
       await startRecording();
       if (!isPlaying) {
         handlePlay();
@@ -273,7 +371,57 @@ const Studio = () => {
     } else {
       stopRecording();
     }
-  }, [tracks, isRecording, isPlaying, startRecording, stopRecording, handlePlay, toast]);
+  }, [tracks, isRecording, isPlaying, currentTime, startRecording, stopRecording, handlePlay, toast]);
+
+  // Undo/Redo
+  const handleUndo = useCallback(() => {
+    if (historyIndex <= 0) return;
+    
+    isUndoingRef.current = true;
+    const prevState = history[historyIndex - 1];
+    
+    // Restore tracks with audio buffers from current state
+    const restoredTracks = prevState.tracks.map(track => {
+      const currentTrack = tracks.find(t => t.id === track.id);
+      return {
+        ...track,
+        clips: track.clips.map(clip => {
+          const currentClip = currentTrack?.clips.find(c => c.id === clip.id);
+          return { ...clip, audioBuffer: currentClip?.audioBuffer };
+        })
+      };
+    });
+    
+    setTracks(restoredTracks as Track[]);
+    setHistoryIndex(prev => prev - 1);
+    
+    toast({ title: "Annulé" });
+    setTimeout(() => { isUndoingRef.current = false; }, 100);
+  }, [history, historyIndex, tracks, toast]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex >= history.length - 1) return;
+    
+    isUndoingRef.current = true;
+    const nextState = history[historyIndex + 1];
+    
+    const restoredTracks = nextState.tracks.map(track => {
+      const currentTrack = tracks.find(t => t.id === track.id);
+      return {
+        ...track,
+        clips: track.clips.map(clip => {
+          const currentClip = currentTrack?.clips.find(c => c.id === clip.id);
+          return { ...clip, audioBuffer: currentClip?.audioBuffer };
+        })
+      };
+    });
+    
+    setTracks(restoredTracks as Track[]);
+    setHistoryIndex(prev => prev + 1);
+    
+    toast({ title: "Rétabli" });
+    setTimeout(() => { isUndoingRef.current = false; }, 100);
+  }, [history, historyIndex, tracks, toast]);
 
   // Clip operations
   const snapToGrid = useCallback((time: number) => {
@@ -299,24 +447,66 @@ const Studio = () => {
     })));
   }, []);
 
+  const handleClipMoveToTrack = useCallback((clipId: string, newTrackId: string) => {
+    let movedClip: ClipData | null = null;
+    
+    setTracks(prev => {
+      // First find and remove the clip
+      const newTracks = prev.map(track => {
+        const clip = track.clips.find(c => c.id === clipId);
+        if (clip) {
+          movedClip = clip;
+          return { ...track, clips: track.clips.filter(c => c.id !== clipId) };
+        }
+        return track;
+      });
+      
+      // Then add it to the new track
+      if (movedClip) {
+        return newTracks.map(track => 
+          track.id === newTrackId 
+            ? { ...track, clips: [...track.clips, { ...movedClip!, color: track.color }] }
+            : track
+        );
+      }
+      
+      return newTracks;
+    });
+    
+    saveHistory();
+  }, [saveHistory]);
+
   const handleClipResize = useCallback((clipId: string, newDuration: number, newOffset: number) => {
     setTracks(prev => prev.map(track => ({
       ...track,
-      clips: track.clips.map(clip => 
-        clip.id === clipId ? { ...clip, duration: newDuration, offset: newOffset } : clip
-      )
+      clips: track.clips.map(clip => {
+        if (clip.id !== clipId) return clip;
+        
+        // Allow extending back to original audio limits
+        const originalDuration = clip.originalDuration || clip.audioBuffer?.duration || clip.duration;
+        const maxOffset = Math.max(0, newOffset);
+        const maxDuration = originalDuration - maxOffset;
+        
+        return { 
+          ...clip, 
+          duration: Math.min(newDuration, maxDuration), 
+          offset: maxOffset 
+        };
+      })
     })));
   }, []);
 
   const handleClipDelete = useCallback((clipId: string) => {
+    saveHistory();
     setTracks(prev => prev.map(track => ({
       ...track,
       clips: track.clips.filter(clip => clip.id !== clipId)
     })));
     setSelectedClipIds(prev => prev.filter(id => id !== clipId));
-  }, []);
+  }, [saveHistory]);
 
   const handleClipDuplicate = useCallback((clipId: string) => {
+    saveHistory();
     setTracks(prev => prev.map(track => {
       const clipToDuplicate = track.clips.find(c => c.id === clipId);
       if (!clipToDuplicate) return track;
@@ -329,9 +519,10 @@ const Studio = () => {
       
       return { ...track, clips: [...track.clips, newClip] };
     }));
-  }, []);
+  }, [saveHistory]);
 
   const handleClipCut = useCallback((clipId: string, cutTime: number) => {
+    saveHistory();
     setTracks(prev => prev.map(track => {
       const clipToCut = track.clips.find(c => c.id === clipId);
       if (!clipToCut) return track;
@@ -339,9 +530,12 @@ const Studio = () => {
       const cutPosition = cutTime - clipToCut.startTime;
       if (cutPosition <= 0 || cutPosition >= clipToCut.duration) return track;
       
+      const originalDuration = clipToCut.originalDuration || clipToCut.audioBuffer?.duration || clipToCut.duration;
+      
       const leftClip: ClipData = {
         ...clipToCut,
         duration: cutPosition,
+        originalDuration,
       };
       
       const rightClip: ClipData = {
@@ -350,6 +544,7 @@ const Studio = () => {
         startTime: cutTime,
         duration: clipToCut.duration - cutPosition,
         offset: clipToCut.offset + cutPosition,
+        originalDuration,
       };
       
       return {
@@ -357,7 +552,7 @@ const Studio = () => {
         clips: track.clips.filter(c => c.id !== clipId).concat([leftClip, rightClip])
       };
     }));
-  }, []);
+  }, [saveHistory]);
 
   const handleCopyClips = useCallback(() => {
     const clipsToCopy: ClipData[] = [];
@@ -375,6 +570,7 @@ const Studio = () => {
   const handlePasteClips = useCallback(() => {
     if (clipboard.length === 0 || !selectedTrackId) return;
     
+    saveHistory();
     const newClips = clipboard.map(clip => ({
       ...clip,
       id: `clip-${Date.now()}-${Math.random()}`,
@@ -387,7 +583,7 @@ const Studio = () => {
         : track
     ));
     toast({ title: "Collé", description: `${newClips.length} clip(s)` });
-  }, [clipboard, selectedTrackId, currentTime, toast]);
+  }, [clipboard, selectedTrackId, currentTime, toast, saveHistory]);
 
   // File handling
   const handleFileUpload = async (trackId: string, file: File) => {
@@ -396,12 +592,15 @@ const Studio = () => {
     const arrayBuffer = await file.arrayBuffer();
     const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
 
+    saveHistory();
+    
     const newClip: ClipData = {
       id: `clip-${Date.now()}`,
       startTime: currentTime,
       duration: audioBuffer.duration,
       audioBuffer,
       offset: 0,
+      originalDuration: audioBuffer.duration,
       name: file.name.replace(/\.[^/.]+$/, ""),
       color: tracks.find(t => t.id === trackId)?.color,
     };
@@ -426,12 +625,15 @@ const Studio = () => {
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
 
+      saveHistory();
+      
       const newClip: ClipData = {
         id: `clip-${Date.now()}`,
         startTime: 0,
         duration: audioBuffer.duration,
         audioBuffer,
         offset: 0,
+        originalDuration: audioBuffer.duration,
         name: instrumental.title,
         color: tracks.find(t => t.id === trackId)?.color,
       };
@@ -451,6 +653,53 @@ const Studio = () => {
   };
 
   // Track operations
+  const addTrack = useCallback((type: "instrumental" | "vocal") => {
+    if (tracks.length >= MAX_TRACKS) {
+      toast({ title: "Maximum atteint", description: `Maximum ${MAX_TRACKS} pistes`, variant: "destructive" });
+      return;
+    }
+    
+    saveHistory();
+    const newTrack = createTrack(
+      `track-${Date.now()}`,
+      type === "instrumental" ? `Instrumental ${tracks.filter(t => t.type === "instrumental").length + 1}` : `Voix ${tracks.filter(t => t.type === "vocal").length + 1}`,
+      type,
+      TRACK_COLORS[tracks.length % TRACK_COLORS.length]
+    );
+    setTracks(prev => [...prev, newTrack]);
+  }, [tracks, toast, saveHistory]);
+
+  const duplicateTrack = useCallback((trackId: string) => {
+    if (tracks.length >= MAX_TRACKS) {
+      toast({ title: "Maximum atteint", description: `Maximum ${MAX_TRACKS} pistes`, variant: "destructive" });
+      return;
+    }
+    
+    const trackToDuplicate = tracks.find(t => t.id === trackId);
+    if (!trackToDuplicate) return;
+    
+    saveHistory();
+    const newTrack: Track = {
+      ...trackToDuplicate,
+      id: `track-${Date.now()}`,
+      name: `${trackToDuplicate.name} (copie)`,
+      clips: trackToDuplicate.clips.map(clip => ({
+        ...clip,
+        id: `clip-${Date.now()}-${Math.random()}`,
+      })),
+    };
+    
+    setTracks(prev => [...prev, newTrack]);
+    toast({ title: "Piste dupliquée" });
+  }, [tracks, toast, saveHistory]);
+
+  const deleteTrack = useCallback((trackId: string) => {
+    if (tracks.length <= 1) return;
+    saveHistory();
+    setTracks(prev => prev.filter(t => t.id !== trackId));
+    if (selectedTrackId === trackId) setSelectedTrackId(null);
+  }, [tracks, selectedTrackId, saveHistory]);
+
   const updateTrackVolume = (trackId: string, volume: number) => {
     setTracks(prev => prev.map(track => 
       track.id === trackId ? { ...track, volume } : track
@@ -525,7 +774,7 @@ const Studio = () => {
           duration: c.duration,
           offset: c.offset,
           name: c.name,
-          // Note: audioBuffer data would need to be exported separately as audio files
+          originalDuration: c.originalDuration,
         }))
       })),
     };
@@ -536,7 +785,7 @@ const Studio = () => {
           projectName,
           projectData,
           userEmail: user?.email,
-          userName: user?.user_metadata?.name || user?.email?.split("@")[0],
+          userName: user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0],
         }
       });
 
@@ -557,6 +806,165 @@ const Studio = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Load project list from Drive
+  const loadProjectList = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("save-studio-project", {
+        body: {
+          action: "list",
+          userEmail: user?.email,
+          userName: user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0],
+        }
+      });
+      
+      if (!error && data?.projects) {
+        setSavedProjects(data.projects);
+      }
+    } catch (err) {
+      console.error("Load list error:", err);
+      // Load from localStorage as fallback
+      const localProjects: {name: string, id: string}[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith("studio_project_")) {
+          localProjects.push({ name: key.replace("studio_project_", ""), id: key });
+        }
+      }
+      setSavedProjects(localProjects);
+    } finally {
+      setIsLoading(false);
+    }
+    
+    toast({ title: "Projets chargés", description: `${savedProjects.length} projet(s) trouvé(s)` });
+  };
+
+  // Export mix
+  const exportMix = async () => {
+    if (!audioContextRef.current) return;
+    
+    const hasClips = tracks.some(t => t.clips.length > 0);
+    if (!hasClips) {
+      toast({ title: "Rien à exporter", variant: "destructive" });
+      return;
+    }
+    
+    setIsExporting(true);
+    toast({ title: "Export en cours...", description: "Veuillez patienter" });
+    
+    try {
+      // Find the total duration needed
+      let maxEndTime = 0;
+      tracks.forEach(track => {
+        track.clips.forEach(clip => {
+          const endTime = clip.startTime + clip.duration;
+          if (endTime > maxEndTime) maxEndTime = endTime;
+        });
+      });
+      
+      // Create offline context for rendering
+      const offlineContext = new OfflineAudioContext(2, Math.ceil(maxEndTime * 44100), 44100);
+      
+      // Schedule all clips
+      tracks.forEach(track => {
+        if (track.muted) return;
+        
+        track.clips.forEach(clip => {
+          if (!clip.audioBuffer) return;
+          
+          const source = offlineContext.createBufferSource();
+          source.buffer = clip.audioBuffer;
+          
+          const gainNode = offlineContext.createGain();
+          gainNode.gain.value = track.volume;
+          
+          source.connect(gainNode);
+          gainNode.connect(offlineContext.destination);
+          
+          source.start(clip.startTime, clip.offset, clip.duration);
+        });
+      });
+      
+      // Render
+      const renderedBuffer = await offlineContext.startRendering();
+      
+      // Convert to WAV
+      const wavBlob = audioBufferToWav(renderedBuffer);
+      
+      // Download
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${projectName}.wav`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast({ title: "Export terminé!", description: `${projectName}.wav` });
+    } catch (err) {
+      console.error("Export error:", err);
+      toast({ title: "Erreur d'export", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Helper: Convert AudioBuffer to WAV
+  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    
+    const dataLength = buffer.length * blockAlign;
+    const headerLength = 44;
+    const totalLength = headerLength + dataLength;
+    
+    const arrayBuffer = new ArrayBuffer(totalLength);
+    const view = new DataView(arrayBuffer);
+    
+    // Write WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, totalLength - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); // fmt chunk size
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Write audio data
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+    
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+        const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, intSample, true);
+        offset += 2;
+      }
+    }
+    
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
   };
 
   // Zoom
@@ -588,14 +996,34 @@ const Studio = () => {
           />
           
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => addTrack("vocal")}>
+              <Plus className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={saveProject} disabled={isSaving}>
               <Save className={`h-4 w-4 ${isSaving ? "animate-pulse" : ""}`} />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8"><FolderOpen className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={loadProjectList} disabled={isLoading}>
+              <FolderOpen className={`h-4 w-4 ${isLoading ? "animate-pulse" : ""}`} />
+            </Button>
             <div className="w-px h-6 bg-zinc-700 mx-2" />
-            <Button variant="ghost" size="icon" className="h-8 w-8"><Undo className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8"><Redo className="h-4 w-4" /></Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8" 
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+            >
+              <Undo className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8" 
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+            >
+              <Redo className="h-4 w-4" />
+            </Button>
           </div>
 
           <div className="flex-1" />
@@ -679,7 +1107,7 @@ const Studio = () => {
             className="h-10 w-10"
             onClick={handleRecord}
           >
-            <Circle className={`h-5 w-5 ${isRecording ? "fill-current animate-pulse" : ""}`} />
+            <div className={`h-5 w-5 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
           </Button>
           
           {/* Time Display */}
@@ -709,8 +1137,11 @@ const Studio = () => {
         <div className="flex-1 flex overflow-hidden">
           {/* Track List (Left) */}
           <div className="w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col shrink-0">
-            <div className="h-8 bg-zinc-800 border-b border-zinc-700 flex items-center px-2">
-              <span className="text-xs text-zinc-400 uppercase tracking-wider">Pistes</span>
+            <div className="h-8 bg-zinc-800 border-b border-zinc-700 flex items-center justify-between px-2">
+              <span className="text-xs text-zinc-400 uppercase tracking-wider">Pistes ({tracks.length}/{MAX_TRACKS})</span>
+              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => addTrack("vocal")}>
+                <Plus className="h-3 w-3" />
+              </Button>
             </div>
             
             <div className="flex-1 overflow-y-auto">
@@ -729,11 +1160,29 @@ const Studio = () => {
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: track.color }} />
                         <span className="text-sm font-medium truncate">{track.name}</span>
                       </div>
-                      {track.type === "instrumental" ? (
-                        <Music className="h-3 w-3 text-zinc-500" />
-                      ) : (
-                        <Mic className="h-3 w-3 text-zinc-500" />
-                      )}
+                      <div className="flex items-center gap-1">
+                        {track.type === "instrumental" ? (
+                          <Music className="h-3 w-3 text-zinc-500" />
+                        ) : (
+                          <Mic className="h-3 w-3 text-zinc-500" />
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={(e) => { e.stopPropagation(); duplicateTrack(track.id); }}
+                        >
+                          <CopyPlus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-destructive/70 hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); deleteTrack(track.id); }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-1">
@@ -754,14 +1203,14 @@ const Studio = () => {
                         S
                       </Button>
                       {track.type === "vocal" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-6 w-6 text-xs ${track.armed ? "bg-destructive text-white" : ""}`}
+                        <button
+                          className={`h-6 w-6 rounded-full flex items-center justify-center transition-colors ${
+                            track.armed ? "bg-destructive" : "bg-zinc-600 hover:bg-zinc-500"
+                          }`}
                           onClick={(e) => { e.stopPropagation(); toggleArm(track.id); }}
                         >
-                          R
-                        </Button>
+                          <div className={`h-3 w-3 rounded-full ${track.armed ? "bg-white" : "bg-destructive/50"}`} />
+                        </button>
                       )}
                       
                       <Slider
@@ -838,6 +1287,14 @@ const Studio = () => {
                     }`}
                     style={{ height: TRACK_HEIGHT }}
                     onClick={() => setSelectedTrackId(track.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const clipId = e.dataTransfer.getData("clipId");
+                      if (clipId) {
+                        handleClipMoveToTrack(clipId, track.id);
+                      }
+                    }}
                   >
                     {/* Grid lines background */}
                     <BPMGrid
@@ -871,7 +1328,7 @@ const Studio = () => {
                       <div 
                         className="absolute top-1 bottom-1 bg-destructive/30 border border-destructive rounded animate-pulse flex items-center justify-center"
                         style={{ 
-                          left: currentTime * pixelsPerSecond - recordingDuration * pixelsPerSecond,
+                          left: recordStartTimeRef.current * pixelsPerSecond,
                           width: recordingDuration * pixelsPerSecond 
                         }}
                       >
@@ -1034,9 +1491,11 @@ const Studio = () => {
             <div className="p-4 border-t border-zinc-800">
               <Button 
                 className="w-full bg-primary hover:bg-primary/90"
-                disabled={!tracks.some(t => t.clips.length > 0)}
+                disabled={!tracks.some(t => t.clips.length > 0) || isExporting}
+                onClick={exportMix}
               >
-                Exporter le mix
+                <Download className="h-4 w-4 mr-2" />
+                {isExporting ? "Export en cours..." : "Exporter le mix"}
               </Button>
             </div>
           </div>
