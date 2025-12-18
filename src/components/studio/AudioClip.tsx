@@ -45,6 +45,7 @@ const AudioClip = memo(({
   const [isResizing, setIsResizing] = useState<"left" | "right" | null>(null);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef<{ x: number; startTime: number } | null>(null);
 
   const width = clip.duration * pixelsPerSecond;
   const left = clip.startTime * pixelsPerSecond;
@@ -52,6 +53,7 @@ const AudioClip = memo(({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+    e.preventDefault();
     
     const rect = clipRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -59,26 +61,52 @@ const AudioClip = memo(({
     const clickX = e.clientX - rect.left;
     const edgeThreshold = 10;
 
-    if (clickX < edgeThreshold) {
-      setIsResizing("left");
-    } else if (clickX > rect.width - edgeThreshold) {
-      setIsResizing("right");
-    } else {
-      setIsDragging(true);
-    }
-
     onSelect(clip.id, e.shiftKey || e.ctrlKey || e.metaKey);
 
+    if (clickX < edgeThreshold) {
+      // Left edge resize
+      setIsResizing("left");
+      handleResize(e, "left");
+    } else if (clickX > rect.width - edgeThreshold) {
+      // Right edge resize
+      setIsResizing("right");
+      handleResize(e, "right");
+    } else {
+      // Dragging
+      setIsDragging(true);
+      dragStartRef.current = { x: e.clientX, startTime: clip.startTime };
+      
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!dragStartRef.current) return;
+        const deltaX = moveEvent.clientX - dragStartRef.current.x;
+        const deltaTime = deltaX / pixelsPerSecond;
+        const newStartTime = snapToGrid(Math.max(0, dragStartRef.current.startTime + deltaTime));
+        onMove(clip.id, newStartTime);
+      };
+
+      const handleMouseUp = () => {
+        setIsDragging(false);
+        dragStartRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+  }, [clip, pixelsPerSecond, onSelect, onMove, snapToGrid]);
+
+  const handleResize = useCallback((e: React.MouseEvent, edge: "left" | "right") => {
     const startX = e.clientX;
-    const startTime = clip.startTime;
     const startDuration = clip.duration;
     const startOffset = clip.offset;
+    const startTime = clip.startTime;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX;
       const deltaTime = deltaX / pixelsPerSecond;
 
-      if (isResizing === "left") {
+      if (edge === "left") {
         const newOffset = Math.max(0, startOffset + deltaTime);
         const offsetDiff = newOffset - startOffset;
         const newStartTime = snapToGrid(startTime + offsetDiff);
@@ -87,18 +115,14 @@ const AudioClip = memo(({
           onResize(clip.id, newDuration, newOffset);
           onMove(clip.id, newStartTime);
         }
-      } else if (isResizing === "right") {
+      } else {
         const newDuration = Math.max(0.1, startDuration + deltaTime);
-        const maxDuration = clip.audioBuffer.duration - clip.offset;
+        const maxDuration = (clip.originalDuration || clip.audioBuffer?.duration || Infinity) - clip.offset;
         onResize(clip.id, Math.min(newDuration, maxDuration), clip.offset);
-      } else if (isDragging) {
-        const newStartTime = snapToGrid(Math.max(0, startTime + deltaTime));
-        onMove(clip.id, newStartTime);
       }
     };
 
     const handleMouseUp = () => {
-      setIsDragging(false);
       setIsResizing(null);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -106,7 +130,7 @@ const AudioClip = memo(({
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-  }, [clip, pixelsPerSecond, onSelect, onMove, onResize, snapToGrid, isDragging, isResizing]);
+  }, [clip, pixelsPerSecond, onResize, onMove, snapToGrid]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

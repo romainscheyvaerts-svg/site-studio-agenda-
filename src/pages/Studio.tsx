@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
 import WaveformDisplay from "@/components/studio/WaveformDisplay";
 import VintageKnob from "@/components/studio/VintageKnob";
+import VUMeter from "@/components/studio/VUMeter";
 import AudioClip, { ClipData } from "@/components/studio/AudioClip";
 import BPMGrid, { snapTimeToGrid } from "@/components/studio/BPMGrid";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
@@ -89,6 +90,8 @@ const Studio = () => {
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
   const [clipboard, setClipboard] = useState<ClipData[]>([]);
+  const [trackLevels, setTrackLevels] = useState<Map<string, { level: number; peak: number }>>(new Map());
+  const [masterLevel, setMasterLevel] = useState({ level: 0, peak: 0 });
   
   // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
@@ -110,6 +113,9 @@ const Studio = () => {
   const recordStartTimeRef = useRef<number>(0);
   const timelineRef = useRef<HTMLDivElement>(null);
   const activeSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
+  const analyserNodesRef = useRef<Map<string, AnalyserNode>>(new Map());
+  const masterAnalyserRef = useRef<AnalyserNode | null>(null);
+  const peakHoldTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   // Save history state
   const saveHistory = useCallback(() => {
@@ -180,11 +186,17 @@ const Studio = () => {
     masterGainRef.current = audioContextRef.current.createGain();
     masterGainRef.current.connect(audioContextRef.current.destination);
     
+    // Create master analyser
+    masterAnalyserRef.current = audioContextRef.current.createAnalyser();
+    masterAnalyserRef.current.fftSize = 256;
+    masterGainRef.current.connect(masterAnalyserRef.current);
+    
     metronomeGainRef.current = audioContextRef.current.createGain();
     metronomeGainRef.current.gain.value = 0.3;
     metronomeGainRef.current.connect(audioContextRef.current.destination);
     
     const initialTracks: Track[] = [
+      createTrack("master", "Master", "instrumental", "hsl(0 0% 60%)"),
       createTrack("inst-1", "Instrumental 1", "instrumental", TRACK_COLORS[0]),
       createTrack("inst-2", "Instrumental 2", "instrumental", TRACK_COLORS[1]),
       createTrack("vocal-1", "Voix Lead", "vocal", TRACK_COLORS[2]),
@@ -290,9 +302,17 @@ const Studio = () => {
     setIsPlaying(true);
     startTimeRef.current = audioContextRef.current.currentTime - currentTime;
 
-    // Start all clips
-    tracks.forEach(track => {
+    // Create analysers for each track
+    const trackAnalysers = new Map<string, AnalyserNode>();
+    
+    // Start all clips (skip master track)
+    tracks.filter(t => t.id !== "master").forEach(track => {
       if (track.muted) return;
+      
+      // Create analyser for this track
+      const analyser = audioContextRef.current!.createAnalyser();
+      analyser.fftSize = 256;
+      trackAnalysers.set(track.id, analyser);
       
       track.clips.forEach(clip => {
         if (clip.startTime + clip.duration <= currentTime) return;
@@ -305,7 +325,8 @@ const Studio = () => {
         gainNode.gain.value = track.volume;
         
         source.connect(gainNode);
-        gainNode.connect(masterGainRef.current!);
+        gainNode.connect(analyser);
+        analyser.connect(masterGainRef.current!);
         
         const startOffset = Math.max(0, currentTime - clip.startTime) + clip.offset;
         const when = Math.max(0, clip.startTime - currentTime);
@@ -314,22 +335,53 @@ const Studio = () => {
         activeSourcesRef.current.set(`${track.id}-${clip.id}`, source);
       });
     });
+    
+    analyserNodesRef.current = trackAnalysers;
 
     // Start metronome if enabled
     if (metronomeEnabled) {
       startMetronome();
     }
 
+    // Level metering interval
     playbackIntervalRef.current = window.setInterval(() => {
       if (audioContextRef.current) {
         const newTime = audioContextRef.current.currentTime - startTimeRef.current;
         setCurrentTime(newTime);
         if (newTime >= duration) {
           handleStop();
+          return;
+        }
+        
+        // Update track levels
+        const newLevels = new Map<string, { level: number; peak: number }>();
+        analyserNodesRef.current.forEach((analyser, trackId) => {
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteFrequencyData(dataArray);
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+          const normalized = avg / 255;
+          
+          const currentPeak = trackLevels.get(trackId)?.peak || 0;
+          const newPeak = Math.max(normalized, currentPeak * 0.95);
+          
+          newLevels.set(trackId, { level: normalized, peak: newPeak });
+        });
+        setTrackLevels(newLevels);
+        
+        // Update master level
+        if (masterAnalyserRef.current) {
+          const dataArray = new Uint8Array(masterAnalyserRef.current.frequencyBinCount);
+          masterAnalyserRef.current.getByteFrequencyData(dataArray);
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+          const normalized = avg / 255;
+          setMasterLevel(prev => ({
+            level: normalized,
+            peak: Math.max(normalized, prev.peak * 0.95)
+          }));
         }
       }
     }, 50);
-  }, [currentTime, duration, tracks, metronomeEnabled, startMetronome]);
+  }, [currentTime, duration, tracks, metronomeEnabled, startMetronome, trackLevels]);
 
   const handlePause = useCallback(() => {
     setIsPlaying(false);
@@ -339,10 +391,15 @@ const Studio = () => {
       try { source.stop(); } catch {}
     });
     activeSourcesRef.current.clear();
+    analyserNodesRef.current.clear();
 
     if (playbackIntervalRef.current) {
       clearInterval(playbackIntervalRef.current);
     }
+    
+    // Reset levels
+    setTrackLevels(new Map());
+    setMasterLevel({ level: 0, peak: 0 });
   }, [stopMetronome]);
 
   const handleStop = useCallback(() => {
@@ -1220,114 +1277,137 @@ const Studio = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto">
-              {tracks.map((track) => (
-                <div
-                  key={track.id}
-                  className={`border-b border-zinc-800 cursor-pointer transition-colors ${
-                    selectedTrackId === track.id ? "bg-zinc-800" : "hover:bg-zinc-800/50"
-                  }`}
-                  style={{ height: TRACK_HEIGHT }}
-                  onClick={() => setSelectedTrackId(track.id)}
-                >
-                  <div className="p-2 h-full flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: track.color }} />
-                        <span className="text-sm font-medium truncate">{track.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {track.type === "instrumental" ? (
-                          <Music className="h-3 w-3 text-zinc-500" />
-                        ) : (
-                          <Mic className="h-3 w-3 text-zinc-500" />
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5"
-                          onClick={(e) => { e.stopPropagation(); duplicateTrack(track.id); }}
-                        >
-                          <CopyPlus className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-destructive/70 hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); deleteTrack(track.id); }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`h-6 w-6 text-xs ${track.muted ? "bg-destructive/20 text-destructive" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); toggleMute(track.id); }}
-                      >
-                        M
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`h-6 w-6 text-xs ${track.solo ? "bg-amber-500/20 text-amber-500" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); toggleSolo(track.id); }}
-                      >
-                        S
-                      </Button>
-                      {track.type === "vocal" && (
-                        <button
-                          className={`h-6 w-6 rounded-full flex items-center justify-center transition-colors ${
-                            track.armed ? "bg-destructive" : "bg-zinc-600 hover:bg-zinc-500"
-                          }`}
-                          onClick={(e) => { e.stopPropagation(); toggleArm(track.id); }}
-                        >
-                          <div className={`h-3 w-3 rounded-full ${track.armed ? "bg-white" : "bg-destructive/50"}`} />
-                        </button>
-                      )}
-                      
-                      <Slider
-                        value={[track.volume]}
-                        max={1}
-                        step={0.01}
-                        className="flex-1 ml-2"
-                        onValueChange={([v]) => updateTrackVolume(track.id, v)}
+              {tracks.map((track) => {
+                const isMaster = track.id === "master";
+                const levels = trackLevels.get(track.id) || { level: 0, peak: 0 };
+                
+                return (
+                  <div
+                    key={track.id}
+                    className={`border-b border-zinc-800 cursor-pointer transition-colors ${
+                      selectedTrackId === track.id ? "bg-zinc-800" : "hover:bg-zinc-800/50"
+                    } ${isMaster ? "bg-zinc-800/70" : ""}`}
+                    style={{ height: isMaster ? TRACK_HEIGHT + 20 : TRACK_HEIGHT }}
+                    onClick={() => setSelectedTrackId(track.id)}
+                  >
+                    <div className="p-2 h-full flex gap-2">
+                      {/* VU Meter */}
+                      <VUMeter 
+                        level={isMaster ? masterLevel.level : levels.level} 
+                        peak={isMaster ? masterLevel.peak : levels.peak}
+                        height={isMaster ? TRACK_HEIGHT : TRACK_HEIGHT - 16}
+                        width={20}
                       />
-                    </div>
-
-                    {track.type === "instrumental" && (
-                      <div className="flex gap-1 mt-1">
-                        <Select onValueChange={(v) => loadInstrumentalFromCatalog(track.id, v)}>
-                          <SelectTrigger className="h-5 text-[10px] flex-1 bg-zinc-700 border-0">
-                            <SelectValue placeholder="Catalogue" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {instrumentals.map((inst) => (
-                              <SelectItem key={inst.id} value={inst.id} className="text-xs">
-                                {inst.title}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Label className="h-5 px-2 bg-zinc-700 rounded text-[10px] flex items-center cursor-pointer hover:bg-zinc-600">
-                          <Upload className="h-3 w-3" />
-                          <input
-                            type="file"
-                            accept="audio/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleFileUpload(track.id, file);
-                            }}
+                      
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: track.color }} />
+                            <span className={`text-sm font-medium truncate ${isMaster ? "text-primary" : ""}`}>
+                              {track.name}
+                            </span>
+                          </div>
+                          {!isMaster && (
+                            <div className="flex items-center gap-1">
+                              {track.type === "instrumental" ? (
+                                <Music className="h-3 w-3 text-zinc-500" />
+                              ) : (
+                                <Mic className="h-3 w-3 text-zinc-500" />
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                onClick={(e) => { e.stopPropagation(); duplicateTrack(track.id); }}
+                              >
+                                <CopyPlus className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-destructive/70 hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); deleteTrack(track.id); }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {!isMaster && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-6 w-6 text-xs ${track.muted ? "bg-destructive/20 text-destructive" : ""}`}
+                                onClick={(e) => { e.stopPropagation(); toggleMute(track.id); }}
+                              >
+                                M
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-6 w-6 text-xs ${track.solo ? "bg-amber-500/20 text-amber-500" : ""}`}
+                                onClick={(e) => { e.stopPropagation(); toggleSolo(track.id); }}
+                              >
+                                S
+                              </Button>
+                              {track.type === "vocal" && (
+                                <button
+                                  className={`h-6 w-6 rounded-full flex items-center justify-center transition-colors ${
+                                    track.armed ? "bg-destructive" : "bg-zinc-600 hover:bg-zinc-500"
+                                  }`}
+                                  onClick={(e) => { e.stopPropagation(); toggleArm(track.id); }}
+                                >
+                                  <div className={`h-3 w-3 rounded-full ${track.armed ? "bg-white animate-pulse" : "bg-destructive/50"}`} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                          
+                          <Slider
+                            value={[track.volume]}
+                            max={1}
+                            step={0.01}
+                            className="flex-1 ml-2"
+                            onValueChange={([v]) => updateTrackVolume(track.id, v)}
                           />
-                        </Label>
+                        </div>
+
+                        {!isMaster && track.type === "instrumental" && (
+                          <div className="flex gap-1 mt-1">
+                            <Select onValueChange={(v) => loadInstrumentalFromCatalog(track.id, v)}>
+                              <SelectTrigger className="h-5 text-[10px] flex-1 bg-zinc-700 border-0">
+                                <SelectValue placeholder="Catalogue" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {instrumentals.map((inst) => (
+                                  <SelectItem key={inst.id} value={inst.id} className="text-xs">
+                                    {inst.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Label className="h-5 px-2 bg-zinc-700 rounded text-[10px] flex items-center cursor-pointer hover:bg-zinc-600">
+                              <Upload className="h-3 w-3" />
+                              <input
+                                type="file"
+                                accept="audio/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleFileUpload(track.id, file);
+                                }}
+                              />
+                            </Label>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -1354,64 +1434,86 @@ const Studio = () => {
             {/* Track Lanes */}
             <div className="flex-1 overflow-auto bg-zinc-950">
               <div style={{ width: duration * pixelsPerSecond, minWidth: "100%" }}>
-                {tracks.map((track) => (
-                  <div
-                    key={track.id}
-                    className={`relative border-b border-zinc-800 ${
-                      selectedTrackId === track.id ? "bg-zinc-900/50" : ""
-                    }`}
-                    style={{ height: TRACK_HEIGHT }}
-                    onClick={() => setSelectedTrackId(track.id)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const clipId = e.dataTransfer.getData("clipId");
-                      if (clipId) {
-                        handleClipMoveToTrack(clipId, track.id);
-                      }
-                    }}
-                  >
-                    {/* Grid lines background */}
-                    <BPMGrid
-                      bpm={bpm}
-                      duration={duration}
-                      pixelsPerSecond={pixelsPerSecond}
-                      height={TRACK_HEIGHT}
-                      currentTime={currentTime}
-                    />
-
-                    {/* Clips */}
-                    {track.clips.map((clip) => (
-                      <AudioClip
-                        key={clip.id}
-                        clip={{ ...clip, color: track.color }}
+                {tracks.map((track) => {
+                  const isMaster = track.id === "master";
+                  
+                  return (
+                    <div
+                      key={track.id}
+                      className={`relative border-b border-zinc-800 ${
+                        selectedTrackId === track.id ? "bg-zinc-900/50" : ""
+                      } ${isMaster ? "bg-zinc-800/30" : ""}`}
+                      style={{ height: isMaster ? TRACK_HEIGHT + 20 : TRACK_HEIGHT }}
+                      onClick={() => setSelectedTrackId(track.id)}
+                      onDragOver={(e) => {
+                        if (!isMaster) {
+                          e.preventDefault();
+                          e.currentTarget.classList.add("bg-primary/10");
+                        }
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove("bg-primary/10");
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove("bg-primary/10");
+                        if (isMaster) return;
+                        
+                        const clipId = e.dataTransfer.getData("clipId");
+                        if (clipId) {
+                          handleClipMoveToTrack(clipId, track.id);
+                        }
+                      }}
+                    >
+                      {/* Grid lines background */}
+                      <BPMGrid
+                        bpm={bpm}
+                        duration={duration}
                         pixelsPerSecond={pixelsPerSecond}
-                        trackHeight={TRACK_HEIGHT}
-                        isSelected={selectedClipIds.includes(clip.id)}
-                        onSelect={handleClipSelect}
-                        onMove={handleClipMove}
-                        onResize={handleClipResize}
-                        onDelete={handleClipDelete}
-                        onDuplicate={handleClipDuplicate}
-                        onCut={handleClipCut}
-                        snapToGrid={snapToGrid}
+                        height={isMaster ? TRACK_HEIGHT + 20 : TRACK_HEIGHT}
+                        currentTime={currentTime}
                       />
-                    ))}
 
-                    {/* Recording indicator */}
-                    {isRecording && track.armed && (
-                      <div 
-                        className="absolute top-1 bottom-1 bg-destructive/30 border border-destructive rounded animate-pulse flex items-center justify-center"
-                        style={{ 
-                          left: recordStartTimeRef.current * pixelsPerSecond,
-                          width: recordingDuration * pixelsPerSecond 
-                        }}
-                      >
-                        <span className="text-destructive text-xs font-bold">● REC</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {/* Master track label */}
+                      {isMaster && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-zinc-600 text-sm font-medium">Sortie Master • Toutes les pistes</span>
+                        </div>
+                      )}
+
+                      {/* Clips (not on master) */}
+                      {!isMaster && track.clips.map((clip) => (
+                        <AudioClip
+                          key={clip.id}
+                          clip={{ ...clip, color: track.color }}
+                          pixelsPerSecond={pixelsPerSecond}
+                          trackHeight={TRACK_HEIGHT}
+                          isSelected={selectedClipIds.includes(clip.id)}
+                          onSelect={handleClipSelect}
+                          onMove={handleClipMove}
+                          onResize={handleClipResize}
+                          onDelete={handleClipDelete}
+                          onDuplicate={handleClipDuplicate}
+                          onCut={handleClipCut}
+                          snapToGrid={snapToGrid}
+                        />
+                      ))}
+
+                      {/* Recording indicator */}
+                      {isRecording && track.armed && (
+                        <div 
+                          className="absolute top-1 bottom-1 bg-destructive/30 border border-destructive rounded animate-pulse flex items-center justify-center"
+                          style={{ 
+                            left: recordStartTimeRef.current * pixelsPerSecond,
+                            width: recordingDuration * pixelsPerSecond 
+                          }}
+                        >
+                          <span className="text-destructive text-xs font-bold">● REC</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

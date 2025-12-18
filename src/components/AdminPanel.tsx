@@ -208,11 +208,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
             )}
           </div>
 
-          {/* Services Pricing Management */}
-          <AdminServicesPricing />
-
           {/* Instrumentals Management */}
           <AdminInstrumentals />
+
+          {/* Services Pricing Management */}
+          <AdminServicesPricing />
 
           {/* User Management */}
           <AdminUserManagement />
