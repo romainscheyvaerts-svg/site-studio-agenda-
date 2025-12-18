@@ -128,6 +128,7 @@ const AudioClip = memo(({
     <>
       <div
         ref={clipRef}
+        draggable
         className={`absolute top-1 bottom-1 rounded-md overflow-hidden cursor-move transition-all ${
           isSelected 
             ? "ring-2 ring-primary shadow-lg shadow-primary/20 z-10" 
@@ -141,6 +142,10 @@ const AudioClip = memo(({
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
         onDoubleClick={handleCutAtPosition}
+        onDragStart={(e) => {
+          e.dataTransfer.setData("clipId", clip.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
       >
         {/* Header with name and grip */}
         <div className="absolute top-0 left-0 right-0 h-5 bg-black/30 flex items-center px-1 gap-1">

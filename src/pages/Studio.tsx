@@ -5,11 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Play, Pause, Square, SkipBack, Volume2, 
   Plus, Trash2, Music, Mic, Upload, Save, FolderOpen, 
   Undo, Redo, Copy, Scissors, ZoomIn, ZoomOut,
-  Magnet, Download, CopyPlus
+  Magnet, Download, CopyPlus, Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -100,7 +101,8 @@ const Studio = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [savedProjects, setSavedProjects] = useState<{name: string, id: string}[]>([]);
+  const [savedProjects, setSavedProjects] = useState<{name: string, id: string, folderId?: string}[]>([]);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
   
   // Refs
   const playbackIntervalRef = useRef<number | null>(null);
@@ -822,23 +824,96 @@ const Studio = () => {
       
       if (!error && data?.projects) {
         setSavedProjects(data.projects);
+        setShowLoadDialog(true);
+      } else {
+        // Load from localStorage as fallback
+        const localProjects: {name: string, id: string}[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith("studio_project_")) {
+            localProjects.push({ name: key.replace("studio_project_", ""), id: key });
+          }
+        }
+        setSavedProjects(localProjects);
+        if (localProjects.length > 0) {
+          setShowLoadDialog(true);
+        } else {
+          toast({ title: "Aucun projet", description: "Aucun projet sauvegardé trouvé" });
+        }
       }
     } catch (err) {
       console.error("Load list error:", err);
-      // Load from localStorage as fallback
-      const localProjects: {name: string, id: string}[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith("studio_project_")) {
-          localProjects.push({ name: key.replace("studio_project_", ""), id: key });
-        }
-      }
-      setSavedProjects(localProjects);
+      toast({ title: "Erreur", description: "Impossible de charger les projets", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Load a specific project
+  const loadProject = async (project: {name: string, id: string, folderId?: string}) => {
+    setIsLoading(true);
+    setShowLoadDialog(false);
     
-    toast({ title: "Projets chargés", description: `${savedProjects.length} projet(s) trouvé(s)` });
+    try {
+      // Check if it's a local project
+      if (project.id.startsWith("studio_project_")) {
+        const savedData = localStorage.getItem(project.id);
+        if (savedData) {
+          const projectData = JSON.parse(savedData);
+          applyProjectData(projectData);
+          toast({ title: "Projet chargé", description: project.name });
+        }
+      } else {
+        // Load from Drive
+        const { data, error } = await supabase.functions.invoke("save-studio-project", {
+          body: {
+            action: "load",
+            projectFolderId: project.folderId || project.id,
+            userEmail: user?.email,
+            userName: user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0],
+          }
+        });
+        
+        if (!error && data?.projectData) {
+          applyProjectData(data.projectData);
+          toast({ title: "Projet chargé", description: project.name });
+        } else {
+          throw new Error("Projet non trouvé");
+        }
+      }
+    } catch (err) {
+      console.error("Load project error:", err);
+      toast({ title: "Erreur", description: "Impossible de charger le projet", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Apply loaded project data
+  const applyProjectData = (projectData: any) => {
+    if (projectData.name) setProjectName(projectData.name);
+    if (projectData.bpm) setBpm(projectData.bpm);
+    if (projectData.duration) setDuration(projectData.duration);
+    
+    if (projectData.tracks) {
+      const loadedTracks: Track[] = projectData.tracks.map((t: any, index: number) => ({
+        ...createTrack(t.id || `track-${Date.now()}-${index}`, t.name, t.type, t.color || TRACK_COLORS[index % TRACK_COLORS.length]),
+        volume: t.volume ?? 0.8,
+        pan: t.pan ?? 0,
+        muted: t.muted ?? false,
+        compressor: t.compressor || { threshold: -20, ratio: 4, attack: 10, release: 100 },
+        eq: t.eq || { low: 0, mid: 0, high: 0 },
+        reverb: t.reverb || { wet: 0, enabled: false },
+        clips: (t.clips || []).map((c: any) => ({
+          ...c,
+          audioBuffer: undefined, // Audio data can't be saved, needs to be reimported
+        })),
+      }));
+      setTracks(loadedTracks);
+    }
+    
+    setHistory([]);
+    setHistoryIndex(-1);
   };
 
   // Export mix
@@ -1501,6 +1576,39 @@ const Studio = () => {
           </div>
         </div>
       </div>
+
+      {/* Load Project Dialog */}
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="bg-zinc-900 border-zinc-700 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Charger un projet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {savedProjects.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Aucun projet sauvegardé</p>
+            ) : (
+              savedProjects.map((project) => (
+                <button
+                  key={project.id}
+                  onClick={() => loadProject(project)}
+                  disabled={isLoading}
+                  className="w-full text-left p-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors flex items-center justify-between"
+                >
+                  <div>
+                    <span className="font-medium text-foreground">{project.name}</span>
+                    <span className="text-xs text-muted-foreground block mt-0.5">
+                      {project.id.startsWith("studio_project_") ? "Local" : "Google Drive"}
+                    </span>
+                  </div>
+                  {isLoading && (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
