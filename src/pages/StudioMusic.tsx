@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import InstrumentalsSidebar from "@/components/studio/InstrumentalsSidebar";
 
 const StudioMusic = () => {
   useEffect(() => {
@@ -11,6 +12,10 @@ const StudioMusic = () => {
 
   return (
     <div className="fixed inset-0 w-full h-full bg-background">
+      {/* Instrumentals Sidebar */}
+      <InstrumentalsSidebar />
+      
+      {/* DAW iframe */}
       <iframe
         src="https://nova-daw-pro-audio-workstation-418728368474.us-west1.run.app"
         className="w-full h-full border-0"
