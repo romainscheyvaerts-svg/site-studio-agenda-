@@ -150,11 +150,19 @@ const InstrumentalsSidebar = () => {
     const preloaded = preloadedAudios[instrumental.id];
     const audioUrl = preloaded?.audioUrl || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${instrumental.drive_file_id}`;
     
-    // Set drag data with the correct MIME types for the DAW
-    e.dataTransfer.setData("audio/url", audioUrl);
-    e.dataTransfer.setData("audio/name", instrumental.title);
+    // Sanitize title for filename
+    const safeTitle = instrumental.title.replace(/[^a-zA-Z0-9-_]/g, "_");
     
-    // Also include additional metadata as JSON
+    // Set data to simulate a real file transfer for the DAW
+    e.dataTransfer.setData("text/plain", audioUrl);
+    
+    // Format: MIME:filename:URL - this makes browsers treat it as a file download
+    e.dataTransfer.setData("DownloadURL", `application/octet-stream:${safeTitle}.mp3:${audioUrl}`);
+    
+    // Also set text/uri-list for compatibility
+    e.dataTransfer.setData("text/uri-list", audioUrl);
+    
+    // Include additional metadata as JSON for apps that support it
     e.dataTransfer.setData("application/json", JSON.stringify({
       id: instrumental.id,
       title: instrumental.title,
@@ -165,6 +173,13 @@ const InstrumentalsSidebar = () => {
     }));
     
     e.dataTransfer.effectAllowed = "copy";
+    
+    // Set drag image (preview) - use the target element
+    const target = e.currentTarget as HTMLElement;
+    if (target) {
+      e.dataTransfer.setDragImage(target, target.offsetWidth / 2, target.offsetHeight / 2);
+    }
+    
     setDraggingId(instrumental.id);
   };
 
