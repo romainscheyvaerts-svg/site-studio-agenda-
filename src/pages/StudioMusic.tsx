@@ -17,7 +17,7 @@ const StudioMusic = () => {
       
       {/* DAW iframe */}
       <iframe
-        src="https://ai.studio/apps/drive/1OsVLD_D3GihuTWMOpM_qdfmYpQjux-B5"
+        src="https://nova-daw-pro-audio-workstation-579104351454.us-west1.run.app/"
         className="w-full h-full border-0"
         style={{
           border: 'none',
