@@ -53,10 +53,17 @@ const InstrumentalsSidebar = () => {
       const { data, error } = await supabase
         .from("instrumentals")
         .select("id, title, drive_file_id, bpm, key, genre, cover_image_url")
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setInstrumentals(data || []);
+      
+      // Filter out instrumentals with "ppp" in the title
+      const filteredData = (data || []).filter(
+        (inst) => !inst.title.toLowerCase().includes("ppp")
+      );
+      
+      setInstrumentals(filteredData);
     } catch (error) {
       console.error("Error fetching instrumentals:", error);
     } finally {
@@ -137,20 +144,32 @@ const InstrumentalsSidebar = () => {
     }
   };
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
   const handleDragStart = (e: React.DragEvent, instrumental: Instrumental) => {
     const preloaded = preloadedAudios[instrumental.id];
+    const audioUrl = preloaded?.audioUrl || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${instrumental.drive_file_id}`;
     
-    // Set drag data with instrumental info
+    // Set drag data with the correct MIME types for the DAW
+    e.dataTransfer.setData("audio/url", audioUrl);
+    e.dataTransfer.setData("audio/name", instrumental.title);
+    
+    // Also include additional metadata as JSON
     e.dataTransfer.setData("application/json", JSON.stringify({
       id: instrumental.id,
       title: instrumental.title,
       driveFileId: instrumental.drive_file_id,
       bpm: instrumental.bpm,
       key: instrumental.key,
-      audioUrl: preloaded?.audioUrl || null,
+      audioUrl: audioUrl,
     }));
     
     e.dataTransfer.effectAllowed = "copy";
+    setDraggingId(instrumental.id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
   };
 
   const handleVolumeChange = (value: number[]) => {
@@ -224,15 +243,15 @@ const InstrumentalsSidebar = () => {
                   const isLoaded = preloaded?.audioUrl !== null && preloaded?.audioUrl !== undefined;
                   const isLoading = preloaded?.loading;
 
-                  return (
+                    return (
                     <div
                       key={instrumental.id}
-                      draggable={isLoaded}
+                      draggable={true}
                       onDragStart={(e) => handleDragStart(e, instrumental)}
+                      onDragEnd={handleDragEnd}
                       className={cn(
-                        "group relative bg-background/80 rounded-lg border border-border p-3 transition-all hover:border-primary/50 hover:shadow-md",
-                        isLoaded && "cursor-grab active:cursor-grabbing",
-                        !isLoaded && "opacity-70"
+                        "group relative bg-background/80 rounded-lg border border-border p-3 transition-all hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing",
+                        draggingId === instrumental.id && "opacity-50 scale-95"
                       )}
                     >
                       <div className="flex items-start gap-3">
