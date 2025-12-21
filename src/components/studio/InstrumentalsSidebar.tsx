@@ -150,27 +150,29 @@ const InstrumentalsSidebar = () => {
     const preloaded = preloadedAudios[instrumental.id];
     const audioUrl = preloaded?.audioUrl || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${instrumental.drive_file_id}`;
     
+    // Format spécifique pour le DAW - application/daw-audio
+    const audioData = {
+      url: audioUrl,
+      name: instrumental.title,
+      id: instrumental.id,
+      bpm: instrumental.bpm,
+      key: instrumental.key,
+      genre: instrumental.genre,
+      driveFileId: instrumental.drive_file_id,
+    };
+    
+    // Type MIME principal pour le DAW
+    e.dataTransfer.setData("application/daw-audio", JSON.stringify(audioData));
+    
+    // Fallbacks pour compatibilité
+    e.dataTransfer.setData("text/plain", audioUrl);
+    e.dataTransfer.setData("text/uri-list", audioUrl);
+    
     // Sanitize title for filename
     const safeTitle = instrumental.title.replace(/[^a-zA-Z0-9-_]/g, "_");
     
-    // Set data to simulate a real file transfer for the DAW
-    e.dataTransfer.setData("text/plain", audioUrl);
-    
-    // Format: MIME:filename:URL - this makes browsers treat it as a file download
-    e.dataTransfer.setData("DownloadURL", `application/octet-stream:${safeTitle}.mp3:${audioUrl}`);
-    
-    // Also set text/uri-list for compatibility
-    e.dataTransfer.setData("text/uri-list", audioUrl);
-    
-    // Include additional metadata as JSON for apps that support it
-    e.dataTransfer.setData("application/json", JSON.stringify({
-      id: instrumental.id,
-      title: instrumental.title,
-      driveFileId: instrumental.drive_file_id,
-      bpm: instrumental.bpm,
-      key: instrumental.key,
-      audioUrl: audioUrl,
-    }));
+    // Format DownloadURL pour simuler un fichier
+    e.dataTransfer.setData("DownloadURL", `audio/mpeg:${safeTitle}.mp3:${audioUrl}`);
     
     e.dataTransfer.effectAllowed = "copy";
     
