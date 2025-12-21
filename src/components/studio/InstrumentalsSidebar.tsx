@@ -150,10 +150,12 @@ const InstrumentalsSidebar = () => {
     const preloaded = preloadedAudios[instrumental.id];
     const audioUrl = preloaded?.audioUrl || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${instrumental.drive_file_id}`;
     
-    // Format pour le DAW
+    // Format pour le DAW avec support WAV
     const audioData = { 
+      type: 'EXTERNAL_IMPORT_AUDIO',
       url: audioUrl, 
-      name: instrumental.title 
+      name: instrumental.title,
+      format: 'wav'
     };
     
     // Type MIME personnalisé pour le DAW + texte brut pour compatibilité
