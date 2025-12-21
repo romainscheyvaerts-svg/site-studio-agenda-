@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import InstrumentalsSidebar from "@/components/studio/InstrumentalsSidebar";
+import TransferZone from "@/components/studio/TransferZone";
 
 const StudioMusic = () => {
   useEffect(() => {
@@ -14,6 +15,9 @@ const StudioMusic = () => {
     <div className="fixed inset-0 w-full h-full bg-background">
       {/* Instrumentals Sidebar */}
       <InstrumentalsSidebar />
+      
+      {/* Transfer Zone for WAV files */}
+      <TransferZone />
       
       {/* DAW iframe */}
       <iframe

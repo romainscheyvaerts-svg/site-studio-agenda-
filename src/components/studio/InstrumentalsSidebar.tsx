@@ -241,14 +241,26 @@ const InstrumentalsSidebar = () => {
                   const isLoaded = preloaded?.audioUrl !== null && preloaded?.audioUrl !== undefined;
                   const isLoading = preloaded?.loading;
 
-                    return (
+                  const handleCardClick = () => {
+                    // Load to transfer zone when clicked
+                    if (typeof window !== "undefined" && (window as any).transferZone) {
+                      (window as any).transferZone.loadFileToZone({
+                        id: instrumental.id,
+                        title: instrumental.title,
+                        drive_file_id: instrumental.drive_file_id,
+                      });
+                    }
+                  };
+
+                  return (
                     <div
                       key={instrumental.id}
                       draggable={true}
                       onDragStart={(e) => handleDragStart(e, instrumental)}
                       onDragEnd={handleDragEnd}
+                      onClick={handleCardClick}
                       className={cn(
-                        "group relative bg-background/80 rounded-lg border border-border p-3 transition-all hover:border-primary/50 hover:shadow-md cursor-grab active:cursor-grabbing",
+                        "group relative bg-background/80 rounded-lg border border-border p-3 transition-all hover:border-primary/50 hover:shadow-md cursor-pointer",
                         draggingId === instrumental.id && "opacity-50 scale-95"
                       )}
                     >
@@ -265,7 +277,10 @@ const InstrumentalsSidebar = () => {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 shrink-0"
-                          onClick={() => togglePlay(instrumental)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePlay(instrumental);
+                          }}
                           disabled={isLoading}
                         >
                           {isLoading ? (
@@ -295,17 +310,12 @@ const InstrumentalsSidebar = () => {
                               <span className="text-xs text-destructive">{preloaded.error}</span>
                             )}
                             {isLoaded && !isLoading && (
-                              <span className="text-xs text-green-500">Prêt</span>
+                              <span className="text-xs text-green-500">Prêt à glisser</span>
                             )}
                             {!isLoaded && !isLoading && !preloaded?.error && (
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs"
-                                onClick={() => preloadAudio(instrumental)}
-                              >
+                              <span className="text-xs text-muted-foreground">
                                 Cliquez pour charger
-                              </Button>
+                              </span>
                             )}
                           </div>
                         </div>
