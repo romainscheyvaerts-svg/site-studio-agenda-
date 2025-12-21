@@ -150,37 +150,16 @@ const InstrumentalsSidebar = () => {
     const preloaded = preloadedAudios[instrumental.id];
     const audioUrl = preloaded?.audioUrl || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-instrumental?fileId=${instrumental.drive_file_id}`;
     
-    // Format spécifique pour le DAW - application/daw-audio
-    const audioData = {
-      url: audioUrl,
-      name: instrumental.title,
-      id: instrumental.id,
-      bpm: instrumental.bpm,
-      key: instrumental.key,
-      genre: instrumental.genre,
-      driveFileId: instrumental.drive_file_id,
+    // Format pour le DAW
+    const audioData = { 
+      url: audioUrl, 
+      name: instrumental.title 
     };
     
-    // Type MIME principal pour le DAW
+    // Type MIME personnalisé pour le DAW + texte brut pour compatibilité
     e.dataTransfer.setData("application/daw-audio", JSON.stringify(audioData));
-    
-    // Fallbacks pour compatibilité
     e.dataTransfer.setData("text/plain", audioUrl);
-    e.dataTransfer.setData("text/uri-list", audioUrl);
-    
-    // Sanitize title for filename
-    const safeTitle = instrumental.title.replace(/[^a-zA-Z0-9-_]/g, "_");
-    
-    // Format DownloadURL pour simuler un fichier
-    e.dataTransfer.setData("DownloadURL", `audio/mpeg:${safeTitle}.mp3:${audioUrl}`);
-    
     e.dataTransfer.effectAllowed = "copy";
-    
-    // Set drag image (preview) - use the target element
-    const target = e.currentTarget as HTMLElement;
-    if (target) {
-      e.dataTransfer.setDragImage(target, target.offsetWidth / 2, target.offsetHeight / 2);
-    }
     
     setDraggingId(instrumental.id);
   };
