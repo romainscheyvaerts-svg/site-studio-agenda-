@@ -1,0 +1,456 @@
+import { useState, useEffect } from "react";
+import { format, addDays, startOfWeek, addWeeks, subWeeks } from "date-fns";
+import { fr } from "date-fns/locale";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CreditCard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface TimeSlot {
+  hour: number;
+  available: boolean;
+  eventName?: string;
+}
+
+interface DayAvailability {
+  date: string;
+  slots: TimeSlot[];
+}
+
+interface Service {
+  id: string;
+  service_key: string;
+  name_fr: string;
+  base_price: number;
+  price_unit: string;
+}
+
+const HOURS = Array.from({ length: 14 }, (_, i) => i + 9); // 9h to 22h
+
+export default function PublicBookingCalendar() {
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [availability, setAvailability] = useState<DayAvailability[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [services, setServices] = useState<Service[]>([]);
+  
+  // Selection state
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedStartHour, setSelectedStartHour] = useState<number | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState(2);
+  const [selectedService, setSelectedService] = useState<string>("");
+  
+  // Form state
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  
+  // Payment state
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Fetch services
+  useEffect(() => {
+    const fetchServices = async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      
+      if (!error && data) {
+        setServices(data);
+        if (data.length > 0) {
+          setSelectedService(data[0].service_key);
+        }
+      }
+    };
+    fetchServices();
+  }, []);
+
+  // Fetch availability for the week
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-weekly-availability', {
+          body: {
+            startDate: format(weekStart, 'yyyy-MM-dd'),
+            days: 7
+          }
+        });
+
+        if (error) throw error;
+        
+        if (data?.availability) {
+          setAvailability(data.availability);
+        }
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+        toast.error("Erreur lors du chargement des disponibilités");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAvailability();
+  }, [weekStart]);
+
+  const handlePreviousWeek = () => {
+    setWeekStart(prev => subWeeks(prev, 1));
+    setSelectedDate(null);
+    setSelectedStartHour(null);
+  };
+
+  const handleNextWeek = () => {
+    setWeekStart(prev => addWeeks(prev, 1));
+    setSelectedDate(null);
+    setSelectedStartHour(null);
+  };
+
+  const handleSlotClick = (date: string, hour: number) => {
+    // Check if all hours for the duration are available
+    const dayAvailability = availability.find(d => d.date === date);
+    if (!dayAvailability) return;
+
+    const isBlockAvailable = Array.from({ length: selectedDuration }, (_, i) => {
+      const targetHour = hour + i;
+      const slot = dayAvailability.slots.find(s => s.hour === targetHour);
+      return slot?.available;
+    }).every(Boolean);
+
+    if (!isBlockAvailable) {
+      toast.error("Ce créneau n'est pas entièrement disponible pour la durée sélectionnée");
+      return;
+    }
+
+    setSelectedDate(date);
+    setSelectedStartHour(hour);
+  };
+
+  const getSlotStatus = (date: string, hour: number) => {
+    const dayAvailability = availability.find(d => d.date === date);
+    if (!dayAvailability) return 'unknown';
+    
+    const slot = dayAvailability.slots.find(s => s.hour === hour);
+    if (!slot) return 'unknown';
+    
+    return slot.available ? 'available' : 'unavailable';
+  };
+
+  const isSlotSelected = (date: string, hour: number) => {
+    if (!selectedDate || selectedStartHour === null) return false;
+    if (date !== selectedDate) return false;
+    return hour >= selectedStartHour && hour < selectedStartHour + selectedDuration;
+  };
+
+  const calculatePrice = () => {
+    const service = services.find(s => s.service_key === selectedService);
+    if (!service) return 0;
+    
+    if (service.price_unit === 'hour') {
+      return service.base_price * selectedDuration;
+    }
+    return service.base_price;
+  };
+
+  const handlePayment = async () => {
+    if (!selectedDate || selectedStartHour === null) {
+      toast.error("Veuillez sélectionner un créneau");
+      return;
+    }
+    
+    if (!clientName || !clientEmail) {
+      toast.error("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(clientEmail)) {
+      toast.error("Veuillez entrer une adresse email valide");
+      return;
+    }
+
+    setProcessingPayment(true);
+
+    try {
+      const service = services.find(s => s.service_key === selectedService);
+      const amount = calculatePrice();
+      const startTime = `${selectedStartHour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(selectedStartHour + selectedDuration).toString().padStart(2, '0')}:00`;
+
+      // Create Stripe payment session
+      const { data, error } = await supabase.functions.invoke('create-stripe-payment', {
+        body: {
+          amount,
+          email: clientEmail,
+          sessionType: service?.name_fr || 'Session studio',
+          sessionDate: selectedDate,
+          startTime,
+          endTime,
+          duration: selectedDuration,
+          clientName,
+          clientPhone,
+          bookingData: {
+            clientName,
+            clientEmail,
+            clientPhone,
+            sessionType: service?.name_fr || 'Session studio',
+            sessionDate: selectedDate,
+            startTime,
+            endTime,
+            durationHours: selectedDuration,
+            amount
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        // Store booking data in session storage for after payment
+        sessionStorage.setItem('pendingBooking', JSON.stringify({
+          clientName,
+          clientEmail,
+          clientPhone,
+          sessionType: service?.name_fr || 'Session studio',
+          sessionDate: selectedDate,
+          startTime,
+          endTime,
+          durationHours: selectedDuration,
+          amount
+        }));
+        
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error("Erreur lors de la création du paiement");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  return (
+    <div className="space-y-6">
+      {/* Header with navigation */}
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={handlePreviousWeek}>
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Semaine précédente
+        </Button>
+        <h2 className="text-lg font-semibold">
+          {format(weekStart, 'd MMMM', { locale: fr })} - {format(addDays(weekStart, 6), 'd MMMM yyyy', { locale: fr })}
+        </h2>
+        <Button variant="outline" onClick={handleNextWeek}>
+          Semaine suivante
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+
+      {/* Duration selector */}
+      <div className="flex items-center gap-4">
+        <Label className="flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          Durée de la session :
+        </Label>
+        <Select value={selectedDuration.toString()} onValueChange={(v) => setSelectedDuration(parseInt(v))}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(h => (
+              <SelectItem key={h} value={h.toString()}>{h}h</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-emerald-500" />
+          <span>Disponible</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-red-500/50" />
+          <span>Indisponible</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-primary" />
+          <span>Sélectionné</span>
+        </div>
+      </div>
+
+      {/* Calendar grid */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-8 gap-1 min-w-[800px]">
+            {/* Header row */}
+            <div className="p-2 font-medium text-muted-foreground">Heure</div>
+            {weekDays.map(day => (
+              <div key={day.toISOString()} className="p-2 text-center font-medium">
+                <div className="text-sm text-muted-foreground">
+                  {format(day, 'EEE', { locale: fr })}
+                </div>
+                <div className="text-lg">{format(day, 'd')}</div>
+              </div>
+            ))}
+
+            {/* Time slots */}
+            {HOURS.map(hour => (
+              <>
+                <div key={`hour-${hour}`} className="p-2 text-sm text-muted-foreground text-right">
+                  {hour}:00
+                </div>
+                {weekDays.map(day => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const status = getSlotStatus(dateStr, hour);
+                  const isSelected = isSlotSelected(dateStr, hour);
+                  const isPast = day < new Date() && !isSelected;
+
+                  return (
+                    <button
+                      key={`${dateStr}-${hour}`}
+                      onClick={() => !isPast && status === 'available' && handleSlotClick(dateStr, hour)}
+                      disabled={isPast || status !== 'available'}
+                      className={`
+                        p-2 rounded text-xs transition-all
+                        ${isSelected 
+                          ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2' 
+                          : status === 'available' && !isPast
+                            ? 'bg-emerald-500/20 hover:bg-emerald-500/40 cursor-pointer'
+                            : 'bg-red-500/20 cursor-not-allowed opacity-50'
+                        }
+                      `}
+                    >
+                      {isSelected && hour === selectedStartHour && (
+                        <span className="font-medium">Début</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Booking form */}
+      {selectedDate && selectedStartHour !== null && (
+        <Card className="border-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Réserver votre session
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Selected slot summary */}
+            <div className="p-4 bg-muted rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Date :</span>
+                  <span className="ml-2 font-medium">
+                    {format(new Date(selectedDate), 'EEEE d MMMM yyyy', { locale: fr })}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Horaire :</span>
+                  <span className="ml-2 font-medium">
+                    {selectedStartHour}:00 - {selectedStartHour + selectedDuration}:00
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Service selection */}
+            <div className="space-y-2">
+              <Label>Type de session</Label>
+              <Select value={selectedService} onValueChange={setSelectedService}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map(service => (
+                    <SelectItem key={service.id} value={service.service_key}>
+                      {service.name_fr} - {service.base_price}€{service.price_unit === 'hour' ? '/h' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Client info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="clientName">Nom complet *</Label>
+                <Input
+                  id="clientName"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Votre nom"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientEmail">Email *</Label>
+                <Input
+                  id="clientEmail"
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  placeholder="votre@email.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="clientPhone">Téléphone</Label>
+                <Input
+                  id="clientPhone"
+                  type="tel"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  placeholder="+32 xxx xx xx xx"
+                />
+              </div>
+            </div>
+
+            {/* Price and payment */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div>
+                <span className="text-muted-foreground">Total à payer :</span>
+                <span className="ml-2 text-2xl font-bold text-primary">{calculatePrice()}€</span>
+              </div>
+              <Button 
+                size="lg" 
+                onClick={handlePayment}
+                disabled={processingPayment || !clientName || !clientEmail}
+              >
+                {processingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Traitement...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Payer et réserver
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
