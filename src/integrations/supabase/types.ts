@@ -101,6 +101,72 @@ export type Database = {
         }
         Relationships: []
       }
+      bookings: {
+        Row: {
+          admin_notes: string | null
+          amount_paid: number
+          client_email: string
+          client_name: string
+          client_phone: string | null
+          conflict_resolved: boolean | null
+          created_at: string
+          duration_hours: number
+          end_time: string
+          google_calendar_event_id: string | null
+          has_conflict: boolean
+          id: string
+          session_date: string
+          session_type: string
+          start_time: string
+          status: string
+          stripe_payment_intent_id: string | null
+          updated_at: string
+          validation_token: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount_paid: number
+          client_email: string
+          client_name: string
+          client_phone?: string | null
+          conflict_resolved?: boolean | null
+          created_at?: string
+          duration_hours: number
+          end_time: string
+          google_calendar_event_id?: string | null
+          has_conflict?: boolean
+          id?: string
+          session_date: string
+          session_type: string
+          start_time: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+          validation_token?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount_paid?: number
+          client_email?: string
+          client_name?: string
+          client_phone?: string | null
+          conflict_resolved?: boolean | null
+          created_at?: string
+          duration_hours?: number
+          end_time?: string
+          google_calendar_event_id?: string | null
+          has_conflict?: boolean
+          id?: string
+          session_date?: string
+          session_type?: string
+          start_time?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+          validation_token?: string
+        }
+        Relationships: []
+      }
       chatbot_config: {
         Row: {
           created_at: string
