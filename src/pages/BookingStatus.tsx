@@ -15,12 +15,7 @@ export default function BookingStatus() {
   }, [isConfirmed]);
 
   return (
-    <>
-      <Helmet>
-        <title>{isConfirmed ? 'Réservation confirmée' : 'Réservation annulée'} | Make Music Studio</title>
-      </Helmet>
-
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             {isConfirmed ? (
@@ -63,7 +58,6 @@ export default function BookingStatus() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </>
+    </div>
   );
 }
