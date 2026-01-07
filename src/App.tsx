@@ -15,6 +15,7 @@ import InstrumentalCheckout from "./pages/InstrumentalCheckout";
 import Download from "./pages/Download";
 import Studio from "./pages/Studio";
 import StudioMusic from "./pages/StudioMusic";
+import StudioGalleryPage from "./pages/StudioGallery";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/download/:token" element={<Download />} />
             <Route path="/studio" element={<Studio />} />
             <Route path="/studiomusic" element={<StudioMusic />} />
+            <Route path="/gallery" element={<StudioGalleryPage />} />
             <Route path="/success" element={<PaymentSuccess />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/cancel" element={<PaymentCancel />} />
