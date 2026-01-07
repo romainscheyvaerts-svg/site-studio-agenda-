@@ -19,11 +19,11 @@ const Index = () => {
       <div id="hero">
         <Hero />
       </div>
-      <StudioGallery />
       <PricingSection />
       <InstrumentalsSection />
       <BookingSection />
       <GearSection />
+      <StudioGallery />
       <Footer />
       <ChatBot />
       {isAdmin && <AdminPanel />}
