@@ -12,6 +12,7 @@ import AdminServicesPricing from "./AdminServicesPricing";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminChatbotConfig from "./AdminChatbotConfig";
 import AdminActivitySecurity from "./AdminActivitySecurity";
+import AdminGallery from "./AdminGallery";
 
 interface PromoCode {
   id: string;
@@ -219,6 +220,9 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
 
           {/* Activity & Security */}
           <AdminActivitySecurity />
+
+          {/* Gallery Management */}
+          <AdminGallery />
 
           {/* Chatbot Configuration */}
           <AdminChatbotConfig />
