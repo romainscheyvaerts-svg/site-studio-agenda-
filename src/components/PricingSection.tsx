@@ -30,6 +30,9 @@ interface PricingCardProps {
   title: string;
   subtitle: string;
   price: string;
+  originalPrice?: string;
+  hasDiscount?: boolean;
+  discountPercent?: number;
   unit: string;
   features: string[];
   icon: React.ReactNode;
@@ -37,7 +40,7 @@ interface PricingCardProps {
   buttonText: string;
 }
 
-const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted, buttonText }: PricingCardProps) => {
+const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, discountPercent, unit, features, icon, highlighted, buttonText }: PricingCardProps) => {
   const scrollToBookingAndSelectService = () => {
     // Dispatch an event to auto-select the service based on title
     const serviceMap: Record<string, string> = {
@@ -67,7 +70,14 @@ const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted
           : "bg-secondary/30 border border-border hover:border-primary/30"
       )}
     >
-      {highlighted && (
+      {/* Discount badge */}
+      {hasDiscount && discountPercent && discountPercent > 0 && (
+        <div className="absolute -top-3 -right-3 px-3 py-1 rounded-full bg-destructive text-destructive-foreground text-sm font-bold animate-pulse">
+          -{discountPercent}%
+        </div>
+      )}
+      
+      {highlighted && !hasDiscount && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
           POPULAIRE
         </div>
@@ -87,9 +97,14 @@ const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted
       </div>
 
       <div className="mb-6">
+        {hasDiscount && originalPrice && (
+          <span className="text-xl text-muted-foreground line-through mr-2">
+            {originalPrice}
+          </span>
+        )}
         <span className={cn(
           "font-display text-5xl",
-          highlighted ? "text-primary text-glow-cyan" : "text-foreground"
+          hasDiscount ? "text-destructive" : highlighted ? "text-primary text-glow-cyan" : "text-foreground"
         )}>
           {price}
         </span>
@@ -166,9 +181,21 @@ const PricingSection = () => {
   };
 
   const formatPrice = (serviceKey: string): string => {
-    const { original, discounted, hasDiscount } = getDiscountedPrice(serviceKey);
-    if (hasDiscount) return `${discounted}€`;
-    return `${original}€`;
+    const { discounted } = getDiscountedPrice(serviceKey);
+    return `${discounted}€`;
+  };
+
+  const getDiscountPercent = (serviceKey: string): number => {
+    if (!salesConfig?.is_active) return 0;
+    const discountMap: Record<string, number | null | undefined> = {
+      'with-engineer': salesConfig.discount_with_engineer,
+      'without-engineer': salesConfig.discount_without_engineer,
+      'mixing': salesConfig.discount_mixing,
+      'mastering': salesConfig.discount_mastering,
+      'analog-mastering': salesConfig.discount_analog_mastering,
+      'podcast': salesConfig.discount_podcast,
+    };
+    return discountMap[serviceKey] ?? salesConfig.discount_percentage ?? 0;
   };
 
   return (
@@ -177,6 +204,18 @@ const PricingSection = () => {
       <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/5 to-background" />
       
       <div className="container mx-auto px-6 relative z-10">
+        {/* Sale Banner */}
+        {salesConfig?.is_active && (
+          <div className="mb-8 p-4 rounded-xl bg-gradient-to-r from-destructive/20 via-destructive/10 to-destructive/20 border border-destructive/30 text-center animate-pulse">
+            <span className="text-2xl font-bold text-destructive">
+              🔥 {salesConfig.sale_name} 🔥
+            </span>
+            <p className="text-sm text-muted-foreground mt-1">
+              Profitez de nos réductions exceptionnelles sur tous nos services !
+            </p>
+          </div>
+        )}
+        
         {/* Header */}
         <div className="text-center mb-16">
           <span className="inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-sm font-medium mb-4">
@@ -201,6 +240,9 @@ const PricingSection = () => {
             title={t("pricing.with_engineer.title")}
             subtitle="Session accompagnée"
             price={formatPrice('with-engineer')}
+            originalPrice={`${getPrice('with-engineer')}€`}
+            hasDiscount={getDiscountedPrice('with-engineer').hasDiscount}
+            discountPercent={getDiscountPercent('with-engineer')}
             unit={t("pricing.per_hour")}
             icon={<Mic className="w-6 h-6" />}
             highlighted={true}
@@ -210,7 +252,7 @@ const PricingSection = () => {
               t("pricing.with_engineer.feature2"),
               t("pricing.with_engineer.feature3"),
               t("pricing.with_engineer.feature4"),
-              `⭐ Dès 5h : ${Math.round(getPrice('with-engineer') * 0.9)}€/h (déduit sur place)`,
+              `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
             ]}
           />
 
@@ -218,6 +260,9 @@ const PricingSection = () => {
             title={t("pricing.without_engineer.title")}
             subtitle="Sans ingénieur"
             price={formatPrice('without-engineer')}
+            originalPrice={`${getPrice('without-engineer')}€`}
+            hasDiscount={getDiscountedPrice('without-engineer').hasDiscount}
+            discountPercent={getDiscountPercent('without-engineer')}
             unit={t("pricing.per_hour")}
             icon={<Building2 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -226,7 +271,7 @@ const PricingSection = () => {
               t("pricing.without_engineer.feature2"),
               t("pricing.without_engineer.feature3"),
               t("pricing.without_engineer.feature4"),
-              `⭐ Dès 5h : ${Math.round(getPrice('without-engineer') * 0.9)}€/h (déduit sur place)`,
+              `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
             ]}
           />
 
@@ -234,6 +279,9 @@ const PricingSection = () => {
             title={t("pricing.mixing.title")}
             subtitle="Piste par piste"
             price={formatPrice('mixing')}
+            originalPrice={`${getPrice('mixing')}€`}
+            hasDiscount={getDiscountedPrice('mixing').hasDiscount}
+            discountPercent={getDiscountPercent('mixing')}
             unit="/projet"
             icon={<Music2 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -250,6 +298,9 @@ const PricingSection = () => {
             title={t("pricing.mastering.title")}
             subtitle="Finalisation"
             price={formatPrice('mastering')}
+            originalPrice={`${getPrice('mastering')}€`}
+            hasDiscount={getDiscountedPrice('mastering').hasDiscount}
+            discountPercent={getDiscountPercent('mastering')}
             unit={t("pricing.per_track")}
             icon={<Sparkles className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -265,6 +316,9 @@ const PricingSection = () => {
             title={t("pricing.analog_mastering.title")}
             subtitle="Mastering premium"
             price={formatPrice('analog-mastering')}
+            originalPrice={`${getPrice('analog-mastering')}€`}
+            hasDiscount={getDiscountedPrice('analog-mastering').hasDiscount}
+            discountPercent={getDiscountPercent('analog-mastering')}
             unit={t("pricing.per_track")}
             icon={<Disc3 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -281,11 +335,14 @@ const PricingSection = () => {
             title={t("pricing.podcast.title")}
             subtitle="Audio podcast"
             price={formatPrice('podcast')}
+            originalPrice={`${getPrice('podcast')}€`}
+            hasDiscount={getDiscountedPrice('podcast').hasDiscount}
+            discountPercent={getDiscountPercent('podcast')}
             unit="/min"
             icon={<Radio className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
             features={[
-              `Base: ${getPrice('podcast') || 40}€/min (jusqu'à 2 pistes)`,
+              `Base: ${getDiscountedPrice('podcast').discounted || 40}€/min (jusqu'à 2 pistes)`,
               "4 pistes: +35€/min",
               "6 pistes: +65€/min",
               t("pricing.podcast.feature4"),
