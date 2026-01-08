@@ -29,6 +29,18 @@ interface Service {
   price_unit: string;
 }
 
+interface SalesConfig {
+  is_active: boolean;
+  sale_name: string;
+  discount_percentage: number;
+  discount_with_engineer: number | null;
+  discount_without_engineer: number | null;
+  discount_mixing: number | null;
+  discount_mastering: number | null;
+  discount_analog_mastering: number | null;
+  discount_podcast: number | null;
+}
+
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 9); // 9h to 22h
 
 export default function PublicBookingCalendar() {
@@ -36,6 +48,7 @@ export default function PublicBookingCalendar() {
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
+  const [salesConfig, setSalesConfig] = useState<SalesConfig | null>(null);
   
   // Selection state
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -51,23 +64,26 @@ export default function PublicBookingCalendar() {
   // Payment state
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  // Fetch services
+  // Fetch services and sales config
   useEffect(() => {
-    const fetchServices = async () => {
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order');
+    const fetchData = async () => {
+      const [servicesRes, salesRes] = await Promise.all([
+        supabase.from('services').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('sales_config').select('*').limit(1).single()
+      ]);
       
-      if (!error && data) {
-        setServices(data);
-        if (data.length > 0) {
-          setSelectedService(data[0].service_key);
+      if (!servicesRes.error && servicesRes.data) {
+        setServices(servicesRes.data);
+        if (servicesRes.data.length > 0) {
+          setSelectedService(servicesRes.data[0].service_key);
         }
       }
+      
+      if (!salesRes.error && salesRes.data) {
+        setSalesConfig(salesRes.data as SalesConfig);
+      }
     };
-    fetchServices();
+    fetchData();
   }, []);
 
   // Fetch availability for the week
@@ -146,14 +162,35 @@ export default function PublicBookingCalendar() {
     return hour >= selectedStartHour && hour < selectedStartHour + selectedDuration;
   };
 
+  const getDiscountedPrice = (serviceKey: string, basePrice: number): { original: number; discounted: number; hasDiscount: boolean } => {
+    if (!salesConfig?.is_active) return { original: basePrice, discounted: basePrice, hasDiscount: false };
+
+    const discountMap: Record<string, number | null | undefined> = {
+      'with-engineer': salesConfig.discount_with_engineer,
+      'without-engineer': salesConfig.discount_without_engineer,
+      'mixing': salesConfig.discount_mixing,
+      'mastering': salesConfig.discount_mastering,
+      'analog-mastering': salesConfig.discount_analog_mastering,
+      'podcast': salesConfig.discount_podcast,
+    };
+
+    const discount = discountMap[serviceKey] ?? salesConfig.discount_percentage;
+    if (!discount || discount <= 0) return { original: basePrice, discounted: basePrice, hasDiscount: false };
+
+    const discounted = Math.round(basePrice * (1 - discount / 100));
+    return { original: basePrice, discounted, hasDiscount: true };
+  };
+
   const calculatePrice = () => {
     const service = services.find(s => s.service_key === selectedService);
-    if (!service) return 0;
+    if (!service) return { original: 0, discounted: 0, hasDiscount: false };
     
-    if (service.price_unit === 'hour') {
-      return service.base_price * selectedDuration;
+    let baseTotal = service.base_price;
+    if (service.price_unit === 'hourly') {
+      baseTotal = service.base_price * selectedDuration;
     }
-    return service.base_price;
+    
+    return getDiscountedPrice(service.service_key, baseTotal);
   };
 
   const handlePayment = async () => {
@@ -177,7 +214,8 @@ export default function PublicBookingCalendar() {
 
     try {
       const service = services.find(s => s.service_key === selectedService);
-      const amount = calculatePrice();
+      const priceData = calculatePrice();
+      const amount = priceData.discounted;
       const startTime = `${selectedStartHour.toString().padStart(2, '0')}:00`;
       const endTime = `${(selectedStartHour + selectedDuration).toString().padStart(2, '0')}:00`;
 
@@ -380,11 +418,18 @@ export default function PublicBookingCalendar() {
                   <SelectValue placeholder="Sélectionner un service" />
                 </SelectTrigger>
                 <SelectContent>
-                  {services.map(service => (
-                    <SelectItem key={service.id} value={service.service_key}>
-                      {service.name_fr} - {service.base_price}€{service.price_unit === 'hour' ? '/h' : ''}
-                    </SelectItem>
-                  ))}
+                  {services.map(service => {
+                    const priceInfo = getDiscountedPrice(service.service_key, service.base_price);
+                    return (
+                      <SelectItem key={service.id} value={service.service_key}>
+                        {service.name_fr} - {priceInfo.hasDiscount ? (
+                          <><span className="line-through text-muted-foreground">{priceInfo.original}€</span> <span className="text-destructive font-bold">{priceInfo.discounted}€</span></>
+                        ) : (
+                          <>{service.base_price}€</>
+                        )}{service.price_unit === 'hourly' ? '/h' : ''}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -428,7 +473,19 @@ export default function PublicBookingCalendar() {
             <div className="flex items-center justify-between pt-4 border-t">
               <div>
                 <span className="text-muted-foreground">Total à payer :</span>
-                <span className="ml-2 text-2xl font-bold text-primary">{calculatePrice()}€</span>
+                {calculatePrice().hasDiscount ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg line-through text-muted-foreground">{calculatePrice().original}€</span>
+                    <span className="text-2xl font-bold text-destructive">{calculatePrice().discounted}€</span>
+                    {salesConfig?.sale_name && (
+                      <span className="text-xs px-2 py-1 bg-destructive/20 text-destructive rounded-full">
+                        {salesConfig.sale_name}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="ml-2 text-2xl font-bold text-primary">{calculatePrice().discounted}€</span>
+                )}
               </div>
               <Button 
                 size="lg" 
