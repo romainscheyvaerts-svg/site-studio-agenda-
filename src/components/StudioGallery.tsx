@@ -1,11 +1,40 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import studio1 from "@/assets/studio/studio-1.jpg";
+
+interface GalleryPhoto {
+  id: string;
+  image_url: string;
+  title: string | null;
+}
 
 const StudioGallery = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      const { data } = await supabase
+        .from("gallery_photos")
+        .select("id, image_url, title")
+        .eq("is_active", true)
+        .order("sort_order")
+        .limit(1);
+      
+      setPhotos(data || []);
+      setLoading(false);
+    };
+    fetchPhotos();
+  }, []);
+
+  // Use first photo from DB or fallback to static image
+  const thumbnailImage = photos.length > 0 ? photos[0].image_url : studio1;
+  const thumbnailAlt = photos.length > 0 ? photos[0].title || "Studio" : "Studio d'enregistrement";
 
   return (
     <section id="gallery" className="py-16 bg-background noise-bg relative overflow-hidden">
@@ -27,11 +56,15 @@ const StudioGallery = () => {
             onClick={() => navigate("/gallery")}
             className="group relative w-full rounded-xl overflow-hidden border border-border/50 shadow-lg hover:shadow-xl hover:border-primary/50 transition-all duration-300"
           >
-            <img
-              src={studio1}
-              alt="Studio d'enregistrement"
-              className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
-            />
+            {loading ? (
+              <div className="w-full h-48 bg-muted animate-pulse" />
+            ) : (
+              <img
+                src={thumbnailImage}
+                alt={thumbnailAlt}
+                className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
+              />
+            )}
             
             {/* Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent opacity-70 group-hover:opacity-90 transition-opacity" />

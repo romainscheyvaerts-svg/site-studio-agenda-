@@ -1,9 +1,31 @@
 import { useTranslation } from "react-i18next";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import QuoteRequestDialog from "./QuoteRequestDialog";
+import { supabase } from "@/integrations/supabase/client";
 
+interface Service {
+  id: string;
+  service_key: string;
+  name_fr: string;
+  base_price: number;
+  price_unit: string;
+  is_active: boolean;
+}
+
+interface SalesConfig {
+  is_active: boolean;
+  sale_name: string;
+  discount_percentage: number;
+  discount_with_engineer: number | null;
+  discount_without_engineer: number | null;
+  discount_mixing: number | null;
+  discount_mastering: number | null;
+  discount_analog_mastering: number | null;
+  discount_podcast: number | null;
+}
 interface PricingCardProps {
   title: string;
   subtitle: string;
@@ -100,6 +122,54 @@ const PricingCard = ({ title, subtitle, price, unit, features, icon, highlighted
 
 const PricingSection = () => {
   const { t } = useTranslation();
+  const [services, setServices] = useState<Service[]>([]);
+  const [salesConfig, setSalesConfig] = useState<SalesConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [servicesRes, salesRes] = await Promise.all([
+        supabase.from("services").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("sales_config").select("*").limit(1).single()
+      ]);
+
+      if (servicesRes.data) setServices(servicesRes.data);
+      if (salesRes.data) setSalesConfig(salesRes.data as SalesConfig);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
+
+  const getPrice = (serviceKey: string): number => {
+    const service = services.find(s => s.service_key === serviceKey);
+    return service?.base_price || 0;
+  };
+
+  const getDiscountedPrice = (serviceKey: string): { original: number; discounted: number; hasDiscount: boolean } => {
+    const original = getPrice(serviceKey);
+    if (!salesConfig?.is_active) return { original, discounted: original, hasDiscount: false };
+
+    const discountMap: Record<string, number | null | undefined> = {
+      'with-engineer': salesConfig.discount_with_engineer,
+      'without-engineer': salesConfig.discount_without_engineer,
+      'mixing': salesConfig.discount_mixing,
+      'mastering': salesConfig.discount_mastering,
+      'analog-mastering': salesConfig.discount_analog_mastering,
+      'podcast': salesConfig.discount_podcast,
+    };
+
+    const discount = discountMap[serviceKey] ?? salesConfig.discount_percentage;
+    if (!discount || discount <= 0) return { original, discounted: original, hasDiscount: false };
+
+    const discounted = Math.round(original * (1 - discount / 100));
+    return { original, discounted, hasDiscount: true };
+  };
+
+  const formatPrice = (serviceKey: string): string => {
+    const { original, discounted, hasDiscount } = getDiscountedPrice(serviceKey);
+    if (hasDiscount) return `${discounted}€`;
+    return `${original}€`;
+  };
 
   return (
     <section id="pricing" className="py-24 relative">
@@ -121,11 +191,16 @@ const PricingSection = () => {
         </div>
 
         {/* Pricing grid */}
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           <PricingCard
             title={t("pricing.with_engineer.title")}
             subtitle="Session accompagnée"
-            price="45€"
+            price={formatPrice('with-engineer')}
             unit={t("pricing.per_hour")}
             icon={<Mic className="w-6 h-6" />}
             highlighted={true}
@@ -135,14 +210,14 @@ const PricingSection = () => {
               t("pricing.with_engineer.feature2"),
               t("pricing.with_engineer.feature3"),
               t("pricing.with_engineer.feature4"),
-              "⭐ Dès 5h : 40€/h (déduit sur place)",
+              `⭐ Dès 5h : ${Math.round(getPrice('with-engineer') * 0.9)}€/h (déduit sur place)`,
             ]}
           />
 
           <PricingCard
             title={t("pricing.without_engineer.title")}
             subtitle="Sans ingénieur"
-            price="22€"
+            price={formatPrice('without-engineer')}
             unit={t("pricing.per_hour")}
             icon={<Building2 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -151,14 +226,14 @@ const PricingSection = () => {
               t("pricing.without_engineer.feature2"),
               t("pricing.without_engineer.feature3"),
               t("pricing.without_engineer.feature4"),
-              "⭐ Dès 5h : 20€/h (déduit sur place)",
+              `⭐ Dès 5h : ${Math.round(getPrice('without-engineer') * 0.9)}€/h (déduit sur place)`,
             ]}
           />
 
           <PricingCard
             title={t("pricing.mixing.title")}
             subtitle="Piste par piste"
-            price="200€"
+            price={formatPrice('mixing')}
             unit="/projet"
             icon={<Music2 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -174,7 +249,7 @@ const PricingSection = () => {
           <PricingCard
             title={t("pricing.mastering.title")}
             subtitle="Finalisation"
-            price="60€"
+            price={formatPrice('mastering')}
             unit={t("pricing.per_track")}
             icon={<Sparkles className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -189,7 +264,7 @@ const PricingSection = () => {
           <PricingCard
             title={t("pricing.analog_mastering.title")}
             subtitle="Mastering premium"
-            price="100€"
+            price={formatPrice('analog-mastering')}
             unit={t("pricing.per_track")}
             icon={<Disc3 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
@@ -205,12 +280,12 @@ const PricingSection = () => {
           <PricingCard
             title={t("pricing.podcast.title")}
             subtitle="Audio podcast"
-            price="40€"
+            price={formatPrice('podcast')}
             unit="/min"
             icon={<Radio className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
             features={[
-              "Base: 40€/min (jusqu'à 2 pistes)",
+              `Base: ${getPrice('podcast') || 40}€/min (jusqu'à 2 pistes)`,
               "4 pistes: +35€/min",
               "6 pistes: +65€/min",
               t("pricing.podcast.feature4"),
@@ -218,6 +293,7 @@ const PricingSection = () => {
             ]}
           />
         </div>
+        )}
 
         {/* Payment info */}
         <div className="mt-12 max-w-3xl mx-auto">
