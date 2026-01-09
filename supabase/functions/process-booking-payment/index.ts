@@ -577,14 +577,9 @@ async function sendClientConfirmation(
       <meta charset="utf-8">
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0; color: #ffffff;">Make Music Studio</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.9; color: #ffffff;">Confirmation de réservation</p>
-      </div>
-      
       <div style="background-color: #ECFDF5; border: 1px solid #10B981; border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: center;">
         <h2 style="color: #059669; margin: 0;">✓ Paiement reçu</h2>
-        <p style="color: #047857; margin: 8px 0 0 0;">Votre réservation est en cours de traitement</p>
+        <p style="color: #047857; margin: 8px 0 0 0;">Votre réservation est confirmée</p>
       </div>
       
       <div style="background-color: #F8FAFC; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
@@ -617,9 +612,7 @@ async function sendClientConfirmation(
       
       <p style="color: #475569; line-height: 1.6;">
         Bonjour ${booking.client_name},<br><br>
-        Nous avons bien reçu votre paiement et votre demande de réservation.
-        Vous recevrez une confirmation finale par email très prochainement.<br><br>
-        En cas de question, n'hésitez pas à nous contacter.
+        À très bientôt au studio !
       </p>
       
       <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
