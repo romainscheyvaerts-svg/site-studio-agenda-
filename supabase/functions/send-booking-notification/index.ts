@@ -299,7 +299,7 @@ async function addToStudioGoogleCalendar(
   const endDateTime = endDate.toISOString().slice(0, 19);
 
   const event = {
-    summary: `${getSessionTypeLabel(booking.sessionType)} - ${booking.clientName}`,
+    summary: `${booking.clientName} — ${getSessionTypeLabel(booking.sessionType)}`,
     description: `Client: ${booking.clientName}\nEmail: ${booking.clientEmail}\nTéléphone: ${booking.clientPhone || "Non fourni"}\nMontant: ${booking.totalPrice}€`,
     start: { dateTime: startDateTime, timeZone: "Europe/Brussels" },
     end: { dateTime: endDateTime, timeZone: "Europe/Brussels" },

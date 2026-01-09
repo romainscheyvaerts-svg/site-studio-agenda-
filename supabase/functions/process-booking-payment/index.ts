@@ -156,7 +156,7 @@ const createGoogleCalendarEvent = async (booking: any) => {
   const summaryPrefix = booking.status === "pending_validation" ? "[PENDING] " : "";
 
   const payload = {
-    summary: `${summaryPrefix}Make Music Studio — ${booking.session_type} — ${booking.client_name}`,
+    summary: `${summaryPrefix}${booking.client_name} — ${booking.session_type}`,
     description: `Client: ${booking.client_name}\nEmail: ${booking.client_email}\nTéléphone: ${booking.client_phone || "-"}\nMontant payé: ${booking.amount_paid}€\nBooking ID: ${booking.id}`,
     start: { dateTime: start, timeZone: "Europe/Brussels" },
     end: { dateTime: end, timeZone: "Europe/Brussels" },
