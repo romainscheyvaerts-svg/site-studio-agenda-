@@ -15,6 +15,7 @@ interface TimeSlot {
   eventId?: string;
   clientEmail?: string;
   driveFolderLink?: string;
+  driveSessionFolderLink?: string;
 }
 
 interface DayAvailability {
@@ -107,8 +108,8 @@ const AdminCalendar = ({
       } else {
         const next = [...selectedForDeletion, { date, hour, eventId: slot.eventId }];
         setSelectedForDeletion(next);
-        // Drive link comes directly from the slot (computed server-side)
-        setSelectedDriveFolderLink(slot.driveFolderLink || null);
+        // Prefer session subfolder link, fallback to client folder link
+        setSelectedDriveFolderLink(slot.driveSessionFolderLink || slot.driveFolderLink || null);
       }
       return;
     }

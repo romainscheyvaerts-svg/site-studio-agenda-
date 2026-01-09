@@ -44,6 +44,7 @@ interface TimeSlot {
   eventId?: string;
   clientEmail?: string;
   driveFolderLink?: string;
+  driveSessionFolderLink?: string;
 }
 
 interface DayAvailability {
@@ -359,20 +360,53 @@ serve(async (req) => {
     const availability: DayAvailability[] = [];
     const workingHours = { start: 0, end: 24 }; // 24h/24
 
-    // Build a map of client email -> Drive folder link (from database)
-    const driveLinkMap = new Map<string, string>();
+    // Build a map of client email -> Drive folder info (from database)
+    const driveLinkMap = new Map<string, { link: string; folderId: string }>();
     try {
       const { data: folders } = await supabase
         .from("client_drive_folders")
-        .select("client_email, drive_folder_link");
+        .select("client_email, drive_folder_link, drive_folder_id");
 
       (folders || []).forEach((f: any) => {
-        if (f?.client_email && f?.drive_folder_link) {
-          driveLinkMap.set(String(f.client_email).toLowerCase(), String(f.drive_folder_link));
+        if (f?.client_email && f?.drive_folder_link && f?.drive_folder_id) {
+          driveLinkMap.set(String(f.client_email).toLowerCase(), {
+            link: String(f.drive_folder_link),
+            folderId: String(f.drive_folder_id),
+          });
         }
       });
     } catch (e) {
       console.error("Failed to load drive folders map", e);
+    }
+
+    // Helper function to find session subfolder by date
+    async function findSessionSubfolder(
+      parentFolderId: string,
+      sessionDate: string,
+      accessToken: string
+    ): Promise<string | undefined> {
+      try {
+        const query = `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '${sessionDate}' and trashed = false`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`;
+        
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        
+        if (!response.ok) {
+          console.log("Failed to search for session subfolder:", await response.text());
+          return undefined;
+        }
+        
+        const data = await response.json();
+        if (data.files && data.files.length > 0) {
+          return `https://drive.google.com/drive/folders/${data.files[0].id}`;
+        }
+        return undefined;
+      } catch (e) {
+        console.error("Error finding session subfolder:", e);
+        return undefined;
+      }
     }
 
     for (let d = 0; d < days; d++) {
@@ -401,7 +435,13 @@ serve(async (req) => {
         
         if (!studioResult.available) {
           const clientEmail = studioResult.clientEmail;
-          const driveFolderLink = clientEmail ? driveLinkMap.get(clientEmail.toLowerCase()) : undefined;
+          const driveInfo = clientEmail ? driveLinkMap.get(clientEmail.toLowerCase()) : undefined;
+          
+          // Try to find session subfolder by date
+          let driveSessionFolderLink: string | undefined;
+          if (driveInfo?.folderId) {
+            driveSessionFolderLink = await findSessionSubfolder(driveInfo.folderId, dateStr, accessToken);
+          }
 
           // Studio is booked - unavailable
           slots.push({
@@ -411,7 +451,8 @@ serve(async (req) => {
             eventName: studioResult.eventName,
             eventId: studioResult.eventId,
             clientEmail,
-            driveFolderLink,
+            driveFolderLink: driveInfo?.link,
+            driveSessionFolderLink,
           });
         } else {
           // Studio is free, check if patron is busy in personal Google calendar OR Claridge
