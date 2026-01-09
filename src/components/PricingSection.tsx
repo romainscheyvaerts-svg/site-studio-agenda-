@@ -15,6 +15,13 @@ interface Service {
   is_active: boolean;
 }
 
+interface ServiceFeature {
+  id: string;
+  service_key: string;
+  feature_text: string;
+  sort_order: number;
+}
+
 interface SalesConfig {
   is_active: boolean;
   sale_name: string;
@@ -138,22 +145,32 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
 const PricingSection = () => {
   const { t } = useTranslation();
   const [services, setServices] = useState<Service[]>([]);
+  const [serviceFeatures, setServiceFeatures] = useState<ServiceFeature[]>([]);
   const [salesConfig, setSalesConfig] = useState<SalesConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [servicesRes, salesRes] = await Promise.all([
+      const [servicesRes, salesRes, featuresRes] = await Promise.all([
         supabase.from("services").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("sales_config").select("*").limit(1).single()
+        supabase.from("sales_config").select("*").limit(1).single(),
+        supabase.from("service_features").select("*").eq("is_active", true).order("sort_order")
       ]);
 
       if (servicesRes.data) setServices(servicesRes.data);
       if (salesRes.data) setSalesConfig(salesRes.data as SalesConfig);
+      if (featuresRes.data) setServiceFeatures(featuresRes.data);
       setLoading(false);
     };
     fetchData();
   }, []);
+
+  // Get features for a specific service
+  const getFeatures = (serviceKey: string): string[] => {
+    return serviceFeatures
+      .filter(f => f.service_key === serviceKey)
+      .map(f => f.feature_text);
+  };
 
   const getPrice = (serviceKey: string): number => {
     // Normalize: accept both with_engineer and with-engineer
@@ -250,10 +267,7 @@ const PricingSection = () => {
             highlighted={true}
             buttonText={t("pricing.book").toUpperCase()}
             features={[
-              t("pricing.with_engineer.feature1"),
-              t("pricing.with_engineer.feature2"),
-              t("pricing.with_engineer.feature3"),
-              t("pricing.with_engineer.feature4"),
+              ...getFeatures('with-engineer'),
               `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
             ]}
           />
@@ -269,10 +283,7 @@ const PricingSection = () => {
             icon={<Building2 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
             features={[
-              t("pricing.without_engineer.feature1"),
-              t("pricing.without_engineer.feature2"),
-              t("pricing.without_engineer.feature3"),
-              t("pricing.without_engineer.feature4"),
+              ...getFeatures('without-engineer'),
               `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
             ]}
           />
@@ -287,13 +298,7 @@ const PricingSection = () => {
             unit="/projet"
             icon={<Music2 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
-            features={[
-              t("pricing.mixing.feature1"),
-              t("pricing.mixing.feature2"),
-              t("pricing.mixing.feature3"),
-              t("pricing.mixing.feature4"),
-              t("pricing.mixing.feature5"),
-            ]}
+            features={getFeatures('mixing')}
           />
 
           <PricingCard
@@ -306,12 +311,7 @@ const PricingSection = () => {
             unit={t("pricing.per_track")}
             icon={<Sparkles className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
-            features={[
-              t("pricing.mastering.feature1"),
-              t("pricing.mastering.feature2"),
-              t("pricing.mastering.feature3"),
-              t("pricing.mastering.feature4"),
-            ]}
+            features={getFeatures('mastering')}
           />
 
           <PricingCard
@@ -324,13 +324,7 @@ const PricingSection = () => {
             unit={t("pricing.per_track")}
             icon={<Disc3 className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
-            features={[
-              t("pricing.analog_mastering.feature1"),
-              t("pricing.analog_mastering.feature2"),
-              t("pricing.analog_mastering.feature3"),
-              t("pricing.analog_mastering.feature4"),
-              t("pricing.analog_mastering.feature5"),
-            ]}
+            features={getFeatures('analog-mastering')}
           />
 
           <PricingCard
@@ -343,13 +337,7 @@ const PricingSection = () => {
             unit="/min"
             icon={<Radio className="w-6 h-6" />}
             buttonText={t("pricing.book").toUpperCase()}
-            features={[
-              `Base: ${getDiscountedPrice('podcast').discounted || 40}€/min (jusqu'à 2 pistes)`,
-              "4 pistes: +35€/min",
-              "6 pistes: +65€/min",
-              t("pricing.podcast.feature4"),
-              t("pricing.podcast.feature5"),
-            ]}
+            features={getFeatures('podcast')}
           />
         </div>
         )}

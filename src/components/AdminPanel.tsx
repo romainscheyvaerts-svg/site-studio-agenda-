@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
+import AdminServiceFeatures from "./AdminServiceFeatures";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminChatbotConfig from "./AdminChatbotConfig";
 import AdminActivitySecurity from "./AdminActivitySecurity";
@@ -214,6 +215,9 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
 
           {/* Services Pricing Management */}
           <AdminServicesPricing />
+
+          {/* Service Features Management */}
+          <AdminServiceFeatures />
 
           {/* User Management */}
           <AdminUserManagement />

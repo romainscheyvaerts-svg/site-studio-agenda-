@@ -557,6 +557,36 @@ export type Database = {
         }
         Relationships: []
       }
+      service_features: {
+        Row: {
+          created_at: string
+          feature_text: string
+          id: string
+          is_active: boolean
+          service_key: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          feature_text: string
+          id?: string
+          is_active?: boolean
+          service_key: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          feature_text?: string
+          id?: string
+          is_active?: boolean
+          service_key?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           base_price: number
