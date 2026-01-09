@@ -156,7 +156,9 @@ const PricingSection = () => {
   }, []);
 
   const getPrice = (serviceKey: string): number => {
-    const service = services.find(s => s.service_key === serviceKey);
+    // Normalize: accept both with_engineer and with-engineer
+    const normalizedKey = serviceKey.replace(/_/g, '-');
+    const service = services.find(s => s.service_key === normalizedKey);
     return service?.base_price || 0;
   };
 
@@ -361,15 +363,15 @@ const PricingSection = () => {
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  {t("pricing.with_engineer.title")} (45€/h)
+                  {t("pricing.with_engineer.title")} ({getPrice("with_engineer")}€/h)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  {t("pricing.mixing.title")} (200€/projet)
+                  {t("pricing.mixing.title")} ({getPrice("mixing")}€/projet)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  {t("pricing.mastering.title")} (60€{t("pricing.per_track")})
+                  {t("pricing.mastering.title")} ({getPrice("mastering")}€{t("pricing.per_track")})
                 </li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2 text-center italic">Le reste au studio</p>
@@ -379,7 +381,7 @@ const PricingSection = () => {
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  {t("pricing.without_engineer.title")} (22€/h)
+                  {t("pricing.without_engineer.title")} ({getPrice("without_engineer")}€/h)
                 </li>
               </ul>
               <p className="text-xs text-muted-foreground mt-2 text-center italic">À régler à la réservation</p>

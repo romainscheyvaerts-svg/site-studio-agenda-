@@ -2,10 +2,12 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Mic, Headphones, Music } from "lucide-react";
+import { usePricing } from "@/hooks/usePricing";
 
 const Hero = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { getEffectivePrice, loading } = usePricing();
 
   const scrollToBooking = () => {
     document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
@@ -18,6 +20,9 @@ const Hero = () => {
   const goToInstrumentals = () => {
     navigate('/instrumentals');
   };
+
+  const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
+  const priceWithoutEngineer = getEffectivePrice("without-engineer") || 22;
 
   return (
     <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden noise-bg">
@@ -71,11 +76,15 @@ const Hero = () => {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 max-w-xl mx-auto">
             <div className="text-center">
-              <div className="font-display text-4xl md:text-5xl text-primary text-glow-cyan mb-1">45€</div>
+              <div className="font-display text-4xl md:text-5xl text-primary text-glow-cyan mb-1">
+                {loading ? "..." : `${priceWithEngineer}€`}
+              </div>
               <div className="text-sm text-muted-foreground">{t("pricing.per_hour")} + eng.</div>
             </div>
             <div className="text-center border-x border-border">
-              <div className="font-display text-4xl md:text-5xl text-accent mb-1">22€</div>
+              <div className="font-display text-4xl md:text-5xl text-accent mb-1">
+                {loading ? "..." : `${priceWithoutEngineer}€`}
+              </div>
               <div className="text-sm text-muted-foreground">{t("pricing.per_hour")} dry</div>
             </div>
             <div className="text-center">
