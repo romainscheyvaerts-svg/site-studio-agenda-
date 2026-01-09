@@ -405,11 +405,6 @@ const AdminCalendar = ({
                     </Button>
                   </div>
                 )}
-                
-                <Button variant="outline" size="sm" onClick={() => { clearSelection(); setShowEventCreator(false); }}>
-                  <X className="w-4 h-4 mr-1" />
-                  Effacer
-                </Button>
               </div>
             </div>
           )}
