@@ -841,6 +841,35 @@ async function shareDriveFolder(
   }
 }
 
+// Public link permission: anyone with the link can upload (matches the requested flow)
+async function shareFolderPublicWriter(accessToken: string, folderId: string): Promise<void> {
+  console.log(`[DRIVE] Setting public writer permission for folder ${folderId}`);
+
+  const permission = {
+    type: "anyone",
+    role: "writer",
+  };
+
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?sendNotificationEmail=false`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(permission),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[DRIVE] Error setting public permission:", errorText);
+  } else {
+    console.log("[DRIVE] Public writer permission set");
+  }
+}
+
 async function createClientSessionFolder(
   accessToken: string,
   clientName: string,
@@ -852,7 +881,7 @@ async function createClientSessionFolder(
 
   // Check if client already has a folder
   const existingFolder = await getExistingClientFolder(clientEmail, clientPhone);
-  
+
   let clientFolderId: string;
   let clientFolderLink: string;
 
@@ -866,33 +895,39 @@ async function createClientSessionFolder(
     const clientFolder = await createDriveFolder(accessToken, clientName, CLIENT_DRIVE_ROOT_FOLDER_ID);
     clientFolderId = clientFolder.id;
     clientFolderLink = clientFolder.webViewLink;
-    
-    // Share folder with client email (authenticated access, not public)
+
+    // Make folder usable via link (even if client email isn't a Google account)
+    await shareFolderPublicWriter(accessToken, clientFolderId);
+
+    // Also try sharing directly to the client (best effort)
     const clientShared = await shareFolderWithClient(accessToken, clientFolderId, clientEmail);
     if (!clientShared) {
       console.log("[DRIVE] Could not share with client email, client may not have Google account");
     }
-    
-    // Also give admin writer access
+
+    // Also give admin writer access (best effort)
     try {
       await shareDriveFolder(accessToken, clientFolderId, "prod.makemusic@gmail.com");
-    } catch (shareError) {
+    } catch (_shareError) {
       console.log("[DRIVE] Could not share with admin email");
     }
-    
+
     // Save to database for future bookings
     await saveClientFolder(clientEmail, clientPhone, clientName, clientFolderId, clientFolderLink);
-    
+
     console.log(`[DRIVE] New client folder created: ${clientFolderId}`);
   }
 
   // Create session subfolder with date (YYYY-MM-DD format)
   const sessionFolderName = sessionDate || new Date().toISOString().split("T")[0];
   const sessionFolder = await createDriveFolder(accessToken, sessionFolderName, clientFolderId);
-  
-  // Share session subfolder with client email (authenticated access)
+
+  // Make the session folder usable via link (so the client can upload)
+  await shareFolderPublicWriter(accessToken, sessionFolder.id);
+
+  // Also share session subfolder with client email (best effort)
   await shareFolderWithClient(accessToken, sessionFolder.id, clientEmail);
-  
+
   console.log(`[DRIVE] Session subfolder created: ${sessionFolder.id}`);
 
   return {
@@ -1233,10 +1268,10 @@ const generateConfirmationEmail = (payload: BookingPayload, driveFolderLink?: st
               <!-- Header -->
               <tr>
                 <td style="padding: 40px 40px 30px 40px; text-align: center; border-bottom: 1px solid #1e1e21;">
-                  <h1 style="margin: 0; color: #22d3ee; font-size: 28px; font-weight: bold; letter-spacing: 2px;">
+                  <h1 style="margin: 0; color: #fafafa; font-size: 28px; font-weight: bold; letter-spacing: 2px;">
                     MAKE MUSIC STUDIO
                   </h1>
-                  <p style="margin: 10px 0 0 0; color: #71717a; font-size: 14px;">
+                  <p style="margin: 10px 0 0 0; color: #d4d4d8; font-size: 14px;">
                     ${isPostProduction ? "Confirmation de commande" : "Confirmation de réservation"}
                   </p>
                 </td>
