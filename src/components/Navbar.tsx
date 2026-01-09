@@ -6,10 +6,13 @@ import { Menu, X, Mic, LogOut, User, Music } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
+import { useViewMode } from "@/hooks/useViewMode";
+import ViewModeToggle from "./ViewModeToggle";
 
 const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
+  const { isMobileView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -57,11 +60,19 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <span className="font-display text-2xl text-foreground">MAKE<span className="text-primary">MUSIC</span></span>
+            <span className={cn(
+              "font-display text-foreground",
+              isMobileView ? "text-xl" : "text-2xl"
+            )}>
+              MAKE<span className="text-primary">MUSIC</span>
+            </span>
           </div>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* Desktop nav - hidden when mobile view is forced */}
+          <div className={cn(
+            "items-center gap-8",
+            isMobileView ? "hidden" : "hidden md:flex"
+          )}>
             {navLinks.map((link) => (
               <button
                 key={link.id}
@@ -82,8 +93,12 @@ const Navbar = () => {
             </button>
           </div>
 
-          {/* Language switcher & Auth/CTA */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* Language switcher & Auth/CTA - Desktop only */}
+          <div className={cn(
+            "items-center gap-4",
+            isMobileView ? "hidden" : "hidden md:flex"
+          )}>
+            <ViewModeToggle />
             <LanguageSwitcher />
             {user ? (
               <>
@@ -116,8 +131,12 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center gap-3">
+          {/* Mobile menu button - shown when mobile view is forced OR on small screens */}
+          <div className={cn(
+            "flex items-center gap-2",
+            isMobileView ? "flex" : "md:hidden flex"
+          )}>
+            <ViewModeToggle />
             <LanguageSwitcher />
             <button
               className="text-foreground"
@@ -128,15 +147,18 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu - shown when mobile menu is open AND (mobile view forced OR small screen) */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border animate-fade-in">
-            <div className="flex flex-col gap-4">
+          <div className={cn(
+            "py-4 border-t border-border animate-fade-in",
+            isMobileView ? "block" : "md:hidden block"
+          )}>
+            <div className="flex flex-col gap-3">
               {navLinks.map((link) => (
                 <button
                   key={link.id}
                   onClick={() => scrollTo(link.id)}
-                  className="text-left text-muted-foreground hover:text-foreground transition-colors py-2"
+                  className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 text-base"
                 >
                   {link.label}
                 </button>
@@ -146,36 +168,40 @@ const Navbar = () => {
                   navigate("/instrumentals");
                   setIsMobileMenuOpen(false);
                 }}
-                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 flex items-center gap-2"
+                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 flex items-center gap-2 text-base"
               >
                 <Music className="h-4 w-4" />
                 Instrumentaux
               </button>
-              <Button variant="neon" className="mt-2" onClick={() => scrollTo("booking")}>
-                {t("nav.booking").toUpperCase()}
-              </Button>
-              {user ? (
-                <Button 
-                  variant="outline" 
-                  className="mt-2"
-                  onClick={signOut}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Déconnexion
+              <div className="flex flex-col gap-2 mt-2">
+                <Button variant="neon" size="lg" className="w-full" onClick={() => scrollTo("booking")}>
+                  {t("nav.booking").toUpperCase()}
                 </Button>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  className="mt-2"
-                  onClick={() => {
-                    navigate("/auth");
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Connexion / Inscription
-                </Button>
-              )}
+                {user ? (
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    className="w-full"
+                    onClick={signOut}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Déconnexion
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    className="w-full"
+                    onClick={() => {
+                      navigate("/auth");
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Connexion / Inscription
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}
