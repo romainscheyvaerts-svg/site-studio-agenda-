@@ -58,7 +58,7 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
         variant="outline"
         size="icon"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-50 bg-primary/20 border-primary hover:bg-primary/30"
+        className="fixed bottom-6 right-24 z-50 bg-primary/20 border-primary hover:bg-primary/30"
         title="Panneau Admin"
       >
         <Settings className="w-5 h-5 text-primary" />
