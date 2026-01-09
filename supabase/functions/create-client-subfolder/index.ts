@@ -76,7 +76,8 @@ serve(async (req) => {
   }
 
   try {
-    const { clientEmail, clientName, sessionDate } = await req.json();
+    const { clientEmail: clientEmailRaw, clientName, sessionDate } = await req.json();
+    const clientEmail = (clientEmailRaw || "").toLowerCase().trim();
     
     console.log("[CREATE-SUBFOLDER] Creating subfolder for:", clientEmail, "date:", sessionDate);
 
@@ -104,9 +105,81 @@ serve(async (req) => {
     let clientFolderLink: string;
 
     if (existingFolder) {
-      console.log("[CREATE-SUBFOLDER] Using existing client folder:", existingFolder.drive_folder_id);
-      clientFolderId = existingFolder.drive_folder_id;
-      clientFolderLink = existingFolder.drive_folder_link;
+      // Verify folder name matches email. If legacy folder exists (named by client name), migrate to email folder.
+      let shouldMigrateToEmailFolder = false;
+      try {
+        const metaRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${existingFolder.drive_folder_id}?fields=name`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        const meta = await metaRes.json();
+        const folderName = (meta?.name || "").toLowerCase().trim();
+        if (metaRes.ok && folderName && folderName !== clientEmail) {
+          shouldMigrateToEmailFolder = true;
+          console.log("[CREATE-SUBFOLDER] Legacy client folder detected (will migrate)", {
+            folderName: meta?.name,
+            clientEmail,
+          });
+        }
+      } catch (e) {
+        console.log("[CREATE-SUBFOLDER] Could not verify Drive folder name", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      if (!shouldMigrateToEmailFolder) {
+        console.log("[CREATE-SUBFOLDER] Using existing client folder:", existingFolder.drive_folder_id);
+        clientFolderId = existingFolder.drive_folder_id;
+        clientFolderLink = existingFolder.drive_folder_link;
+      } else {
+        console.log("[CREATE-SUBFOLDER] Creating new email-named folder for", clientEmail);
+
+        const createFolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: clientEmail,
+            mimeType: "application/vnd.google-apps.folder",
+            parents: [PARENT_FOLDER_ID],
+          }),
+        });
+
+        const newFolder = await createFolderResponse.json();
+        if (!createFolderResponse.ok) {
+          throw new Error(`Failed to create client folder: ${JSON.stringify(newFolder)}`);
+        }
+
+        clientFolderId = newFolder.id;
+        clientFolderLink = `https://drive.google.com/drive/folders/${newFolder.id}`;
+
+        // Set folder permissions
+        await fetch(`https://www.googleapis.com/drive/v3/files/${newFolder.id}/permissions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: "writer",
+            type: "anyone",
+          }),
+        });
+
+        // Update DB record to point to the new email-named folder
+        await supabase
+          .from("client_drive_folders")
+          .update({
+            client_email: clientEmail,
+            client_name: clientName || clientEmail,
+            drive_folder_id: newFolder.id,
+            drive_folder_link: clientFolderLink,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingFolder.id);
+      }
     } else {
       // Create new client folder
       console.log("[CREATE-SUBFOLDER] Creating new client folder");
