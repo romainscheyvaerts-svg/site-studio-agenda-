@@ -39,12 +39,6 @@ const Hero = () => {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-6 text-center">
         <div className="animate-slide-up">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/5 mb-8">
-            <span className="w-2 h-2 rounded-full bg-primary animate-glow-pulse" />
-            <span className="text-sm text-primary font-medium tracking-wide">{t("hero.badge")}</span>
-          </div>
-          
           {/* Main title */}
           <h1 className="font-display text-6xl md:text-8xl lg:text-9xl text-foreground mb-6 leading-none">
             {t("hero.title1")}
