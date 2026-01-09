@@ -11,6 +11,23 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Check if user has admin role in database
+async function isUserAdmin(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  
+  if (error) {
+    console.error("[ADMIN] Error checking admin role:", error);
+    return false;
+  }
+  
+  return !!data;
+}
+
 // Get Google OAuth2 access token using service account
 async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
@@ -102,8 +119,10 @@ serve(async (req) => {
       });
     }
 
-    const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com"];
-    if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+    // Check if user is admin via database role check
+    const hasAdminRole = await isUserAdmin(user.id);
+    if (!hasAdminRole) {
+      console.log("[SCAN] User lacks admin role:", user.email);
       return new Response(JSON.stringify({ error: "Admin access required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
