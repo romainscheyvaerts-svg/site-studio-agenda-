@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, CheckSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, CheckSquare, FolderOpen } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +65,7 @@ const VIPCalendar = ({
   const [eventName, setEventName] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
+  const [driveFolderLink, setDriveFolderLink] = useState<string | null>(null);
   
   // Multi-select for admin - always enabled in admin mode for booked slots
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
@@ -104,9 +105,12 @@ const VIPCalendar = ({
     setWeekStart(addDays(weekStart, 7));
   };
 
-  const handleSelectSlot = (date: string, hour: number) => {
+  const handleSelectSlot = async (date: string, hour: number) => {
     const dayData = availability.find(d => d.date === date);
     const slot = dayData?.slots.find(s => s.hour === hour);
+    
+    // Reset drive folder link
+    setDriveFolderLink(null);
     
     // In admin/VIP mode, clicking on a booked slot toggles its selection for deletion
     if (hasAdminFeatures && slot?.status === "unavailable" && slot?.eventId) {
@@ -123,6 +127,24 @@ const VIPCalendar = ({
         } else {
           // Add to selection
           setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
+        }
+        
+        // In admin mode, try to find Google Drive folder for this client
+        if (isAdminMode && slot.eventName) {
+          // Extract email from event name (format: "email@domain.com — Session Type")
+          const emailMatch = slot.eventName.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+          if (emailMatch) {
+            const clientEmail = emailMatch[1].toLowerCase();
+            const { data: folderData } = await supabase
+              .from("client_drive_folders")
+              .select("drive_folder_link")
+              .eq("client_email", clientEmail)
+              .maybeSingle();
+            
+            if (folderData?.drive_folder_link) {
+              setDriveFolderLink(folderData.drive_folder_link);
+            }
+          }
         }
       } else {
         // VIP trying to select someone else's event - just show it normally
@@ -645,19 +667,31 @@ const VIPCalendar = ({
                           <Trash2 className="w-4 h-4" />
                           Cet événement peut être supprimé
                         </p>
-                        <Button 
-                          onClick={handleDeleteEvent}
-                          disabled={deletingEvent}
-                          variant="destructive"
-                          className="w-full"
-                        >
-                          {deletingEvent ? (
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          ) : (
-                            <Trash2 className="w-4 h-4 mr-2" />
+                        <div className="flex gap-2 flex-wrap">
+                          {driveFolderLink && (
+                            <Button 
+                              onClick={() => window.open(driveFolderLink, '_blank')}
+                              variant="outline"
+                              className="border-blue-500 text-blue-500 hover:bg-blue-500/10"
+                            >
+                              <FolderOpen className="w-4 h-4 mr-2" />
+                              DOSSIER GOOGLE DRIVE
+                            </Button>
                           )}
-                          SUPPRIMER L'ÉVÉNEMENT
-                        </Button>
+                          <Button 
+                            onClick={handleDeleteEvent}
+                            disabled={deletingEvent}
+                            variant="destructive"
+                            className={driveFolderLink ? "" : "w-full"}
+                          >
+                            {deletingEvent ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                              <Trash2 className="w-4 h-4 mr-2" />
+                            )}
+                            SUPPRIMER
+                          </Button>
+                        </div>
                       </div>
                     )}
                     
