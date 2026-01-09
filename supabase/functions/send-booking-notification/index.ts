@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,24 +14,26 @@ const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per minute per IP
 
 function getClientIP(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-         req.headers.get("x-real-ip") || 
-         "unknown";
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
 }
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const record = rateLimitMap.get(ip);
-  
+
   if (!record || now > record.resetTime) {
     rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
-  
+
   if (record.count >= MAX_REQUESTS_PER_WINDOW) {
     return false;
   }
-  
+
   record.count++;
   return true;
 }
@@ -53,45 +56,269 @@ const BookingNotificationSchema = z.object({
   isCashPayment: z.boolean().default(false),
 });
 
-const escapeHtml = (str: string) => str
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#039;');
+const escapeHtml = (str: string) =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 const getSessionTypeLabel = (type: string): string => {
   const labels: Record<string, string> = {
     "with-engineer": "Session avec ingénieur (45€/h)",
     "without-engineer": "Location sans ingénieur (22€/h)",
-    "mixing": "Mixage (200€)",
-    "mastering": "Mastering (60€)",
+    mixing: "Mixage (200€)",
+    mastering: "Mastering (60€)",
     "analog-mastering": "Mastering Analogique (100€/piste)",
-    "podcast": "Mixage Podcast",
+    podcast: "Mixage Podcast",
     "admin-event": "Réservation (créée par admin)",
   };
   return labels[type] || type;
 };
 
-// Generate Google Calendar link
+// Generate Google Calendar link (client-side link, not the studio agenda)
 const generateGoogleCalendarLink = (booking: any): string => {
   const startDateTime = new Date(`${booking.date}T${booking.time}:00`);
-  const endDateTime = new Date(startDateTime.getTime() + (booking.duration || 2) * 60 * 60 * 1000);
-  
+  const endDateTime = new Date(
+    startDateTime.getTime() + (booking.duration || 2) * 60 * 60 * 1000
+  );
+
   const formatDateForGoogle = (date: Date) => {
-    return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+    return date.toISOString().replace(/-|:|\.\d\d\d/g, "");
   };
-  
+
   const params = new URLSearchParams({
-    action: 'TEMPLATE',
+    action: "TEMPLATE",
     text: `Session Make Music - ${booking.clientName}`,
     dates: `${formatDateForGoogle(startDateTime)}/${formatDateForGoogle(endDateTime)}`,
-    details: `Session: ${getSessionTypeLabel(booking.sessionType)}\nContact: ${booking.clientPhone || 'Non fourni'}`,
-    location: 'Rue du Sceptre 22, 1050 Ixelles, Bruxelles',
+    details: `Session: ${getSessionTypeLabel(booking.sessionType)}\nContact: ${booking.clientPhone || "Non fourni"}`,
+    location: "Rue du Sceptre 22, 1050 Ixelles, Bruxelles",
   });
-  
+
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 };
+
+const logStep = (step: string, details?: unknown) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
+  console.log(`[BOOKING-NOTIFICATION] ${step}${detailsStr}`);
+};
+
+const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+
+async function getGoogleAccessToken(serviceAccountKey: string, scope: string): Promise<string> {
+  const key = JSON.parse(serviceAccountKey);
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: key.client_email,
+    scope,
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const headerB64 = btoa(JSON.stringify(header))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+  const payloadB64 = btoa(JSON.stringify(payload))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+  const signatureInput = `${headerB64}.${payloadB64}`;
+
+  const keyData = key.private_key
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "");
+  const binaryKey = Uint8Array.from(atob(keyData), (c) => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    encoder.encode(signatureInput)
+  );
+
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenResponse.ok) {
+    throw new Error(`Google token error: ${JSON.stringify(tokenData)}`);
+  }
+  return tokenData.access_token;
+}
+
+async function createClientDriveFolder(
+  supabaseClient: any,
+  accessToken: string,
+  booking: any
+): Promise<{ clientFolderLink: string; subfolderLink: string } | null> {
+  try {
+    const clientEmail = booking.clientEmail;
+    const clientName = booking.clientName;
+    const sessionDate = booking.date;
+
+    const { data: existingFolder } = await supabaseClient
+      .from("client_drive_folders")
+      .select("*")
+      .eq("client_email", clientEmail)
+      .maybeSingle();
+
+    let clientFolderId: string;
+    let clientFolderLink: string;
+
+    if (existingFolder) {
+      logStep("Using existing client folder", { folderId: existingFolder.drive_folder_id });
+      clientFolderId = existingFolder.drive_folder_id;
+      clientFolderLink = existingFolder.drive_folder_link;
+    } else {
+      logStep("Creating new client folder", { clientName, clientEmail });
+
+      const createFolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: clientName || clientEmail,
+          mimeType: "application/vnd.google-apps.folder",
+          parents: [PARENT_FOLDER_ID],
+        }),
+      });
+
+      const newFolder = await createFolderResponse.json();
+      if (!createFolderResponse.ok) {
+        logStep("Failed to create client folder", { error: newFolder });
+        return null;
+      }
+
+      clientFolderId = newFolder.id;
+      clientFolderLink = `https://drive.google.com/drive/folders/${newFolder.id}`;
+
+      await fetch(`https://www.googleapis.com/drive/v3/files/${newFolder.id}/permissions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role: "writer", type: "anyone" }),
+      });
+
+      await supabaseClient.from("client_drive_folders").insert({
+        client_email: clientEmail,
+        client_name: clientName || clientEmail,
+        drive_folder_id: newFolder.id,
+        drive_folder_link: clientFolderLink,
+      });
+
+      logStep("Client folder created", { clientFolderLink });
+    }
+
+    const subfolderName = sessionDate || new Date().toISOString().split("T")[0];
+
+    const createSubfolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: subfolderName,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [clientFolderId],
+      }),
+    });
+
+    const subfolder = await createSubfolderResponse.json();
+    if (!createSubfolderResponse.ok) {
+      logStep("Failed to create subfolder", { error: subfolder });
+      return null;
+    }
+
+    await fetch(`https://www.googleapis.com/drive/v3/files/${subfolder.id}/permissions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "writer", type: "anyone" }),
+    });
+
+    const subfolderLink = `https://drive.google.com/drive/folders/${subfolder.id}`;
+    logStep("Session subfolder created", { subfolderLink });
+
+    return { clientFolderLink, subfolderLink };
+  } catch (error) {
+    logStep("Error creating Drive folder", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function addToStudioGoogleCalendar(
+  accessToken: string,
+  calendarId: string,
+  booking: any
+): Promise<string | null> {
+  const startDateTime = `${booking.date}T${booking.time}:00`;
+  const durationHours = booking.duration || 2;
+  const endDate = new Date(`${booking.date}T${booking.time}:00`);
+  endDate.setHours(endDate.getHours() + durationHours);
+  const endDateTime = endDate.toISOString().slice(0, 19);
+
+  const event = {
+    summary: `${getSessionTypeLabel(booking.sessionType)} - ${booking.clientName}`,
+    description: `Client: ${booking.clientName}\nEmail: ${booking.clientEmail}\nTéléphone: ${booking.clientPhone || "Non fourni"}\nMontant: ${booking.totalPrice}€`,
+    start: { dateTime: startDateTime, timeZone: "Europe/Brussels" },
+    end: { dateTime: endDateTime, timeZone: "Europe/Brussels" },
+  };
+
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(event),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logStep("Failed to add to studio Google Calendar", { error: errorText });
+    return null;
+  }
+
+  const createdEvent = await response.json();
+  logStep("Event added to studio Google Calendar", { eventId: createdEvent.id });
+  return createdEvent.id;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -102,38 +329,66 @@ serve(async (req) => {
   const clientIP = getClientIP(req);
   if (!checkRateLimit(clientIP)) {
     console.log(`[RATE-LIMIT] IP ${clientIP} exceeded rate limit`);
-    return new Response(
-      JSON.stringify({ error: "Too many requests" }),
-      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
     const rawBody = await req.json();
     const validationResult = BookingNotificationSchema.safeParse(rawBody);
-    
+
     if (!validationResult.success) {
       console.error("[BOOKING-NOTIFICATION] Validation error:", validationResult.error.errors);
-      return new Response(
-        JSON.stringify({ error: "Invalid request data" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Invalid request data" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const booking = validationResult.data;
-    console.log("[BOOKING-NOTIFICATION] Sending notification for:", booking.clientName);
+    logStep("Sending notification", { clientName: booking.clientName, sessionType: booking.sessionType });
 
     const sessionLabel = getSessionTypeLabel(booking.sessionType);
     const bookedBy = booking.isAdmin ? "ADMIN" : "CLIENT";
     const googleCalendarLink = generateGoogleCalendarLink(booking);
     const isStudioSession = booking.sessionType === "with-engineer" || booking.sessionType === "without-engineer";
-    
-    // Payment status text
-    const paymentStatusText = booking.isCashPayment 
-      ? `<span style="color: #fbbf24;">Montant à payer le jour de la session: ${booking.totalPrice}€</span>`
-      : booking.isDeposit 
-        ? `Acompte payé: ${booking.totalPrice}€ (reste à payer au studio)`
-        : `Paiement confirmé: ${booking.totalPrice}€`;
+
+    // Ensure we create Drive folder link for studio sessions (if not already provided)
+    let driveFolderLink = booking.driveFolderLink;
+
+    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+
+    if (!driveFolderLink && isStudioSession && serviceAccountKey) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+          { auth: { persistSession: false } }
+        );
+
+        const driveToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/drive");
+        const driveResult = await createClientDriveFolder(supabaseClient, driveToken, booking);
+
+        if (driveResult?.subfolderLink) {
+          driveFolderLink = driveResult.subfolderLink;
+        }
+      } catch (e) {
+        logStep("Drive folder creation failed", { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+
+    // Add event to the studio agenda (best effort)
+    if (isStudioSession && serviceAccountKey && studioCalendarId) {
+      try {
+        const calendarToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/calendar");
+        await addToStudioGoogleCalendar(calendarToken, studioCalendarId, booking);
+      } catch (e) {
+        logStep("Studio calendar insertion failed", { error: e instanceof Error ? e.message : String(e) });
+      }
+    }
 
     let identitySection = "";
     if (booking.identityDocUrl && !booking.isAdmin) {
@@ -146,17 +401,17 @@ serve(async (req) => {
         </div>
       `;
     }
-    
+
     // Drive folder section for client
     let driveFolderSection = "";
-    if (booking.driveFolderLink) {
+    if (driveFolderLink) {
       driveFolderSection = `
         <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
           <h4 style="color: #fafafa; margin: 0 0 10px 0;">📁 Votre dossier Google Drive</h4>
           <p style="color: #a1a1aa; margin: 0 0 10px 0; font-size: 14px;">
-            Vous pouvez déposer vos fichiers audio dans ce dossier partagé :
+            Déposez vos fichiers audio (instrus, références, voix, etc.) dans ce dossier partagé :
           </p>
-          <a href="${escapeHtml(booking.driveFolderLink)}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+          <a href="${escapeHtml(driveFolderLink)}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
             Ouvrir le dossier Drive
           </a>
         </div>
@@ -166,25 +421,29 @@ serve(async (req) => {
     // ---------- 1. EMAIL TO ADMIN ----------
     const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
     const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
-    const adminEmail = "prod.makemusic@gmail.com";
-    
-    console.log(`[EMAIL] Sending admin notification to: ${adminEmail}`);
-    console.log(`[EMAIL] From: ${fromAddress}`);
-    
+
+    const adminEmails = [
+      "prod.makemusic@gmail.com",
+      "kazamzamka@gmail.com",
+      "romain.scheyvaerts@gmail.com",
+    ];
+
+    logStep("Sending admin notification", { to: adminEmails, from: fromAddress });
+
     const { data: adminEmailData, error: adminEmailError } = await resend.emails.send({
       from: fromAddress,
-      to: [adminEmail],
+      to: adminEmails,
       reply_to: "prod.makemusic@gmail.com",
       subject: `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
           <h2 style="color: #22d3ee; margin-bottom: 20px;">Nouvelle réservation ${bookedBy === "ADMIN" ? "(Admin)" : ""}</h2>
-          
+
           <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
             <h3 style="color: #fafafa; margin-top: 0;">👤 Informations client</h3>
             <p><strong>Nom :</strong> ${escapeHtml(booking.clientName)}</p>
             <p><strong>Email :</strong> <a href="mailto:${escapeHtml(booking.clientEmail)}" style="color: #22d3ee;">${escapeHtml(booking.clientEmail)}</a></p>
-            ${booking.clientPhone ? `<p><strong>Téléphone :</strong> ${escapeHtml(booking.clientPhone)}</p>` : ''}
+            ${booking.clientPhone ? `<p><strong>Téléphone :</strong> ${escapeHtml(booking.clientPhone)}</p>` : ""}
           </div>
 
           <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
@@ -192,7 +451,7 @@ serve(async (req) => {
             <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
             <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
             <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
-            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ''}
+            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
           </div>
 
           <div style="background: #22d3ee; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
@@ -203,13 +462,13 @@ serve(async (req) => {
           ${identitySection}
 
           <p style="margin-top: 20px; color: #a1a1aa; font-size: 12px; text-align: center;">
-            Réservation reçue le ${new Date().toLocaleDateString('fr-BE', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
+            Réservation reçue le ${new Date().toLocaleDateString("fr-BE", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
             })}
           </p>
         </div>
@@ -217,30 +476,30 @@ serve(async (req) => {
     });
 
     if (adminEmailError) {
-      console.error("[BOOKING-NOTIFICATION] Admin email error:", JSON.stringify(adminEmailError));
+      logStep("Admin email error", adminEmailError);
     } else {
-      console.log("[BOOKING-NOTIFICATION] Admin email sent successfully, ID:", adminEmailData?.id);
+      logStep("Admin email sent", { id: adminEmailData?.id });
     }
 
     // ---------- 2. EMAIL TO CLIENT ----------
-    console.log(`[EMAIL] Sending client confirmation to: ${booking.clientEmail}`);
-    
+    logStep("Sending client email", { to: booking.clientEmail });
+
     const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
       from: fromAddress,
       to: [booking.clientEmail],
-      reply_to: adminEmail,
+      reply_to: "prod.makemusic@gmail.com",
       subject: `✅ Confirmation de réservation - Make Music Studio`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #22d3ee; margin: 0;">Make Music Studio</h1>
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
             <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
           </div>
-          
+
           <h2 style="color: #22d3ee; margin-bottom: 20px;">Merci pour votre réservation, ${escapeHtml(booking.clientName)} !</h2>
-          
+
           <p style="color: #fafafa; margin-bottom: 20px;">
-            Votre session a été confirmée. Voici les détails de votre réservation :
+            Votre demande a bien été reçue. Voici les détails :
           </p>
 
           <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
@@ -248,15 +507,15 @@ serve(async (req) => {
             <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
             <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
             <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
-            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ''}
+            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
           </div>
 
-          <div style="background: ${booking.isCashPayment ? '#fbbf24' : '#22d3ee'}; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+          <div style="background: ${booking.isCashPayment ? "#fbbf24" : "#22d3ee"}; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
             <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">
-              ${booking.isCashPayment ? '💵 À payer au studio' : '💳 Paiement'}
+              ${booking.isCashPayment ? "💵 À payer au studio" : "💳 Paiement"}
             </p>
             <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
-            ${booking.isDeposit && !booking.isCashPayment ? '<p style="font-size: 12px; margin: 5px 0 0 0;">Acompte - Reste à payer au studio</p>' : ''}
+            ${booking.isDeposit && !booking.isCashPayment ? '<p style="font-size: 12px; margin: 5px 0 0 0;">Acompte - Reste à payer au studio</p>' : ""}
           </div>
 
           ${driveFolderSection}
@@ -267,20 +526,18 @@ serve(async (req) => {
               <strong>Rue du Sceptre 22</strong><br>
               1050 Ixelles, Bruxelles
             </p>
-            <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" 
-               style="display: inline-block; margin-top: 10px; color: #22d3ee; text-decoration: underline;">
+            <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" style="display: inline-block; margin-top: 10px; color: #22d3ee; text-decoration: underline;">
               Voir sur Google Maps
             </a>
           </div>
 
           ${isStudioSession ? `
           <div style="text-align: center; margin: 20px 0;">
-            <a href="${googleCalendarLink}" 
-               style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+            <a href="${googleCalendarLink}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
               📅 Ajouter à Google Calendar
             </a>
           </div>
-          ` : ''}
+          ` : ""}
 
           <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
             <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Contact</h4>
@@ -299,22 +556,21 @@ serve(async (req) => {
     });
 
     if (clientEmailError) {
-      console.error("[BOOKING-NOTIFICATION] Client email error:", JSON.stringify(clientEmailError));
+      logStep("Client email error", clientEmailError);
       throw clientEmailError;
     }
-    
-    console.log("[BOOKING-NOTIFICATION] Client email sent successfully to", booking.clientEmail, "ID:", clientEmailData?.id);
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    logStep("Client email sent", { id: clientEmailData?.id });
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: unknown) {
-    console.error("[BOOKING-NOTIFICATION] Error:", error);
+    logStep("Error", { error: error instanceof Error ? error.message : String(error) });
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

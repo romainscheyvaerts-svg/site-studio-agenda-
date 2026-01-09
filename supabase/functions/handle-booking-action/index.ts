@@ -324,9 +324,9 @@ async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLi
       <meta charset="utf-8">
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0;">Make Music Studio</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.8;">Votre session est confirmée !</p>
+      <div style="background-color: #16213e; padding: 30px; border-radius: 12px; color: #ffffff; text-align: center; margin-bottom: 20px;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 28px; line-height: 1.2;">Make Music Studio</h1>
+        <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 14px; line-height: 1.4;">Votre session est confirmée !</p>
       </div>
       
       <div style="background-color: #ECFDF5; border: 1px solid #10B981; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
