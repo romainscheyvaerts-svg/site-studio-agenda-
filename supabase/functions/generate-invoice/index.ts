@@ -236,7 +236,7 @@ serve(async (req) => {
       console.log("[INVOICE] Sending invoice to:", body.clientEmail);
       
       const { error: emailError } = await resend.emails.send({
-        from: "Make Music <onboarding@resend.dev>",
+        from: "Make Music Studio <noreply@studiomakemusic.com>",
         to: [body.clientEmail],
         subject: `Facture ${body.invoiceNumber} - Make Music Studio`,
         html: `

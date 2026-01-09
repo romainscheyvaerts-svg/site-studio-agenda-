@@ -182,7 +182,7 @@ async function sendClientFinalConfirmation(resend: Resend, booking: any): Promis
   `;
   
   await resend.emails.send({
-    from: 'Make Music Studio <onboarding@resend.dev>',
+    from: 'Make Music Studio <noreply@studiomakemusic.com>',
     to: [booking.client_email],
     subject: `✓ Session confirmée - ${sessionDate}`,
     html
@@ -236,7 +236,7 @@ async function sendClientRejectionEmail(resend: Resend, booking: any): Promise<v
   `;
   
   await resend.emails.send({
-    from: 'Make Music Studio <onboarding@resend.dev>',
+    from: 'Make Music Studio <noreply@studiomakemusic.com>',
     to: [booking.client_email],
     subject: `Information sur votre réservation - ${sessionDate}`,
     html

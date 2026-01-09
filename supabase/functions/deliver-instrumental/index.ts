@@ -178,7 +178,7 @@ serve(async (req) => {
     `;
 
     const { error: emailError } = await resend.emails.send({
-      from: "Make Music <onboarding@resend.dev>",
+      from: "Make Music Studio <noreply@studiomakemusic.com>",
       to: [buyerEmail],
       subject: `🎵 Votre Instrumental "${instrumental.title}" est prêt !`,
       html: emailHtml
