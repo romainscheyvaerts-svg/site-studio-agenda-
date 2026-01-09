@@ -60,11 +60,22 @@ serve(async (req) => {
       });
     }
 
-    const adminEmails = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com", "romain.scheyvaerts@gmail.com"];
+    const adminEmails = ["prod.makemusic@gmail.com", "romain.scheyvaerts@gmail.com"];
     console.log("[LIST-USERS] Checking admin access for:", user.email);
     
-    if (!adminEmails.includes(user.email || "")) {
-      console.log("[LIST-USERS] Not an admin email");
+    // Check if user is admin by email OR by role in user_roles table
+    const { data: roleData } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    
+    const isAdminByEmail = adminEmails.includes(user.email || "");
+    const isAdminByRole = !!roleData;
+    
+    if (!isAdminByEmail && !isAdminByRole) {
+      console.log("[LIST-USERS] Not an admin");
       return new Response(JSON.stringify({ error: "Admin access required", users: [] }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -88,9 +99,8 @@ serve(async (req) => {
 
     console.log("[LIST-USERS] Raw users count:", usersData?.users?.length || 0);
 
-    // Filter out admin emails and format the response
+    // Return ALL users (don't filter out admins - they should appear in the list)
     const users = (usersData?.users || [])
-      .filter(u => !adminEmails.includes(u.email || ""))
       .map(u => ({
         id: u.id,
         email: u.email,
