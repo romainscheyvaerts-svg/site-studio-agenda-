@@ -10,7 +10,7 @@ const corsHeaders = {
 // Email configuration for Resend
 // PRIMARY: Use verified domain noreply@makemusicstudio.be
 // FALLBACK: onboarding@resend.dev (sandbox - only works for verified emails in Resend dashboard)
-const PRIMARY_FROM = "Make Music Studio <noreply@makemusicstudio.be>";
+const PRIMARY_FROM = "Make Music Studio <noreply@studiomakemusic.com>";
 const FALLBACK_FROM = "Make Music Studio <onboarding@resend.dev>";
 const ADMIN_EMAIL = "prod.makemusic@gmail.com";
 

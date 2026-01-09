@@ -53,7 +53,7 @@ serve(async (req) => {
 
     // Send email to studio
     const { error: studioEmailError } = await resend.emails.send({
-      from: "Make Music <onboarding@resend.dev>",
+      from: "Make Music Studio <noreply@studiomakemusic.com>",
       to: ["prod.makemusic@gmail.com"],
       subject: `📋 Nouvelle demande de devis - ${escapeHtml(body.name)}`,
       html: `
@@ -94,7 +94,7 @@ serve(async (req) => {
 
     // Send confirmation to client
     const { error: clientEmailError } = await resend.emails.send({
-      from: "Make Music <onboarding@resend.dev>",
+      from: "Make Music Studio <noreply@studiomakemusic.com>",
       to: [body.email],
       subject: "Votre demande de devis - Make Music Studio",
       html: `

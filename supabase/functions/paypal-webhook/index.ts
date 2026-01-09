@@ -1479,7 +1479,7 @@ serve(async (req) => {
 
     // ACTION 3: Send confirmation email to client (with Drive link if available)
     // Email configuration - use verified domain
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@makemusicstudio.be";
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
     const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
     const adminEmailAddress = "prod.makemusic@gmail.com";
     

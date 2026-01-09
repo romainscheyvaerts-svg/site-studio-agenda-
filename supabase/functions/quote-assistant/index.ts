@@ -172,7 +172,7 @@ serve(async (req) => {
           
           // Send quote to studio email
           await resend.emails.send({
-            from: "Make Music <onboarding@resend.dev>",
+            from: "Make Music Studio <noreply@studiomakemusic.com>",
             to: ["prod.makemusic@gmail.com"],
             subject: `🤖 Devis généré par assistant - ${escapeHtml(quoteData.clientProject || "Nouveau projet")}`,
             html: `

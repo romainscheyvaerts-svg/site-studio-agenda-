@@ -164,7 +164,7 @@ serve(async (req) => {
     }
 
     // ---------- 1. EMAIL TO ADMIN ----------
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@makemusicstudio.be";
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
     const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
     const adminEmail = "prod.makemusic@gmail.com";
     
