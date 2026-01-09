@@ -419,10 +419,10 @@ const BookingSection = () => {
       if (serviceType) {
         setSessionType(serviceType);
         setShowPayment(false);
-        // Scroll to form after a short delay
+        // Scroll to details form after a short delay to let DOM update
         setTimeout(() => {
-          document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+          document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
       }
     };
 
@@ -823,8 +823,8 @@ const BookingSection = () => {
                   setSessionType("with-engineer");
                   setShowPayment(false);
                   setTimeout(() => {
-                    document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 100);
+                    document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 150);
                 }}
                 className={cn(
                   "p-6 rounded-xl border-2 text-left transition-all duration-300",
@@ -855,8 +855,8 @@ const BookingSection = () => {
                   setSessionType("without-engineer");
                   setShowPayment(false);
                   setTimeout(() => {
-                    document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 100);
+                    document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 150);
                 }}
                 className={cn(
                   "p-6 rounded-xl border-2 text-left transition-all duration-300",
@@ -1017,7 +1017,7 @@ const BookingSection = () => {
               </div>
             )}
 
-            <div className={cn("grid gap-6 mb-6", isImmediateService ? "md:grid-cols-1" : "md:grid-cols-2")}>
+            <div id="booking-details" className={cn("grid gap-6 mb-6", isImmediateService ? "md:grid-cols-1" : "md:grid-cols-2")}>
               {/* Personal info - Hidden when skipFormFields is active */}
               {!combinedPromoEffects.skipFormFields && (
                 <div className="space-y-4">
