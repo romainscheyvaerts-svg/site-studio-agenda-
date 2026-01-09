@@ -520,7 +520,7 @@ serve(async (req) => {
             <h3 style="color: #fafafa; margin-top: 0;">👤 Informations client</h3>
             <p><strong>Nom :</strong> ${escapeHtml(booking.clientName)}</p>
             <p><strong>Email :</strong> <a href="mailto:${escapeHtml(booking.clientEmail)}" style="color: #22d3ee;">${escapeHtml(booking.clientEmail)}</a></p>
-            ${booking.clientPhone ? `<p><strong>Téléphone :</strong> ${escapeHtml(booking.clientPhone)}</p>` : ""}
+            <p><strong>Téléphone :</strong> ${booking.clientPhone ? `<a href="tel:${escapeHtml(booking.clientPhone)}" style="color: #22d3ee;">${escapeHtml(booking.clientPhone)}</a>` : "<span style='color: #a1a1aa;'>Non fourni</span>"}</p>
           </div>
 
           <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
