@@ -43,6 +43,7 @@ interface TimeSlot {
   eventName?: string;
   eventId?: string;
   clientEmail?: string;
+  driveFolderLink?: string;
 }
 
 interface DayAvailability {
@@ -354,6 +355,22 @@ serve(async (req) => {
     const availability: DayAvailability[] = [];
     const workingHours = { start: 0, end: 24 }; // 24h/24
 
+    // Build a map of client email -> Drive folder link (from database)
+    const driveLinkMap = new Map<string, string>();
+    try {
+      const { data: folders } = await supabase
+        .from("client_drive_folders")
+        .select("client_email, drive_folder_link");
+
+      (folders || []).forEach((f: any) => {
+        if (f?.client_email && f?.drive_folder_link) {
+          driveLinkMap.set(String(f.client_email).toLowerCase(), String(f.drive_folder_link));
+        }
+      });
+    } catch (e) {
+      console.error("Failed to load drive folders map", e);
+    }
+
     for (let d = 0; d < days; d++) {
       const currentDate = new Date(start);
       currentDate.setDate(currentDate.getDate() + d);
@@ -379,14 +396,18 @@ serve(async (req) => {
         const studioResult = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
         
         if (!studioResult.available) {
+          const clientEmail = studioResult.clientEmail;
+          const driveFolderLink = clientEmail ? driveLinkMap.get(clientEmail.toLowerCase()) : undefined;
+
           // Studio is booked - unavailable
-          slots.push({ 
-            hour, 
-            available: false, 
-            status: "unavailable", 
+          slots.push({
+            hour,
+            available: false,
+            status: "unavailable",
             eventName: studioResult.eventName,
             eventId: studioResult.eventId,
-            clientEmail: studioResult.clientEmail
+            clientEmail,
+            driveFolderLink,
           });
         } else {
           // Studio is free, check if patron is busy in personal Google calendar OR Claridge

@@ -16,6 +16,7 @@ interface TimeSlot {
   eventName?: string;
   eventId?: string;
   clientEmail?: string;
+  driveFolderLink?: string;
 }
 
 interface DayAvailability {
@@ -131,69 +132,8 @@ const VIPCalendar = ({
         }
         
         if (isAdminMode) {
-          // Reset drive link first
-          setDriveFolderLink(null);
-          
-          // Try multiple methods to find the Drive folder
-          let foundDriveLink: string | null = null;
-          
-          // Method 1: Use clientEmail from slot data (extracted from Google Calendar description)
-          const clientEmail = slot.clientEmail;
-          if (clientEmail) {
-            const { data: folderData } = await supabase
-              .from("client_drive_folders")
-              .select("drive_folder_link")
-              .eq("client_email", clientEmail)
-              .maybeSingle();
-            
-            if (folderData?.drive_folder_link) {
-              foundDriveLink = folderData.drive_folder_link;
-            }
-          }
-          
-          // Method 2: If no email from calendar, try to find by booking date/time
-          if (!foundDriveLink && slot.eventName) {
-            // Try to match booking by date and time
-            const { data: booking } = await supabase
-              .from("bookings")
-              .select("client_email")
-              .eq("session_date", date)
-              .eq("start_time", `${hour.toString().padStart(2, "0")}:00`)
-              .maybeSingle();
-            
-            if (booking?.client_email) {
-              const { data: folderData } = await supabase
-                .from("client_drive_folders")
-                .select("drive_folder_link")
-                .eq("client_email", booking.client_email)
-                .maybeSingle();
-              
-              if (folderData?.drive_folder_link) {
-                foundDriveLink = folderData.drive_folder_link;
-              }
-            }
-          }
-          
-          // Method 3: Try to extract email from event name as last resort
-          if (!foundDriveLink && slot.eventName) {
-            const emailMatch = slot.eventName.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-            if (emailMatch) {
-              const extractedEmail = emailMatch[1].toLowerCase();
-              const { data: folderData } = await supabase
-                .from("client_drive_folders")
-                .select("drive_folder_link")
-                .eq("client_email", extractedEmail)
-                .maybeSingle();
-              
-              if (folderData?.drive_folder_link) {
-                foundDriveLink = folderData.drive_folder_link;
-              }
-            }
-          }
-          
-          if (foundDriveLink) {
-            setDriveFolderLink(foundDriveLink);
-          }
+          // Drive link now comes directly from the slot (computed server-side)
+          setDriveFolderLink(slot.driveFolderLink || null);
         }
       } else {
         // VIP trying to select someone else's event - just show it normally
