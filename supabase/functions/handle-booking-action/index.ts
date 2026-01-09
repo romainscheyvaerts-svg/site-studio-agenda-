@@ -253,8 +253,16 @@ async function addToGoogleCalendar(
   const startTime = booking.start_time;
   const endTime = booking.end_time;
   
-  const startDateTime = `${sessionDate}T${startTime}:00`;
-  const endDateTime = `${sessionDate}T${endTime}:00`;
+  // Format time correctly - if already has seconds, don't add more
+  const formatTime = (time: string) => {
+    if (!time) return "00:00:00";
+    if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
+    return `${time}:00`;
+  };
+  
+  const startDateTime = `${sessionDate}T${formatTime(startTime)}`;
+  const endDateTime = `${sessionDate}T${formatTime(endTime)}`;
   
   const event = {
     summary: `${booking.session_type} - ${booking.client_name}`,

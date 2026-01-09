@@ -284,9 +284,17 @@ async function addToStudioGoogleCalendar(
   calendarId: string,
   booking: any
 ): Promise<string | null> {
-  const startDateTime = `${booking.date}T${booking.time}:00`;
+  // Format time correctly - if already has seconds, don't add more
+  const formatTime = (time: string) => {
+    if (!time) return "00:00:00";
+    if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
+    return `${time}:00`;
+  };
+  
+  const startDateTime = `${booking.date}T${formatTime(booking.time)}`;
   const durationHours = booking.duration || 2;
-  const endDate = new Date(`${booking.date}T${booking.time}:00`);
+  const endDate = new Date(`${booking.date}T${formatTime(booking.time)}`);
   endDate.setHours(endDate.getHours() + durationHours);
   const endDateTime = endDate.toISOString().slice(0, 19);
 

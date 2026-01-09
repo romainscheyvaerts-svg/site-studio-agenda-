@@ -140,8 +140,18 @@ const createGoogleCalendarEvent = async (booking: any) => {
   logStep("Google access token obtained");
 
   const date = booking.session_date; // YYYY-MM-DD
-  const start = `${date}T${booking.start_time}:00`;
-  const end = `${date}T${booking.end_time}:00`;
+  // Format time correctly - if already has seconds, don't add more
+  const formatTime = (time: string) => {
+    if (!time) return "00:00:00";
+    // If time is HH:MM format, add :00 for seconds
+    if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
+    // If time already has seconds (HH:MM:SS), return as-is
+    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
+    // Otherwise return with seconds
+    return `${time}:00`;
+  };
+  const start = `${date}T${formatTime(booking.start_time)}`;
+  const end = `${date}T${formatTime(booking.end_time)}`;
 
   const summaryPrefix = booking.status === "pending_validation" ? "[PENDING] " : "";
 
