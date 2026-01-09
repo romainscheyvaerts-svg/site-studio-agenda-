@@ -18,6 +18,7 @@ import AdminPriceCalculator from "./AdminPriceCalculator";
 import StripeCheckoutButton from "./StripeCheckoutButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
+import { usePricing } from "@/hooks/usePricing";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -42,6 +43,7 @@ const BookingSection = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
+  const { pricing: dbPricing, loading: pricingLoading, getEffectivePrice: getPricingEffectivePrice } = usePricing();
   const navigate = useNavigate();
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [hours, setHours] = useState(2);
@@ -204,22 +206,29 @@ const BookingSection = () => {
   // Check if payment should be skipped (cashonly777 or vip777 + without-engineer)
   const skipPayment = combinedPromoEffects.skipPayment && (sessionType === "without-engineer" || isCashOnly);
 
-  const pricing: Record<string, number> = {
-    "with-engineer": 45,
-    "without-engineer": 22,
-    "mixing": 200,
-    "mastering": 60,
-    "analog-mastering": 100,
-    "podcast": 40, // par minute
-  };
+  // Use dynamic pricing from database, with fallbacks
+  const pricing: Record<string, number> = useMemo(() => {
+    const fallbackPricing: Record<string, number> = {
+      "with-engineer": 45,
+      "without-engineer": 22,
+      "mixing": 200,
+      "mastering": 60,
+      "analog-mastering": 100,
+      "podcast": 40,
+    };
+    
+    // Merge DB pricing with fallbacks
+    return { ...fallbackPricing, ...dbPricing };
+  }, [dbPricing]);
 
-  // Get effective price (custom price from promo or base price)
+  // Get effective price (custom price from promo or dynamic DB price)
   const getEffectivePrice = (service: string): number => {
     const customPrice = combinedPromoEffects.customPrices?.[service];
     if (customPrice !== undefined && customPrice !== null) {
       return customPrice;
     }
-    return pricing[service] || 0;
+    // Use the dynamic price from hook (includes sale discounts if active)
+    return getPricingEffectivePrice(service) || pricing[service] || 0;
   };
 
   // Pour les services immédiats, pas de notion d'heures
@@ -830,14 +839,14 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-xl text-foreground">AVEC INGÉNIEUR</h4>
-                    <p className="text-primary font-semibold">45€/heure</p>
+                    <p className="text-primary font-semibold">{pricing["with-engineer"]}€/heure</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Session accompagnée avec un ingénieur son professionnel
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">💳 50% acompte • 🪪 Vérification d'identité requise</p>
-                <p className="text-xs text-accent mt-1">⭐ Dès 5h : 40€/h (déduit du solde le jour de la session)</p>
+                <p className="text-xs text-accent mt-1">⭐ Dès 5h : {Math.round(pricing["with-engineer"] * 0.89)}€/h (déduit du solde le jour de la session)</p>
               </button>
 
               <button
@@ -862,14 +871,14 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-xl text-foreground">LOCATION SÈCHE</h4>
-                    <p className="text-accent font-semibold">22€/heure</p>
+                    <p className="text-accent font-semibold">{pricing["without-engineer"]}€/heure</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Accès au studio en autonomie
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">💳 Paiement complet • 🪪 Vérification d'identité requise</p>
-                <p className="text-xs text-primary mt-1">⭐ Dès 5h : 20€/h (déduit du solde le jour de la session)</p>
+                <p className="text-xs text-primary mt-1">⭐ Dès 5h : {Math.round(pricing["without-engineer"] * 0.91)}€/h (déduit du solde le jour de la session)</p>
               </button>
             </div>
 
@@ -895,7 +904,7 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-lg text-foreground">MIXAGE</h4>
-                    <p className="text-primary font-semibold text-sm">200€/projet</p>
+                    <p className="text-primary font-semibold text-sm">{pricing["mixing"]}€/projet</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">50% acompte</p>
@@ -920,7 +929,7 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-lg text-foreground">MASTERING</h4>
-                    <p className="text-primary font-semibold text-sm">60€/titre</p>
+                    <p className="text-primary font-semibold text-sm">{pricing["mastering"]}€/titre</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">50% acompte</p>
@@ -945,7 +954,7 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-lg text-foreground">MASTERING ANALOGIQUE</h4>
-                    <p className="text-accent font-semibold text-sm">100€/titre</p>
+                    <p className="text-accent font-semibold text-sm">{pricing["analog-mastering"]}€/titre</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Acompte 80€</p>
@@ -970,7 +979,7 @@ const BookingSection = () => {
                   </div>
                   <div>
                     <h4 className="font-display text-lg text-foreground">MIXAGE PODCAST</h4>
-                    <p className="text-primary font-semibold text-sm">40€/min</p>
+                    <p className="text-primary font-semibold text-sm">{pricing["podcast"]}€/min</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">50% acompte</p>
@@ -1445,14 +1454,14 @@ const BookingSection = () => {
                           <p className="text-sm font-semibold text-accent">🎉 Offre promo appliquée</p>
                           <p className="text-xs text-muted-foreground">
                             {sessionType === "with-engineer" 
-                              ? `${hours}h × 5€ de réduction (40€/h au lieu de 45€/h)`
-                              : `${hours}h × 2€ de réduction (20€/h au lieu de 22€/h)`
+                              ? `${hours}h × ${Math.round(pricing["with-engineer"] * 0.11)}€ de réduction (${Math.round(pricing["with-engineer"] * 0.89)}€/h au lieu de ${pricing["with-engineer"]}€/h)`
+                              : `${hours}h × ${Math.round(pricing["without-engineer"] * 0.09)}€ de réduction (${Math.round(pricing["without-engineer"] * 0.91)}€/h au lieu de ${pricing["without-engineer"]}€/h)`
                             }
                           </p>
                         </div>
                         <div className="text-right">
                           <span className="font-display text-lg text-accent">
-                            -{sessionType === "with-engineer" ? hours * 5 : hours * 2}€
+                            -{sessionType === "with-engineer" ? hours * Math.round(pricing["with-engineer"] * 0.11) : hours * Math.round(pricing["without-engineer"] * 0.09)}€
                           </span>
                         </div>
                       </div>
