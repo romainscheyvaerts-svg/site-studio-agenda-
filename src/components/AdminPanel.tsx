@@ -122,10 +122,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                     <h3 className="font-semibold text-amber-200">Zone Super Admin</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Gérez les rôles administrateurs, les accès privilégiés et le catalogue d'instrumentales.
+                    Gérez les rôles, tarifs des services et le catalogue d'instrumentales.
                   </p>
                 </div>
                 <AdminRoleManager />
+                <AdminServicesPricing />
                 <AdminInstrumentals />
               </TabsContent>
             )}
@@ -135,14 +136,13 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               <div className="bg-muted/30 rounded-lg p-4 mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Tarification & Promotions</h3>
+                  <h3 className="font-semibold">Promotions & Fonctionnalités</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Gérez les prix des services et les codes promo.
+                  Gérez les codes promo et les fonctionnalités des services.
                 </p>
               </div>
               <AdminPromoCodeManager />
-              <AdminServicesPricing />
               <AdminServiceFeatures />
             </TabsContent>
 
