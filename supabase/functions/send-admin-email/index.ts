@@ -41,7 +41,7 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com"];
+    const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com", "romain.scheyvaerts@gmail.com"];
     if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
       throw new Error("Admin access required");
     }

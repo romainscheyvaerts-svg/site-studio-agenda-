@@ -60,7 +60,7 @@ serve(async (req) => {
       });
     }
 
-    const adminEmails = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com"];
+    const adminEmails = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com", "romain.scheyvaerts@gmail.com"];
     console.log("[LIST-USERS] Checking admin access for:", user.email);
     
     if (!adminEmails.includes(user.email || "")) {

@@ -156,7 +156,7 @@ const AdminUserManagement = () => {
         }
 
         // Filter out admin emails
-        const adminEmails = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com"];
+        const adminEmails = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com", "romain.scheyvaerts@gmail.com"];
         const filteredActivities = activitiesArray.filter(
           a => !a.user_email || !adminEmails.includes(a.user_email)
         );
