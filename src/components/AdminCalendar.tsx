@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus, FolderOpen } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,8 @@ interface TimeSlot {
   status: "available" | "unavailable" | "on-request";
   eventName?: string;
   eventId?: string;
+  clientEmail?: string;
+  driveFolderLink?: string;
 }
 
 interface DayAvailability {
@@ -50,6 +52,7 @@ const AdminCalendar = ({
   
   // Multi-select for deletion
   const [selectedForDeletion, setSelectedForDeletion] = useState<{ date: string; hour: number; eventId: string }[]>([]);
+  const [selectedDriveFolderLink, setSelectedDriveFolderLink] = useState<string | null>(null);
   
   // Show event creator form
   const [showEventCreator, setShowEventCreator] = useState(false);
@@ -98,9 +101,14 @@ const AdminCalendar = ({
     if (slot?.status === "unavailable" && slot?.eventId) {
       const existing = selectedForDeletion.find(s => s.date === date && s.hour === hour);
       if (existing) {
-        setSelectedForDeletion(selectedForDeletion.filter(s => !(s.date === date && s.hour === hour)));
+        const next = selectedForDeletion.filter(s => !(s.date === date && s.hour === hour));
+        setSelectedForDeletion(next);
+        if (next.length === 0) setSelectedDriveFolderLink(null);
       } else {
-        setSelectedForDeletion([...selectedForDeletion, { date, hour, eventId: slot.eventId }]);
+        const next = [...selectedForDeletion, { date, hour, eventId: slot.eventId }];
+        setSelectedForDeletion(next);
+        // Drive link comes directly from the slot (computed server-side)
+        setSelectedDriveFolderLink(slot.driveFolderLink || null);
       }
       return;
     }
@@ -202,6 +210,7 @@ const AdminCalendar = ({
     });
 
     setSelectedForDeletion([]);
+    setSelectedDriveFolderLink(null);
     await fetchAvailability();
     setDeletingEvent(false);
   };
@@ -211,6 +220,7 @@ const AdminCalendar = ({
     setSelectionStart(null);
     setSelectedRange(null);
     setSelectedForDeletion([]);
+    setSelectedDriveFolderLink(null);
   };
 
   const formatHour = (hour: number) => `${hour.toString().padStart(2, "0")}:00`;
@@ -390,6 +400,16 @@ const AdminCalendar = ({
                     <span className="text-sm text-blue-400">
                       {selectedForDeletion.length} créneau(x) à supprimer
                     </span>
+
+                    {selectedDriveFolderLink && (
+                      <Button asChild variant="outline" size="sm">
+                        <a href={selectedDriveFolderLink} target="_blank" rel="noreferrer">
+                          <FolderOpen className="w-4 h-4 mr-1" />
+                          DOSSIER GOOGLE DRIVE
+                        </a>
+                      </Button>
+                    )}
+
                     <Button
                       variant="destructive"
                       size="sm"
