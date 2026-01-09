@@ -1718,9 +1718,30 @@ const BookingSection = () => {
                   </p>
                   
                   <div className="space-y-4">
-                    {/* PayPal Option */}
+                    {/* Stripe Checkout Option (Card, Apple Pay, Google Pay) - Now Option 1 */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 1 : PayPal</p>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 1 : Carte bancaire (Apple Pay / Google Pay disponible)</p>
+                      <StripeCheckoutButton
+                        amount={paymentAmount}
+                        sessionType={sessionType!}
+                        hours={hours}
+                        formData={formData}
+                        isDeposit={isDeposit}
+                        totalPrice={finalPrice}
+                        podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
+                      />
+                    </div>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-xs text-muted-foreground">ou</span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* PayPal Option - Now Option 2 */}
+                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : PayPal</p>
                       {paypalClientId ? (
                         <PayPalCheckout
                           amount={paymentAmount}
@@ -1738,27 +1759,6 @@ const BookingSection = () => {
                           <Loader2 className="w-6 h-6 animate-spin text-primary" />
                         </div>
                       )}
-                    </div>
-
-                    {/* Divider */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-muted-foreground">ou</span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-
-                    {/* Stripe Checkout Option (Card, Apple Pay, Google Pay) */}
-                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : Carte bancaire (Apple Pay / Google Pay disponible)</p>
-                      <StripeCheckoutButton
-                        amount={paymentAmount}
-                        sessionType={sessionType!}
-                        hours={hours}
-                        formData={formData}
-                        isDeposit={isDeposit}
-                        totalPrice={finalPrice}
-                        podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
-                      />
                     </div>
                   </div>
                 </div>
