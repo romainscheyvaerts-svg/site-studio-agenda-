@@ -265,7 +265,7 @@ async function addToGoogleCalendar(
   const endDateTime = `${sessionDate}T${formatTime(endTime)}`;
   
   const event = {
-    summary: `${booking.session_type} - ${booking.client_name}`,
+    summary: `${booking.client_name} — ${booking.session_type}`,
     description: `Client: ${booking.client_name}\nEmail: ${booking.client_email}\nTéléphone: ${booking.client_phone || 'Non fourni'}\nMontant: ${booking.amount_paid}€`,
     start: {
       dateTime: startDateTime,
