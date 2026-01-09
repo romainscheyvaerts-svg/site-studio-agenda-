@@ -410,48 +410,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pricing_content: {
-        Row: {
-          content_en: string
-          content_es: string
-          content_fr: string
-          content_key: string
-          content_nl: string
-          content_type: string
-          created_at: string
-          id: string
-          is_active: boolean
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          content_en?: string
-          content_es?: string
-          content_fr?: string
-          content_key: string
-          content_nl?: string
-          content_type?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          content_en?: string
-          content_es?: string
-          content_fr?: string
-          content_key?: string
-          content_nl?: string
-          content_type?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       promo_codes: {
         Row: {
           auto_select_service: string | null
