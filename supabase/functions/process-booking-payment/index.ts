@@ -1,11 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Get the from email address - prefer verified domain, fallback to resend.dev
+const getFromEmail = () => {
+  const customFrom = Deno.env.get("RESEND_FROM_EMAIL");
+  if (customFrom) {
+    return customFrom;
+  }
+  return "Make Music Studio <onboarding@resend.dev>";
 };
 
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
@@ -109,7 +117,9 @@ const createGoogleCalendarEvent = async (booking: any) => {
   const calendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
   if (!calendarId) throw new Error("GOOGLE_STUDIO_CALENDAR_ID is not set");
 
+  logStep("Getting Google access token...");
   const accessToken = await getGoogleAccessToken();
+  logStep("Google access token obtained");
 
   const date = booking.session_date; // YYYY-MM-DD
   const start = `${date}T${booking.start_time}:00`;
@@ -124,6 +134,8 @@ const createGoogleCalendarEvent = async (booking: any) => {
     end: { dateTime: end, timeZone: "Europe/Brussels" },
   };
 
+  logStep("Creating Google Calendar event", { calendarId, start, end, summary: payload.summary });
+
   const url = `${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`;
 
   const res = await fetch(url, {
@@ -136,8 +148,10 @@ const createGoogleCalendarEvent = async (booking: any) => {
   });
 
   const json = await res.json();
+  logStep("Google Calendar API response", { status: res.status, ok: res.ok, response: json });
+  
   if (!res.ok) {
-    throw new Error(`Google Calendar error: ${json?.error?.message || res.status}`);
+    throw new Error(`Google Calendar error: ${json?.error?.message || JSON.stringify(json?.error) || res.status}`);
   }
 
   return { id: json.id as string };
@@ -177,7 +191,11 @@ function parseICalDate(dateStr: string): Date {
 // Fetch and parse iCal events from Claridge calendar
 async function fetchClaridgeEvents(icalUrl: string, targetDate: Date): Promise<ICalEvent[]> {
   try {
-    const response = await fetch(icalUrl);
+    // Convert webcal:// to https://
+    const fetchUrl = icalUrl.replace(/^webcal:\/\//i, 'https://');
+    logStep("Fetching Claridge calendar", { originalUrl: icalUrl, fetchUrl });
+    
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
       logStep("Failed to fetch iCal", { status: response.status });
       return [];
@@ -336,14 +354,22 @@ async function sendAdminNotification(
     </html>
   `;
   
-  await resend.emails.send({
-    from: 'Make Music Studio <onboarding@resend.dev>',
+  const fromEmail = getFromEmail();
+  logStep("Sending admin notification email", { from: fromEmail, to: ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'] });
+  
+  const emailResult = await resend.emails.send({
+    from: fromEmail,
     to: ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'],
     subject: hasConflict 
       ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}` 
       : `Nouvelle réservation de ${booking.client_name}`,
     html
   });
+  
+  if (emailResult.error) {
+    logStep("Admin email ERROR", { error: emailResult.error });
+    throw new Error(`Failed to send admin email: ${JSON.stringify(emailResult.error)}`);
+  }
   
   logStep("Admin notification sent", { hasConflict });
 }
@@ -417,12 +443,20 @@ async function sendClientConfirmation(
     </html>
   `;
   
-  await resend.emails.send({
-    from: 'Make Music Studio <onboarding@resend.dev>',
+  const fromEmail = getFromEmail();
+  logStep("Sending client confirmation email", { from: fromEmail, to: booking.client_email });
+  
+  const emailResult = await resend.emails.send({
+    from: fromEmail,
     to: [booking.client_email],
     subject: `Réservation reçue - ${sessionDate}`,
     html
   });
+  
+  if (emailResult.error) {
+    logStep("Client email ERROR", { error: emailResult.error });
+    throw new Error(`Failed to send client email: ${JSON.stringify(emailResult.error)}`);
+  }
   
   logStep("Client confirmation sent", { email: booking.client_email });
 }
