@@ -40,7 +40,7 @@ const PaymentSuccess = () => {
 
         if (error) throw error;
 
-        if (data?.paid) {
+        if (data?.success && data?.paymentStatus === "paid") {
           setIsSuccess(true);
 
           // Check if this is an instrumental purchase
