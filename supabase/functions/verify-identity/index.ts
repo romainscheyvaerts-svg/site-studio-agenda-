@@ -10,7 +10,7 @@ const corsHeaders = {
 const verifyIdentitySchema = z.object({
   imageBase64: z.string()
     .min(100, "Image data is too short")
-    .max(10 * 1024 * 1024, "Image data exceeds 10MB limit"), // ~7.5MB actual image
+    .max(15 * 1024 * 1024, "Image data exceeds 15MB limit"), // ~11MB actual image after base64
   formName: z.string()
     .trim()
     .min(2, "Name must be at least 2 characters")
