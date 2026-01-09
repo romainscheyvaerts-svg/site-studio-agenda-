@@ -222,27 +222,30 @@ export default function PublicBookingCalendar() {
       // Create Stripe payment session
       const { data, error } = await supabase.functions.invoke('create-stripe-payment', {
         body: {
+          // The backend recomputes the final price (base prices + sales) and will ignore mismatches
           amount,
           email: clientEmail,
-          sessionType: service?.name_fr || 'Session studio',
-          sessionDate: selectedDate,
-          startTime,
-          endTime,
-          duration: selectedDuration,
-          clientName,
-          clientPhone,
+          sessionType: selectedService, // service_key
+          hours: selectedDuration,
+          date: selectedDate,
+          time: startTime,
+          isDeposit: false,
+          totalPrice: priceData.discounted,
+          name: clientName,
+          phone: clientPhone,
+          message: "",
           bookingData: {
             clientName,
             clientEmail,
             clientPhone,
-            sessionType: service?.name_fr || 'Session studio',
+            sessionType: selectedService,
             sessionDate: selectedDate,
             startTime,
             endTime,
             durationHours: selectedDuration,
-            amount
-          }
-        }
+            amount,
+          },
+        },
       });
 
       if (error) throw error;
