@@ -71,38 +71,55 @@ const PaymentSuccess = () => {
                 description: "Votre instrumental a été envoyé par email. Vérifiez votre boîte de réception.",
               });
             }
-          } else {
-            // Studio booking flow
-            const { error: bookingError } = await supabase.functions.invoke("paypal-webhook", {
-              body: {
-                orderId: `STRIPE-${sessionId}`,
-                payerName: data.metadata?.name || "",
-                payerEmail: data.customerEmail || "",
-                phone: data.metadata?.phone || "",
-                sessionType: data.metadata?.sessionType || "",
-                date: data.metadata?.date || "",
-                time: data.metadata?.time || "",
-                hours: parseInt(data.metadata?.hours || "0"),
-                totalAmount: parseFloat(data.metadata?.totalPrice || data.amount?.toString() || "0"),
-                message: data.metadata?.message || "",
-                isCashPayment: false,
-                podcastMinutes: data.metadata?.podcastMinutes ? parseInt(data.metadata.podcastMinutes) : undefined,
-              },
-            });
-
-            if (bookingError) {
-              console.error("Booking creation error:", bookingError);
-              toast({
-                title: "Paiement réussi",
-                description: "Votre paiement a été accepté. Nous vous contacterons pour confirmer votre réservation.",
-              });
             } else {
-              toast({
-                title: "Paiement confirmé ! 🎉",
-                description: "Votre réservation a été enregistrée. Un email de confirmation vous a été envoyé.",
+              // Studio booking flow
+              const startTime = data.metadata?.time || "";
+              const durationHours = parseInt(data.metadata?.hours || "0");
+
+              const computeEndTime = (start: string, hoursToAdd: number) => {
+                const [hStr, mStr] = start.split(":");
+                const h = parseInt(hStr || "0");
+                const m = parseInt(mStr || "0");
+                const totalMinutes = h * 60 + m + hoursToAdd * 60;
+                const endH = Math.floor(totalMinutes / 60) % 24;
+                const endM = totalMinutes % 60;
+                return `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+              };
+
+              const endTime = startTime && durationHours
+                ? computeEndTime(startTime, durationHours)
+                : "";
+
+              const { error: bookingError } = await supabase.functions.invoke("process-booking-payment", {
+                body: {
+                  clientName: data.metadata?.name || "",
+                  clientEmail: data.customerEmail || "",
+                  clientPhone: data.metadata?.phone || undefined,
+                  sessionType: data.metadata?.sessionType || "",
+                  sessionDate: data.metadata?.date || "",
+                  startTime,
+                  endTime,
+                  durationHours,
+                  amount: data.amountTotal || 0,
+                  stripePaymentIntentId: data.paymentIntentId || "",
+                },
               });
+
+              if (bookingError) {
+                console.error("Booking creation error:", bookingError);
+                toast({
+                  title: "Paiement réussi",
+                  description:
+                    "Votre paiement a été accepté, mais la réservation n'a pas pu être finalisée automatiquement. Nous vous contactons rapidement.",
+                  variant: "destructive",
+                });
+              } else {
+                toast({
+                  title: "Paiement confirmé !",
+                  description: "Votre réservation a été enregistrée. Un email de confirmation vous a été envoyé.",
+                });
+              }
             }
-          }
         } else {
           toast({
             title: "Vérification du paiement",
