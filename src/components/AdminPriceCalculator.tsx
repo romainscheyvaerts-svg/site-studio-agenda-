@@ -1,20 +1,35 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { 
-  Mic, Building2, Music, Headphones, Disc, Radio, 
-  Euro, Percent, Calculator, Clock, Calendar, X, FileText, Loader2,
-  Mail, FolderOpen, CreditCard
+import {
+  Mic,
+  Building2,
+  Music,
+  Headphones,
+  Disc,
+  Radio,
+  Euro,
+  Percent,
+  Calculator,
+  Clock,
+  Calendar,
+  X,
+  FileText,
+  Loader2,
+  Mail,
+  FolderOpen,
+  CreditCard,
 } from "lucide-react";
 import AdminCalendar from "./AdminCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePricing } from "@/hooks/usePricing";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 
@@ -32,6 +47,8 @@ interface AdminPriceCalculatorProps {
 
 const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) => {
   const { toast } = useToast();
+  const { getPrice } = usePricing();
+
   const [selectedService, setSelectedService] = useState<SessionType>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [hours, setHours] = useState(2);
@@ -48,14 +65,20 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
   const [includeStripeLink, setIncludeStripeLink] = useState(false);
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
 
-  const pricing: Record<string, number> = {
-    "with-engineer": 45,
-    "without-engineer": 22,
-    "mixing": 200,
-    "mastering": 60,
-    "analog-mastering": 100,
-    "podcast": 40,
-  };
+  const unitPrice = useMemo(() => {
+    if (!selectedService) return 0;
+    return getPrice(selectedService);
+  }, [getPrice, selectedService]);
+
+  const formatServicePrice = useCallback(
+    (service: Exclude<SessionType, null>) => {
+      const price = getPrice(service);
+      if (service === "with-engineer" || service === "without-engineer") return `${price}€/h`;
+      if (service === "podcast") return `${price}€/min`;
+      return `${price}€`;
+    },
+    [getPrice]
+  );
 
   const serviceLabels: Record<string, string> = {
     "with-engineer": "Avec Ingénieur",
@@ -66,19 +89,20 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
     "podcast": "Mixage Podcast",
   };
 
-  const isHourlyService = selectedService === "with-engineer" || selectedService === "without-engineer";
+  const isHourlyService =
+    selectedService === "with-engineer" || selectedService === "without-engineer";
   const isPodcast = selectedService === "podcast";
 
   const totalPrice = useMemo(() => {
     if (!selectedService) return 0;
     if (isPodcast) {
-      return podcastMinutes * pricing[selectedService];
+      return podcastMinutes * unitPrice;
     }
     if (isHourlyService) {
-      return hours * pricing[selectedService];
+      return hours * unitPrice;
     }
-    return pricing[selectedService];
-  }, [selectedService, hours, podcastMinutes, isHourlyService, isPodcast]);
+    return unitPrice;
+  }, [selectedService, hours, podcastMinutes, isHourlyService, isPodcast, unitPrice]);
 
   const discountAmount = useMemo(() => {
     return Math.round(totalPrice * (discountPercent / 100));
@@ -97,16 +121,20 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
     setSelectedDate(date);
     setSelectedTime(time);
     setHours(duration);
-    
+
     if (onPriceCalculated && selectedService) {
+      const calculatedTotal = isHourlyService ? duration * unitPrice : unitPrice;
+      const calculatedFinal =
+        discountPercent > 0
+          ? Math.round(calculatedTotal * (1 - discountPercent / 100))
+          : calculatedTotal;
+
       onPriceCalculated({
         sessionType: selectedService,
         hours: duration,
-        totalPrice: isHourlyService ? duration * pricing[selectedService] : totalPrice,
+        totalPrice: calculatedTotal,
         discountPercent,
-        finalPrice: isHourlyService 
-          ? Math.round((duration * pricing[selectedService]) * (1 - discountPercent / 100))
-          : finalPrice,
+        finalPrice: calculatedFinal,
         date,
         time,
       });
@@ -163,13 +191,13 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
   };
 
   const services = [
-    { id: "with-engineer" as SessionType, icon: Mic, label: "AVEC INGÉNIEUR", price: "45€/h", color: "primary" },
-    { id: "without-engineer" as SessionType, icon: Building2, label: "LOCATION SÈCHE", price: "22€/h", color: "accent" },
-    { id: "mixing" as SessionType, icon: Music, label: "MIXAGE", price: "200€", color: "primary" },
-    { id: "mastering" as SessionType, icon: Headphones, label: "MASTERING", price: "60€", color: "primary" },
-    { id: "analog-mastering" as SessionType, icon: Disc, label: "MASTERING ANALOGIQUE", price: "100€", color: "accent" },
-    { id: "podcast" as SessionType, icon: Radio, label: "PODCAST", price: "40€/min", color: "primary" },
-  ];
+    { id: "with-engineer" as SessionType, icon: Mic, label: "AVEC INGÉNIEUR", color: "primary" },
+    { id: "without-engineer" as SessionType, icon: Building2, label: "LOCATION SÈCHE", color: "accent" },
+    { id: "mixing" as SessionType, icon: Music, label: "MIXAGE", color: "primary" },
+    { id: "mastering" as SessionType, icon: Headphones, label: "MASTERING", color: "primary" },
+    { id: "analog-mastering" as SessionType, icon: Disc, label: "MASTERING ANALOGIQUE", color: "accent" },
+    { id: "podcast" as SessionType, icon: Radio, label: "PODCAST", color: "primary" },
+  ] as const;
 
   return (
     <div className="space-y-6">
@@ -191,18 +219,28 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
                 className={cn(
                   "p-4 rounded-xl border-2 text-left transition-all duration-300",
                   isSelected
-                    ? service.color === "accent" 
+                    ? service.color === "accent"
                       ? "border-accent bg-accent/10 box-glow-gold"
                       : "border-primary bg-primary/10 box-glow-cyan"
                     : "border-border bg-card hover:border-primary/50"
                 )}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Icon className={cn("w-4 h-4", service.color === "accent" ? "text-accent" : "text-primary")} />
+                  <Icon
+                    className={cn(
+                      "w-4 h-4",
+                      service.color === "accent" ? "text-accent" : "text-primary"
+                    )}
+                  />
                   <span className="font-display text-sm text-foreground">{service.label}</span>
                 </div>
-                <span className={cn("text-xs font-semibold", service.color === "accent" ? "text-accent" : "text-primary")}>
-                  {service.price}
+                <span
+                  className={cn(
+                    "text-xs font-semibold",
+                    service.color === "accent" ? "text-accent" : "text-primary"
+                  )}
+                >
+                  {formatServicePrice(service.id)}
                 </span>
               </button>
             );
@@ -267,14 +305,18 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
               {isHourlyService && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Durée:</span>
-                  <span className="text-foreground font-medium">{hours}h × {pricing[selectedService]}€</span>
+                  <span className="text-foreground font-medium">
+                    {hours}h × {unitPrice}€
+                  </span>
                 </div>
               )}
-              
+
               {isPodcast && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Durée:</span>
-                  <span className="text-foreground font-medium">{podcastMinutes}min × {pricing[selectedService]}€</span>
+                  <span className="text-foreground font-medium">
+                    {podcastMinutes}min × {unitPrice}€
+                  </span>
                 </div>
               )}
 
