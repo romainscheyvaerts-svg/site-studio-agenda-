@@ -246,15 +246,19 @@ function isSlotAvailableInGoogle(
     const eventStart = new Date(event.start.dateTime || event.start.date || "");
     const eventEnd = new Date(event.end.dateTime || event.end.date || "");
     
-    // Extract email from event description if present
+    // Extract client email from event details if present
     let clientEmail: string | undefined;
-    if (event.description) {
-      const emailMatch = event.description.match(/Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
-      if (emailMatch) {
-        clientEmail = emailMatch[1].toLowerCase();
-      }
-    }
-    
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
+
+    const descriptionText = event.description || "";
+    const summaryText = event.summary || "";
+
+    // Prefer explicit "Email:" label if present, fallback to any email in description/summary
+    const labeledMatch = descriptionText.match(/Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+    const anyDescMatch = descriptionText.match(emailRegex);
+    const anySummaryMatch = summaryText.match(emailRegex);
+
+    clientEmail = (labeledMatch?.[1] || anyDescMatch?.[1] || anySummaryMatch?.[1])?.toLowerCase();
     // Check for all-day events
     if (event.start.date && !event.start.dateTime) {
       const eventDate = event.start.date;
