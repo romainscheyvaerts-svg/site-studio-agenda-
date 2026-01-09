@@ -7,13 +7,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Get the from email address - prefer verified domain, fallback to resend.dev
+// Get the from email address.
+// IMPORTANT: Resend only allows sending from verified domains.
+// If a non-verified domain is configured, we fallback to resend.dev.
+const FALLBACK_FROM = "Make Music Studio <onboarding@resend.dev>";
 const getFromEmail = () => {
-  const customFrom = Deno.env.get("RESEND_FROM_EMAIL");
-  if (customFrom) {
-    return customFrom;
-  }
-  return "Make Music Studio <onboarding@resend.dev>";
+  const customFrom = (Deno.env.get("RESEND_FROM_EMAIL") || "").trim();
+  if (!customFrom) return FALLBACK_FROM;
+
+  // If someone configured a gmail address here, it will be rejected by Resend.
+  if (/(@gmail\.com|@googlemail\.com)\b/i.test(customFrom)) return FALLBACK_FROM;
+
+  // If they provided a raw email, wrap it.
+  if (!customFrom.includes("<")) return `Make Music Studio <${customFrom}>`;
+
+  return customFrom;
 };
 
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
@@ -355,23 +363,34 @@ async function sendAdminNotification(
   `;
   
   const fromEmail = getFromEmail();
-  logStep("Sending admin notification email", { from: fromEmail, to: ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'] });
-  
-  const emailResult = await resend.emails.send({
-    from: fromEmail,
-    to: ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'],
-    subject: hasConflict 
-      ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}` 
-      : `Nouvelle réservation de ${booking.client_name}`,
-    html
-  });
-  
-  if (emailResult.error) {
-    logStep("Admin email ERROR", { error: emailResult.error });
-    throw new Error(`Failed to send admin email: ${JSON.stringify(emailResult.error)}`);
+  const toEmails = ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'];
+  logStep("Sending admin notification email", { from: fromEmail, to: toEmails });
+
+  const attemptSend = async (from: string) =>
+    await resend.emails.send({
+      from,
+      to: toEmails,
+      subject: hasConflict
+        ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}`
+        : `Nouvelle réservation de ${booking.client_name}`,
+      html,
+    });
+
+  // 1) try configured sender
+  let emailResult = await attemptSend(fromEmail);
+
+  // 2) if sender domain not verified, fallback to resend.dev sender
+  if (emailResult.error && (emailResult.error as any)?.statusCode === 403) {
+    logStep("Admin email rejected - retrying with fallback sender", { error: emailResult.error });
+    emailResult = await attemptSend(FALLBACK_FROM);
   }
-  
-  logStep("Admin notification sent", { hasConflict });
+
+  if (emailResult.error) {
+    // Do NOT fail the booking creation; but we keep a clear log.
+    logStep("Admin email FINAL ERROR", { error: emailResult.error });
+  } else {
+    logStep("Admin notification sent", { hasConflict });
+  }
 }
 
 // Send client confirmation email
@@ -445,20 +464,29 @@ async function sendClientConfirmation(
   
   const fromEmail = getFromEmail();
   logStep("Sending client confirmation email", { from: fromEmail, to: booking.client_email });
-  
-  const emailResult = await resend.emails.send({
-    from: fromEmail,
-    to: [booking.client_email],
-    subject: `Réservation reçue - ${sessionDate}`,
-    html
-  });
-  
-  if (emailResult.error) {
-    logStep("Client email ERROR", { error: emailResult.error });
-    throw new Error(`Failed to send client email: ${JSON.stringify(emailResult.error)}`);
+
+  const attemptSend = async (from: string) =>
+    await resend.emails.send({
+      from,
+      to: [booking.client_email],
+      subject: `Réservation reçue - ${sessionDate}`,
+      html,
+    });
+
+  // 1) try configured sender
+  let emailResult = await attemptSend(fromEmail);
+
+  // 2) fallback if domain not verified
+  if (emailResult.error && (emailResult.error as any)?.statusCode === 403) {
+    logStep("Client email rejected - retrying with fallback sender", { error: emailResult.error });
+    emailResult = await attemptSend(FALLBACK_FROM);
   }
-  
-  logStep("Client confirmation sent", { email: booking.client_email });
+
+  if (emailResult.error) {
+    logStep("Client email FINAL ERROR", { error: emailResult.error });
+  } else {
+    logStep("Client confirmation sent", { email: booking.client_email });
+  }
 }
 
 serve(async (req) => {
