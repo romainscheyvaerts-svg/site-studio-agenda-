@@ -9,6 +9,7 @@ import AdminChatbotConfig from "./AdminChatbotConfig";
 import AdminActivitySecurity from "./AdminActivitySecurity";
 import AdminGallery from "./AdminGallery";
 import AdminPromoCodeManager from "./AdminPromoCodeManager";
+import AdminRoleManager from "./AdminRoleManager";
 
 interface AdminPanelProps {
   inline?: boolean;
@@ -53,6 +54,9 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
 
         {/* Content */}
         <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)] space-y-6">
+          {/* Super Admin - Role Manager (only visible to super admins) */}
+          <AdminRoleManager />
+
           {/* Promo Codes Management */}
           <AdminPromoCodeManager />
 
