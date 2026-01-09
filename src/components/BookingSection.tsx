@@ -334,6 +334,20 @@ const BookingSection = () => {
     };
   }, []);
 
+  // Listen for open-admin-calendar event from Hero
+  useEffect(() => {
+    const handleOpenAdminCalendar = () => {
+      if (isAdmin) {
+        setShowVIPCalendar(true);
+      }
+    };
+
+    window.addEventListener("open-admin-calendar", handleOpenAdminCalendar);
+    return () => {
+      window.removeEventListener("open-admin-calendar", handleOpenAdminCalendar);
+    };
+  }, [isAdmin]);
+
   // Handle Stripe payment callback
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
