@@ -132,6 +132,8 @@ async function getCalendarEvents(
   url.searchParams.set("timeMax", timeMax);
   url.searchParams.set("singleEvents", "true");
   url.searchParams.set("orderBy", "startTime");
+  // Request full event details including description
+  url.searchParams.set("fields", "items(id,summary,description,start,end)");
 
   const response = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
