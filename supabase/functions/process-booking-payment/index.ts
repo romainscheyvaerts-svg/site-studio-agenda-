@@ -12,6 +12,7 @@ const corsHeaders = {
 // FALLBACK: onboarding@resend.dev (sandbox - only works for verified emails in Resend dashboard)
 const PRIMARY_FROM = "Make Music Studio <noreply@makemusicstudio.be>";
 const FALLBACK_FROM = "Make Music Studio <onboarding@resend.dev>";
+const ADMIN_EMAIL = "prod.makemusic@gmail.com";
 
 const getFromEmail = () => {
   // Check if custom email is set in secrets
@@ -27,6 +28,10 @@ const getFromEmail = () => {
   
   // Default to verified domain
   return PRIMARY_FROM;
+};
+
+const getAdminEmail = () => {
+  return Deno.env.get("ADMIN_EMAIL") || ADMIN_EMAIL;
 };
 
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
@@ -368,7 +373,7 @@ async function sendAdminNotification(
   `;
   
   const fromEmail = getFromEmail();
-  const adminEmail = 'prod.makemusic@gmail.com';
+  const adminEmail = getAdminEmail();
   logStep("[EMAIL] Attempting to send admin notification", { 
     from: fromEmail, 
     to: adminEmail,

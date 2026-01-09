@@ -241,29 +241,40 @@ serve(async (req) => {
     `;
 
     // Send to client
-    const { error: clientEmailError } = await resend.emails.send({
-      from: "Make Music <onboarding@resend.dev>",
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@makemusicstudio.be";
+    const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
+    const adminEmailAddress = "prod.makemusic@gmail.com";
+    
+    logStep("Sending email", { from: fromAddress, to: clientEmail });
+    
+    const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
+      from: fromAddress,
       to: [clientEmail],
+      reply_to: adminEmailAddress,
       subject: `🎵 Make Music - ${serviceLabels[sessionType] || sessionType}`,
       html: emailHtml,
     });
 
     if (clientEmailError) {
-      logStep("Client email error", clientEmailError);
+      logStep("Client email error", JSON.stringify(clientEmailError));
       throw new Error("Failed to send email to client");
     }
 
-    logStep("Email sent to client");
+    logStep("Email sent to client", { id: clientEmailData?.id });
 
     // Send copy to admin
-    await resend.emails.send({
-      from: "Make Music <onboarding@resend.dev>",
-      to: ["prod.makemusic@gmail.com"],
+    const { data: adminCopyData, error: adminCopyError } = await resend.emails.send({
+      from: fromAddress,
+      to: [adminEmailAddress],
       subject: `[COPIE] Email envoyé à ${clientEmail} - ${serviceLabels[sessionType] || sessionType}`,
       html: emailHtml,
     });
 
-    logStep("Copy sent to admin");
+    if (adminCopyError) {
+      logStep("Admin copy error (non-blocking)", JSON.stringify(adminCopyError));
+    } else {
+      logStep("Copy sent to admin", { id: adminCopyData?.id });
+    }
 
     return new Response(
       JSON.stringify({

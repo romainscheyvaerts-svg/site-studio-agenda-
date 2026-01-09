@@ -164,9 +164,16 @@ serve(async (req) => {
     }
 
     // ---------- 1. EMAIL TO ADMIN ----------
-    const { error: adminEmailError } = await resend.emails.send({
-      from: "Make Music Studio <onboarding@resend.dev>",
-      to: ["romain.scheyvaerts@gmail.com"],
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@makemusicstudio.be";
+    const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
+    const adminEmail = "prod.makemusic@gmail.com";
+    
+    console.log(`[EMAIL] Sending admin notification to: ${adminEmail}`);
+    console.log(`[EMAIL] From: ${fromAddress}`);
+    
+    const { data: adminEmailData, error: adminEmailError } = await resend.emails.send({
+      from: fromAddress,
+      to: [adminEmail],
       reply_to: "prod.makemusic@gmail.com",
       subject: `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`,
       html: `
@@ -210,16 +217,18 @@ serve(async (req) => {
     });
 
     if (adminEmailError) {
-      console.error("[BOOKING-NOTIFICATION] Admin email error:", adminEmailError);
+      console.error("[BOOKING-NOTIFICATION] Admin email error:", JSON.stringify(adminEmailError));
     } else {
-      console.log("[BOOKING-NOTIFICATION] Admin email sent successfully");
+      console.log("[BOOKING-NOTIFICATION] Admin email sent successfully, ID:", adminEmailData?.id);
     }
 
     // ---------- 2. EMAIL TO CLIENT ----------
-    const { error: clientEmailError } = await resend.emails.send({
-      from: "Make Music Studio <onboarding@resend.dev>",
+    console.log(`[EMAIL] Sending client confirmation to: ${booking.clientEmail}`);
+    
+    const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
+      from: fromAddress,
       to: [booking.clientEmail],
-      reply_to: "prod.makemusic@gmail.com",
+      reply_to: adminEmail,
       subject: `✅ Confirmation de réservation - Make Music Studio`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
@@ -290,11 +299,11 @@ serve(async (req) => {
     });
 
     if (clientEmailError) {
-      console.error("[BOOKING-NOTIFICATION] Client email error:", clientEmailError);
+      console.error("[BOOKING-NOTIFICATION] Client email error:", JSON.stringify(clientEmailError));
       throw clientEmailError;
     }
     
-    console.log("[BOOKING-NOTIFICATION] Client email sent successfully to", booking.clientEmail);
+    console.log("[BOOKING-NOTIFICATION] Client email sent successfully to", booking.clientEmail, "ID:", clientEmailData?.id);
 
     return new Response(
       JSON.stringify({ success: true }),
