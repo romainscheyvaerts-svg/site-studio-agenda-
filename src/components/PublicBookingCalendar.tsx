@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TimeSlot {
   hour: number;
@@ -44,6 +45,7 @@ interface SalesConfig {
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 9); // 9h to 22h
 
 export default function PublicBookingCalendar() {
+  const { user } = useAuth();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,13 +58,28 @@ export default function PublicBookingCalendar() {
   const [selectedDuration, setSelectedDuration] = useState(2);
   const [selectedService, setSelectedService] = useState<string>("");
   
-  // Form state
+  // Form state - pre-fill with user data if logged in
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   
   // Payment state
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Pre-fill form with user data when logged in
+  useEffect(() => {
+    if (user) {
+      if (!clientName) {
+        setClientName((user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || "");
+      }
+      if (!clientEmail) {
+        setClientEmail(user.email || "");
+      }
+      if (!clientPhone) {
+        setClientPhone((user.user_metadata?.phone as string) || "");
+      }
+    }
+  }, [user]);
 
   // Fetch services and sales config
   useEffect(() => {
