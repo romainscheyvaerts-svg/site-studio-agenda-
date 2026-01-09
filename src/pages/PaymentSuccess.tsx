@@ -17,8 +17,20 @@ const PaymentSuccess = () => {
     const paymentType = searchParams.get("payment");
     const type = searchParams.get("type");
     
+    // IDEMPOTENCY: Check if this session has already been processed
+    const processedKey = `payment_processed_${sessionId || paymentType || 'generic'}`;
+    const alreadyProcessed = localStorage.getItem(processedKey);
+    
+    if (alreadyProcessed) {
+      // Page was refreshed - show success without reprocessing
+      setIsSuccess(true);
+      setIsVerifying(false);
+      return;
+    }
+    
     // If PayPal or SEPA payment (already processed before redirect)
     if (paymentType === "paypal" || paymentType === "sepa") {
+      localStorage.setItem(processedKey, 'true');
       setIsSuccess(true);
       setIsVerifying(false);
       return;
@@ -26,6 +38,7 @@ const PaymentSuccess = () => {
 
     // If no Stripe session ID, show generic success
     if (!sessionId) {
+      localStorage.setItem(processedKey, 'true');
       setIsSuccess(true);
       setIsVerifying(false);
       return;
@@ -41,6 +54,8 @@ const PaymentSuccess = () => {
         if (error) throw error;
 
         if (data?.success && data?.paymentStatus === "paid") {
+          // Mark as processed in localStorage to prevent duplicate processing on refresh
+          localStorage.setItem(processedKey, 'true');
           setIsSuccess(true);
 
           // Check if this is an instrumental purchase
