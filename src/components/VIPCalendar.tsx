@@ -15,6 +15,7 @@ interface TimeSlot {
   status: "available" | "unavailable" | "on-request";
   eventName?: string;
   eventId?: string;
+  clientEmail?: string;
 }
 
 interface DayAvailability {
@@ -129,12 +130,10 @@ const VIPCalendar = ({
           setSelectedSlots([...selectedSlots, { date, hour, eventId: slot.eventId }]);
         }
         
-        // In admin mode, try to find Google Drive folder for this client
-        if (isAdminMode && slot.eventName) {
-          // Extract email from event name (format: "email@domain.com — Session Type")
-          const emailMatch = slot.eventName.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-          if (emailMatch) {
-            const clientEmail = emailMatch[1].toLowerCase();
+        if (isAdminMode) {
+          // Use clientEmail from slot data (extracted from Google Calendar description)
+          const clientEmail = slot.clientEmail;
+          if (clientEmail) {
             const { data: folderData } = await supabase
               .from("client_drive_folders")
               .select("drive_folder_link")

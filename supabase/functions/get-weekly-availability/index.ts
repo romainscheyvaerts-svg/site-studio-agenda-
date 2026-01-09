@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Supabase client
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Input validation schema
 const AvailabilityRequestSchema = z.object({
@@ -17,6 +23,7 @@ interface CalendarEvent {
   start: { dateTime?: string; date?: string };
   end: { dateTime?: string; date?: string };
   summary?: string;
+  description?: string;
 }
 
 interface CalendarResponse {
@@ -35,6 +42,7 @@ interface TimeSlot {
   status: "available" | "unavailable" | "on-request";
   eventName?: string;
   eventId?: string;
+  clientEmail?: string;
 }
 
 interface DayAvailability {
@@ -230,23 +238,32 @@ function isSlotAvailableInGoogle(
   events: CalendarEvent[],
   slotStart: Date,
   slotEnd: Date
-): { available: boolean; eventName?: string; eventId?: string } {
+): { available: boolean; eventName?: string; eventId?: string; clientEmail?: string } {
   for (const event of events) {
     const eventStart = new Date(event.start.dateTime || event.start.date || "");
     const eventEnd = new Date(event.end.dateTime || event.end.date || "");
+    
+    // Extract email from event description if present
+    let clientEmail: string | undefined;
+    if (event.description) {
+      const emailMatch = event.description.match(/Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+      if (emailMatch) {
+        clientEmail = emailMatch[1].toLowerCase();
+      }
+    }
     
     // Check for all-day events
     if (event.start.date && !event.start.dateTime) {
       const eventDate = event.start.date;
       const slotDate = slotStart.toISOString().split("T")[0];
       if (eventDate === slotDate) {
-        return { available: false, eventName: event.summary, eventId: event.id };
+        return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
       }
     }
     
     // Check for overlap
     if (eventStart < slotEnd && eventEnd > slotStart) {
-      return { available: false, eventName: event.summary, eventId: event.id };
+      return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
     }
   }
   return { available: true };
@@ -366,7 +383,8 @@ serve(async (req) => {
             available: false, 
             status: "unavailable", 
             eventName: studioResult.eventName,
-            eventId: studioResult.eventId 
+            eventId: studioResult.eventId,
+            clientEmail: studioResult.clientEmail
           });
         } else {
           // Studio is free, check if patron is busy in personal Google calendar OR Claridge
