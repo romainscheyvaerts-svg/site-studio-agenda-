@@ -1,13 +1,15 @@
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones, Music } from "lucide-react";
+import { Mic, Headphones, Music, CalendarDays } from "lucide-react";
 import { usePricing } from "@/hooks/usePricing";
+import { useAdmin } from "@/hooks/useAdmin";
 
 const Hero = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { getEffectivePrice, loading } = usePricing();
+  const { isAdmin } = useAdmin();
 
   const scrollToBooking = () => {
     document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
@@ -19,6 +21,14 @@ const Hero = () => {
 
   const goToInstrumentals = () => {
     navigate('/instrumentals');
+  };
+
+  const scrollToCalendar = () => {
+    // Scroll to booking section first, then the calendar will be visible
+    const bookingSection = document.getElementById('booking');
+    if (bookingSection) {
+      bookingSection.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
@@ -52,7 +62,7 @@ const Hero = () => {
           </p>
           
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
             <Button variant="hero" size="xl" onClick={scrollToBooking}>
               <Mic className="w-5 h-5" />
               {t("hero.cta_book").toUpperCase()}
@@ -66,6 +76,23 @@ const Hero = () => {
               INSTRUMENTAUX
             </Button>
           </div>
+
+          {/* Admin: View Calendar Button */}
+          {isAdmin && (
+            <div className="flex justify-center mb-12">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                onClick={scrollToCalendar}
+                className="border-green-500 text-green-500 hover:bg-green-500/10 hover:border-green-400"
+              >
+                <CalendarDays className="w-5 h-5" />
+                Voir l'agenda
+              </Button>
+            </div>
+          )}
+
+          {!isAdmin && <div className="mb-12" />}
           
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 max-w-xl mx-auto">
