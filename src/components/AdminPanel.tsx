@@ -122,10 +122,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                     <h3 className="font-semibold text-amber-200">Zone Super Admin</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Gérez les rôles administrateurs et les accès privilégiés.
+                    Gérez les rôles administrateurs, les accès privilégiés et le catalogue d'instrumentales.
                   </p>
                 </div>
                 <AdminRoleManager />
+                <AdminInstrumentals />
               </TabsContent>
             )}
 
@@ -149,14 +150,13 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
             <TabsContent value="content" className="mt-0 space-y-4">
               <div className="bg-muted/30 rounded-lg p-4 mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Music className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Contenu & Médias</h3>
+                  <Image className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold">Galerie Photos</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Gérez les instrumentales et la galerie photos.
+                  Gérez la galerie photos du studio.
                 </p>
               </div>
-              <AdminInstrumentals />
               <AdminGallery />
             </TabsContent>
 
