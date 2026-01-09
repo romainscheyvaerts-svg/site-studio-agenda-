@@ -16,6 +16,8 @@ import Download from "./pages/Download";
 import Studio from "./pages/Studio";
 import StudioMusic from "./pages/StudioMusic";
 import StudioGalleryPage from "./pages/StudioGallery";
+import BookingAction from "./pages/BookingAction";
+import BookingStatus from "./pages/BookingStatus";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,8 @@ const App = () => (
             <Route path="/success" element={<PaymentSuccess />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/cancel" element={<PaymentCancel />} />
+            <Route path="/booking-action" element={<BookingAction />} />
+            <Route path="/booking-status" element={<BookingStatus />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
