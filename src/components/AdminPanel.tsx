@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp, Euro, Music, Shield } from "lucide-react";
+import { Settings, X, Tag, Check, AlertCircle, ChevronDown, ChevronUp, Euro, Music, Shield, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import AdminUserManagement from "./AdminUserManagement";
 import AdminChatbotConfig from "./AdminChatbotConfig";
 import AdminActivitySecurity from "./AdminActivitySecurity";
 import AdminGallery from "./AdminGallery";
+import AdminPricingContent from "./AdminPricingContent";
 
 interface PromoCode {
   id: string;
@@ -214,6 +215,9 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
 
           {/* Services Pricing Management */}
           <AdminServicesPricing />
+
+          {/* Pricing Content (Nos Offres) */}
+          <AdminPricingContent />
 
           {/* User Management */}
           <AdminUserManagement />
