@@ -769,6 +769,28 @@ serve(async (req) => {
     const body: BookingRequest = await req.json();
     logStep("Request body received", body);
     
+    // IDEMPOTENCY CHECK: Prevent duplicate bookings on page refresh
+    if (body.stripePaymentIntentId) {
+      const { data: existingBooking } = await supabaseClient
+        .from('bookings')
+        .select('id, status')
+        .eq('stripe_payment_intent_id', body.stripePaymentIntentId)
+        .maybeSingle();
+      
+      if (existingBooking) {
+        logStep("Booking already exists for this payment", { bookingId: existingBooking.id });
+        return new Response(JSON.stringify({
+          success: true,
+          bookingId: existingBooking.id,
+          status: existingBooking.status,
+          alreadyProcessed: true
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
+    
     // Parse booking date and times
     const bookingDate = new Date(body.sessionDate);
     const [startHour, startMin] = body.startTime.split(':').map(Number);
