@@ -23,12 +23,16 @@ const Hero = () => {
     navigate('/instrumentals');
   };
 
-  const scrollToCalendar = () => {
-    // Scroll to booking section first, then the calendar will be visible
-    const bookingSection = document.getElementById('booking');
-    if (bookingSection) {
-      bookingSection.scrollIntoView({ behavior: 'smooth' });
-    }
+  const openAdminCalendar = () => {
+    // Dispatch event to open the admin calendar in BookingSection
+    window.dispatchEvent(new CustomEvent('open-admin-calendar'));
+    // Scroll to booking section
+    setTimeout(() => {
+      const bookingSection = document.getElementById('booking');
+      if (bookingSection) {
+        bookingSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
   };
 
   const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
@@ -83,7 +87,7 @@ const Hero = () => {
               <Button 
                 variant="outline" 
                 size="lg" 
-                onClick={scrollToCalendar}
+                onClick={openAdminCalendar}
                 className="border-green-500 text-green-500 hover:bg-green-500/10 hover:border-green-400"
               >
                 <CalendarDays className="w-5 h-5" />
