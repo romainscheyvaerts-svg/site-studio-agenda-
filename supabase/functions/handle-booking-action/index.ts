@@ -8,10 +8,186 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[BOOKING-ACTION] ${step}${detailsStr}`);
 };
+
+// Get Google Drive access token
+async function getDriveAccessToken(serviceAccountKey: string): Promise<string> {
+  const key = JSON.parse(serviceAccountKey);
+  const now = Math.floor(Date.now() / 1000);
+  
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const payload = {
+    iss: key.client_email,
+    scope: 'https://www.googleapis.com/auth/drive',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const signatureInput = `${headerB64}.${payloadB64}`;
+
+  const keyData = key.private_key
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\n/g, '');
+  const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    binaryKey,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    encoder.encode(signatureInput)
+  );
+
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+  const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
+}
+
+// Create client folder and session subfolder in Google Drive
+async function createClientDriveFolder(
+  supabaseClient: any,
+  accessToken: string,
+  booking: any
+): Promise<{ clientFolderLink: string; subfolderLink: string } | null> {
+  try {
+    const clientEmail = booking.client_email;
+    const clientName = booking.client_name;
+    const sessionDate = booking.session_date;
+
+    // Check if client already has a folder
+    const { data: existingFolder } = await supabaseClient
+      .from("client_drive_folders")
+      .select("*")
+      .eq("client_email", clientEmail)
+      .maybeSingle();
+
+    let clientFolderId: string;
+    let clientFolderLink: string;
+
+    if (existingFolder) {
+      logStep("Using existing client folder", { folderId: existingFolder.drive_folder_id });
+      clientFolderId = existingFolder.drive_folder_id;
+      clientFolderLink = existingFolder.drive_folder_link;
+    } else {
+      // Create new client folder
+      logStep("Creating new client folder for", { clientName, clientEmail });
+      
+      const createFolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: clientName || clientEmail,
+          mimeType: "application/vnd.google-apps.folder",
+          parents: [PARENT_FOLDER_ID],
+        }),
+      });
+
+      const newFolder = await createFolderResponse.json();
+      if (!createFolderResponse.ok) {
+        logStep("Failed to create client folder", { error: newFolder });
+        return null;
+      }
+
+      clientFolderId = newFolder.id;
+      clientFolderLink = `https://drive.google.com/drive/folders/${newFolder.id}`;
+
+      // Set folder permissions (anyone with link can edit)
+      await fetch(`https://www.googleapis.com/drive/v3/files/${newFolder.id}/permissions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role: "writer",
+          type: "anyone",
+        }),
+      });
+
+      // Save to database
+      await supabaseClient.from("client_drive_folders").insert({
+        client_email: clientEmail,
+        client_name: clientName || clientEmail,
+        drive_folder_id: newFolder.id,
+        drive_folder_link: clientFolderLink,
+      });
+
+      logStep("Client folder created", { clientFolderLink });
+    }
+
+    // Create subfolder with session date
+    const subfolderName = sessionDate || new Date().toISOString().split("T")[0];
+    
+    const createSubfolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: subfolderName,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [clientFolderId],
+      }),
+    });
+
+    const subfolder = await createSubfolderResponse.json();
+    if (!createSubfolderResponse.ok) {
+      logStep("Failed to create subfolder", { error: subfolder });
+      return null;
+    }
+
+    // Set subfolder permissions
+    await fetch(`https://www.googleapis.com/drive/v3/files/${subfolder.id}/permissions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        role: "writer",
+        type: "anyone",
+      }),
+    });
+
+    const subfolderLink = `https://drive.google.com/drive/folders/${subfolder.id}`;
+    logStep("Session subfolder created", { subfolderLink });
+
+    return { clientFolderLink, subfolderLink };
+  } catch (error) {
+    logStep("Error creating Drive folder", { error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
+}
 
 // Get Google Calendar access token
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
@@ -116,14 +292,30 @@ async function addToGoogleCalendar(
   return createdEvent.id;
 }
 
-// Send confirmation email to client
-async function sendClientFinalConfirmation(resend: Resend, booking: any): Promise<void> {
+// Send confirmation email to client with Drive folder link
+async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLink?: string): Promise<void> {
   const sessionDate = new Date(booking.session_date).toLocaleDateString('fr-FR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
+
+  // Build Drive section if link is available
+  const driveSectionHtml = driveLink ? `
+      <div style="background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); border-radius: 8px; padding: 20px; margin-bottom: 20px; color: white;">
+        <h4 style="margin: 0 0 12px 0; font-size: 16px;">📁 Votre dossier de session</h4>
+        <p style="margin: 0 0 16px 0; opacity: 0.9; font-size: 14px;">
+          Cliquez ci-dessous pour accéder à votre dossier Google Drive.<br>
+          Vous pouvez y déposer vos fichiers (instrumentales, références, etc.) avant la session.
+        </p>
+        <a href="${driveLink}" 
+           target="_blank" 
+           style="display: inline-block; background-color: white; color: #4285F4; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          📂 Ouvrir mon dossier Drive
+        </a>
+      </div>
+  ` : '';
   
   const html = `
     <!DOCTYPE html>
@@ -159,6 +351,8 @@ async function sendClientFinalConfirmation(resend: Resend, booking: any): Promis
           </tr>
         </table>
       </div>
+
+      ${driveSectionHtml}
       
       <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
         <h4 style="color: #92400E; margin: 0 0 8px 0;">📍 Adresse du studio</h4>
@@ -188,7 +382,7 @@ async function sendClientFinalConfirmation(resend: Resend, booking: any): Promis
     html
   });
   
-  logStep("Final confirmation sent to client", { email: booking.client_email });
+  logStep("Final confirmation sent to client", { email: booking.client_email, hasDriveLink: !!driveLink });
 }
 
 // Send rejection/refund email to client
@@ -290,14 +484,31 @@ serve(async (req) => {
     }
     
     if (action === 'confirm') {
-      // Add to Google Calendar
       const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
       const calendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
       
       let googleEventId = null;
-      if (serviceAccountKey && calendarId) {
-        const accessToken = await getAccessToken(serviceAccountKey);
-        googleEventId = await addToGoogleCalendar(accessToken, calendarId, booking);
+      let driveLink: string | undefined = undefined;
+
+      if (serviceAccountKey) {
+        // Get access tokens for Calendar and Drive
+        const calendarAccessToken = await getAccessToken(serviceAccountKey);
+        const driveAccessToken = await getDriveAccessToken(serviceAccountKey);
+        
+        // Add to Google Calendar
+        if (calendarId) {
+          googleEventId = await addToGoogleCalendar(calendarAccessToken, calendarId, booking);
+        }
+        
+        // Create Google Drive folder for client
+        const driveFolderResult = await createClientDriveFolder(supabaseClient, driveAccessToken, booking);
+        if (driveFolderResult) {
+          driveLink = driveFolderResult.subfolderLink;
+          logStep("Drive folder created", { 
+            clientFolder: driveFolderResult.clientFolderLink,
+            sessionFolder: driveFolderResult.subfolderLink 
+          });
+        }
       }
       
       // Update booking status
@@ -314,10 +525,10 @@ serve(async (req) => {
         throw new Error(`Failed to update booking: ${updateError.message}`);
       }
       
-      // Send confirmation to client
-      await sendClientFinalConfirmation(resend, booking);
+      // Send confirmation to client with Drive link
+      await sendClientFinalConfirmation(resend, booking, driveLink);
       
-      logStep("Booking confirmed", { bookingId: booking.id });
+      logStep("Booking confirmed", { bookingId: booking.id, hasDriveLink: !!driveLink });
       
       // Redirect to success page
       const origin = req.headers.get("origin") || "https://makemusicstudio.be";
