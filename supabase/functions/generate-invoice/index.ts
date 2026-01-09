@@ -184,13 +184,12 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: authHeader } },
-    });
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
     if (authError || !user) {
       console.error("[INVOICE] Auth error:", authError?.message);
       return new Response(
@@ -199,8 +198,15 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin
-    if (user.email !== "prod.makemusic@gmail.com") {
+    // Check if user is admin via database role check
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    
+    if (roleError || !roleData) {
       console.error("[INVOICE] Non-admin user attempted to generate invoice:", user.email);
       return new Response(
         JSON.stringify({ error: "Forbidden - Admin access required" }),

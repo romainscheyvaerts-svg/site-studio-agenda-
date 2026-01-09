@@ -768,15 +768,19 @@ async function createDriveFolder(
   return folder;
 }
 
-async function setFolderPublicReadAccess(
+// Share folder with specific client email (authenticated access)
+async function shareFolderWithClient(
   accessToken: string,
-  folderId: string
-): Promise<void> {
-  console.log(`[DRIVE] Setting public read access for folder ${folderId}`);
+  folderId: string,
+  clientEmail: string
+): Promise<boolean> {
+  console.log(`[DRIVE] Sharing folder ${folderId} with client email: ${clientEmail}`);
 
   const permission = {
-    type: "anyone",
+    type: "user",
     role: "reader",
+    emailAddress: clientEmail,
+    sendNotificationEmail: false, // We send our own email notification
   };
 
   const response = await fetch(
@@ -793,11 +797,13 @@ async function setFolderPublicReadAccess(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[DRIVE] Error setting public access:", errorText);
-    throw new Error(`Failed to set public access: ${response.status}`);
+    console.error("[DRIVE] Error sharing folder with client:", errorText);
+    // Return false instead of throwing - client email might not be a Google account
+    return false;
   }
 
-  console.log(`[DRIVE] Public read access set successfully`);
+  console.log(`[DRIVE] Folder shared successfully with ${clientEmail}`);
+  return true;
 }
 
 async function shareDriveFolder(
@@ -861,14 +867,17 @@ async function createClientSessionFolder(
     clientFolderId = clientFolder.id;
     clientFolderLink = clientFolder.webViewLink;
     
-    // Set public read access on client folder
-    await setFolderPublicReadAccess(accessToken, clientFolderId);
+    // Share folder with client email (authenticated access, not public)
+    const clientShared = await shareFolderWithClient(accessToken, clientFolderId, clientEmail);
+    if (!clientShared) {
+      console.log("[DRIVE] Could not share with client email, client may not have Google account");
+    }
     
-    // Also try to share with client email
+    // Also give admin writer access
     try {
-      await shareDriveFolder(accessToken, clientFolderId, clientEmail);
+      await shareDriveFolder(accessToken, clientFolderId, "prod.makemusic@gmail.com");
     } catch (shareError) {
-      console.log("[DRIVE] Could not share with user email, continuing with public link");
+      console.log("[DRIVE] Could not share with admin email");
     }
     
     // Save to database for future bookings
@@ -881,8 +890,8 @@ async function createClientSessionFolder(
   const sessionFolderName = sessionDate || new Date().toISOString().split("T")[0];
   const sessionFolder = await createDriveFolder(accessToken, sessionFolderName, clientFolderId);
   
-  // Set public read access on session subfolder
-  await setFolderPublicReadAccess(accessToken, sessionFolder.id);
+  // Share session subfolder with client email (authenticated access)
+  await shareFolderWithClient(accessToken, sessionFolder.id, clientEmail);
   
   console.log(`[DRIVE] Session subfolder created: ${sessionFolder.id}`);
 
