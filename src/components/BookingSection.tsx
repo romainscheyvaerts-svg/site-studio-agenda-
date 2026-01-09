@@ -68,19 +68,6 @@ const BookingSection = () => {
     message: "",
   });
 
-  // Pricing from admin (services table) + sales config
-  const [services, setServices] = useState<Array<{ service_key: string; base_price: number; price_unit: string }>>([]);
-  const [salesConfig, setSalesConfig] = useState<{
-    is_active: boolean;
-    discount_percentage: number;
-    discount_with_engineer: number | null;
-    discount_without_engineer: number | null;
-    discount_mixing: number | null;
-    discount_mastering: number | null;
-    discount_analog_mastering: number | null;
-    discount_podcast: number | null;
-  } | null>(null);
-
   // Pre-fill form with user data when logged in
   useEffect(() => {
     if (user) {
@@ -217,52 +204,22 @@ const BookingSection = () => {
   // Check if payment should be skipped (cashonly777 or vip777 + without-engineer)
   const skipPayment = combinedPromoEffects.skipPayment && (sessionType === "without-engineer" || isCashOnly);
 
-  // Fetch base prices + sales config (used across UI + payment amounts)
-  useEffect(() => {
-    const fetchPricing = async () => {
-      const [servicesRes, salesRes] = await Promise.all([
-        supabase.from("services").select("service_key, base_price, price_unit").eq("is_active", true),
-        supabase.from("sales_config").select("*").limit(1).single(),
-      ]);
-
-      if (servicesRes.data) setServices(servicesRes.data);
-      if (salesRes.data && !salesRes.error) setSalesConfig(salesRes.data);
-    };
-
-    fetchPricing();
-  }, []);
-
-  const getBasePrice = (service: string): number => {
-    return services.find((s) => s.service_key === service)?.base_price ?? 0;
+  const pricing: Record<string, number> = {
+    "with-engineer": 45,
+    "without-engineer": 22,
+    "mixing": 200,
+    "mastering": 60,
+    "analog-mastering": 100,
+    "podcast": 40, // par minute
   };
 
-  const getSaleDiscountPercent = (service: string): number => {
-    if (!salesConfig?.is_active) return 0;
-
-    const map: Record<string, number | null | undefined> = {
-      "with-engineer": salesConfig.discount_with_engineer,
-      "without-engineer": salesConfig.discount_without_engineer,
-      mixing: salesConfig.discount_mixing,
-      mastering: salesConfig.discount_mastering,
-      "analog-mastering": salesConfig.discount_analog_mastering,
-      podcast: salesConfig.discount_podcast,
-    };
-
-    return map[service] ?? salesConfig.discount_percentage ?? 0;
-  };
-
-  const getDiscountedUnitPrice = (service: string): number => {
-    const base = getBasePrice(service);
-    const discount = getSaleDiscountPercent(service);
-    if (!discount || discount <= 0) return base;
-    return Math.round(base * (1 - discount / 100));
-  };
-
-  // Get effective price (custom price from promo overrides admin pricing)
+  // Get effective price (custom price from promo or base price)
   const getEffectivePrice = (service: string): number => {
     const customPrice = combinedPromoEffects.customPrices?.[service];
-    if (customPrice !== undefined && customPrice !== null) return customPrice;
-    return getDiscountedUnitPrice(service);
+    if (customPrice !== undefined && customPrice !== null) {
+      return customPrice;
+    }
+    return pricing[service] || 0;
   };
 
   // Pour les services immédiats, pas de notion d'heures
@@ -1215,7 +1172,7 @@ const BookingSection = () => {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      {podcastMinutes} minute{podcastMinutes > 1 ? "s" : ""} × {getEffectivePrice("podcast")}€ = {podcastMinutes * getEffectivePrice("podcast")}€
+                      {podcastMinutes} minute{podcastMinutes > 1 ? "s" : ""} × 40€ = {podcastMinutes * 40}€
                     </p>
                   </div>
                 </div>
@@ -1263,7 +1220,7 @@ const BookingSection = () => {
                           date: date,
                           time: time,
                           hours: duration,
-                          totalAmount: duration * getEffectivePrice(sessionType!),
+                          totalAmount: duration * (pricing[sessionType!] || 0),
                           message: updatedFormData.message || "",
                           isCashPayment: true,
                         },
@@ -1473,7 +1430,7 @@ const BookingSection = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Total session</p>
                         <p className="text-xs text-muted-foreground">
-                          {hours}h × {getEffectivePrice(sessionType)}€
+                          {hours}h × {pricing[sessionType]}€
                         </p>
                       </div>
                       <div className="text-right">
