@@ -63,9 +63,17 @@ serve(async (req) => {
       customerEmail: session.customer_details?.email || customer?.email
     });
 
+    const paymentIntent = session.payment_intent as unknown;
+    const paymentIntentId = typeof paymentIntent === "string"
+      ? paymentIntent
+      : (paymentIntent && typeof paymentIntent === "object" && "id" in paymentIntent)
+        ? String((paymentIntent as any).id)
+        : null;
+
     return new Response(JSON.stringify({ 
       success: true,
       paymentStatus: session.payment_status,
+      paymentIntentId,
       amountTotal: session.amount_total ? session.amount_total / 100 : 0,
       currency: session.currency,
       customerEmail: session.customer_details?.email || customer?.email,

@@ -8,6 +8,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
+
 interface ICalEvent {
   uid: string;
   summary: string;
@@ -31,6 +35,112 @@ interface BookingRequest {
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[PROCESS-BOOKING] ${step}${detailsStr}`);
+};
+
+// --- Google helpers (service account) ---
+const base64UrlEncode = (input: string | ArrayBuffer) => {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : new Uint8Array(input);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
+
+const importPrivateKey = async (pem: string) => {
+  const clean = pem
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s+/g, "");
+  const raw = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0)).buffer;
+  return crypto.subtle.importKey(
+    "pkcs8",
+    raw,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+};
+
+const getGoogleAccessToken = async (): Promise<string> => {
+  const saRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+  if (!saRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY is not set");
+
+  const sa = JSON.parse(saRaw);
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = base64UrlEncode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64UrlEncode(
+    JSON.stringify({
+      iss: sa.client_email,
+      scope: GOOGLE_CALENDAR_SCOPE,
+      aud: GOOGLE_TOKEN_URL,
+      iat: now,
+      exp: now + 60 * 55,
+    }),
+  );
+
+  const toSign = `${header}.${payload}`;
+  const key = await importPrivateKey(sa.private_key);
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(toSign),
+  );
+
+  const jwt = `${toSign}.${base64UrlEncode(signature)}`;
+
+  const res = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`Google token error: ${json?.error || res.status}`);
+  }
+  return json.access_token as string;
+};
+
+const createGoogleCalendarEvent = async (booking: any) => {
+  const calendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+  if (!calendarId) throw new Error("GOOGLE_STUDIO_CALENDAR_ID is not set");
+
+  const accessToken = await getGoogleAccessToken();
+
+  const date = booking.session_date; // YYYY-MM-DD
+  const start = `${date}T${booking.start_time}:00`;
+  const end = `${date}T${booking.end_time}:00`;
+
+  const summaryPrefix = booking.status === "pending_validation" ? "[PENDING] " : "";
+
+  const payload = {
+    summary: `${summaryPrefix}Make Music Studio — ${booking.session_type} — ${booking.client_name}`,
+    description: `Client: ${booking.client_name}\nEmail: ${booking.client_email}\nTéléphone: ${booking.client_phone || "-"}\nMontant payé: ${booking.amount_paid}€\nBooking ID: ${booking.id}`,
+    start: { dateTime: start, timeZone: "Europe/Brussels" },
+    end: { dateTime: end, timeZone: "Europe/Brussels" },
+  };
+
+  const url = `${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`Google Calendar error: ${json?.error?.message || res.status}`);
+  }
+
+  return { id: json.id as string };
 };
 
 // Parse iCal date strings
@@ -228,7 +338,7 @@ async function sendAdminNotification(
   
   await resend.emails.send({
     from: 'Make Music Studio <onboarding@resend.dev>',
-    to: ['prod.makemusic@gmail.com'],
+    to: ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'],
     subject: hasConflict 
       ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}` 
       : `Nouvelle réservation de ${booking.client_name}`,
@@ -391,9 +501,19 @@ serve(async (req) => {
     await sendAdminNotification(resend, booking, conflictDetected, appUrl);
     await sendClientConfirmation(resend, booking);
     
-    // If no conflict, we could add to Google Calendar here
-    // For now, admin will confirm via email action
-    
+    // Add to Google Calendar
+    try {
+      const calendarEvent = await createGoogleCalendarEvent(booking);
+      await supabaseClient
+        .from('bookings')
+        .update({ google_calendar_event_id: calendarEvent.id })
+        .eq('id', booking.id);
+      logStep("Google Calendar event created", { eventId: calendarEvent.id });
+    } catch (calendarError) {
+      logStep("Google Calendar ERROR", { message: calendarError instanceof Error ? calendarError.message : String(calendarError) });
+      // We don't fail the booking if calendar insert fails
+    }
+
     return new Response(JSON.stringify({
       success: true,
       bookingId: booking.id,
