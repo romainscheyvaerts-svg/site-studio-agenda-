@@ -105,7 +105,7 @@ async function createClientDriveFolder(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: clientName || clientEmail,
+          name: clientEmail, // Use email as folder name to avoid duplicates (case sensitivity)
           mimeType: "application/vnd.google-apps.folder",
           parents: [PARENT_FOLDER_ID],
         }),
