@@ -191,24 +191,98 @@ const createDriveFolderForClient = async (
   supabaseClient: any,
   booking: any,
 ): Promise<string | null> => {
-  const parentFolderId = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID") || "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+  const parentFolderId =
+    Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID") || "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
   try {
     const accessToken = await getGoogleAccessToken("https://www.googleapis.com/auth/drive");
 
-    // 1) Find or create client folder in DB
+    const clientEmail = (booking.client_email || "").toLowerCase().trim();
+
+    // 1) Find or create client folder in DB (email normalized to avoid duplicates)
     const { data: existingFolder } = await supabaseClient
       .from("client_drive_folders")
       .select("*")
-      .eq("client_email", booking.client_email)
+      .eq("client_email", clientEmail)
       .maybeSingle();
 
     let clientFolderId: string;
     let clientFolderLink: string;
 
     if (existingFolder?.drive_folder_id) {
-      clientFolderId = existingFolder.drive_folder_id;
-      clientFolderLink = existingFolder.drive_folder_link;
+      // Verify Drive folder name matches email. If legacy folder exists (named by client name), migrate.
+      let shouldMigrateToEmailFolder = false;
+
+      try {
+        const metaRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${existingFolder.drive_folder_id}?fields=name`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        const meta = await metaRes.json();
+        const folderName = (meta?.name || "").toLowerCase().trim();
+        if (metaRes.ok && folderName && folderName !== clientEmail) {
+          shouldMigrateToEmailFolder = true;
+          logStep("[DRIVE] Legacy client folder detected (will migrate)", {
+            currentName: meta?.name,
+            clientEmail,
+          });
+        }
+      } catch (e) {
+        logStep("[DRIVE] Could not verify Drive folder name", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      if (!shouldMigrateToEmailFolder) {
+        clientFolderId = existingFolder.drive_folder_id;
+        clientFolderLink = existingFolder.drive_folder_link;
+      } else {
+        const createFolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: clientEmail,
+            mimeType: "application/vnd.google-apps.folder",
+            parents: [parentFolderId],
+          }),
+        });
+
+        const newFolder = await createFolderResponse.json();
+        if (!createFolderResponse.ok) {
+          logStep("[DRIVE] Create migrated client folder failed", { error: newFolder });
+          return null;
+        }
+
+        clientFolderId = newFolder.id;
+        clientFolderLink = `https://drive.google.com/drive/folders/${newFolder.id}`;
+
+        // Public writer (so the client can upload via link)
+        await fetch(`https://www.googleapis.com/drive/v3/files/${newFolder.id}/permissions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: "writer", type: "anyone" }),
+        });
+
+        await supabaseClient
+          .from("client_drive_folders")
+          .update({
+            client_email: clientEmail,
+            client_name: booking.client_name || clientEmail,
+            client_phone: booking.client_phone || null,
+            drive_folder_id: newFolder.id,
+            drive_folder_link: clientFolderLink,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingFolder.id);
+
+        logStep("[DRIVE] Client folder migrated", { clientFolderLink });
+      }
     } else {
       const createFolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
         method: "POST",
@@ -217,7 +291,8 @@ const createDriveFolderForClient = async (
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: booking.client_name || booking.client_email,
+          // IMPORTANT: use the email as folder name to avoid duplicates (2 clients can share the same name)
+          name: clientEmail,
           mimeType: "application/vnd.google-apps.folder",
           parents: [parentFolderId],
         }),
@@ -243,15 +318,15 @@ const createDriveFolderForClient = async (
       });
 
       await supabaseClient.from("client_drive_folders").insert({
-        client_email: booking.client_email,
-        client_name: booking.client_name || booking.client_email,
+        client_email: clientEmail,
+        client_name: booking.client_name || clientEmail,
         client_phone: booking.client_phone || null,
         drive_folder_id: newFolder.id,
         drive_folder_link: clientFolderLink,
       });
     }
 
-    // 2) Create session subfolder
+    // 2) Create session subfolder (by date)
     const subfolderName = booking.session_date || new Date().toISOString().split("T")[0];
 
     const createSubfolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
