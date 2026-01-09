@@ -1478,6 +1478,12 @@ serve(async (req) => {
     }
 
     // ACTION 3: Send confirmation email to client (with Drive link if available)
+    // Email configuration - use verified domain
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@makemusicstudio.be";
+    const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
+    const adminEmailAddress = "prod.makemusic@gmail.com";
+    
+    console.log("[EMAIL] Email configuration:", { from: fromAddress, adminTo: adminEmailAddress });
     console.log("[EMAIL] Sending confirmation email to:", payload.payerEmail);
     
     try {
@@ -1492,33 +1498,42 @@ serve(async (req) => {
       }
       
       const emailResponse = await resend.emails.send({
-        from: "Make Music Studio <onboarding@resend.dev>",
-        reply_to: "prod.makemusic@gmail.com",
+        from: fromAddress,
+        reply_to: adminEmailAddress,
         to: [payload.payerEmail],
         subject: emailSubject,
         html: emailHtml,
       });
 
-      console.log("[EMAIL] Confirmation email sent successfully:", emailResponse);
+      if (emailResponse.error) {
+        console.error("[EMAIL] Client email error:", JSON.stringify(emailResponse.error));
+      } else {
+        console.log("[EMAIL] Confirmation email sent successfully, ID:", emailResponse.data?.id);
+      }
 
       // Send duplicate of client confirmation email to admin
-      console.log("[EMAIL] Sending duplicate confirmation to admin...");
+      console.log("[EMAIL] Sending duplicate confirmation to admin:", adminEmailAddress);
       const adminDuplicateResponse = await resend.emails.send({
-        from: "Make Music Studio <onboarding@resend.dev>",
-        reply_to: "prod.makemusic@gmail.com",
-        to: ["romain.scheyvaerts@gmail.com"],
+        from: fromAddress,
+        reply_to: adminEmailAddress,
+        to: [adminEmailAddress],
         subject: `[COPIE] ${emailSubject}`,
         html: emailHtml,
       });
-      console.log("[EMAIL] Admin duplicate confirmation sent:", adminDuplicateResponse);
+      
+      if (adminDuplicateResponse.error) {
+        console.error("[EMAIL] Admin duplicate error:", JSON.stringify(adminDuplicateResponse.error));
+      } else {
+        console.log("[EMAIL] Admin duplicate confirmation sent, ID:", adminDuplicateResponse.data?.id);
+      }
 
-      // Send notification email to admin (romain.scheyvaerts@gmail.com because Resend test mode)
-      console.log("[EMAIL] Sending notification to admin...");
+      // Send notification email to admin
+      console.log("[EMAIL] Sending notification to admin:", adminEmailAddress);
       const paymentStatusAdmin = isCashPayment ? "💰 À payer au studio" : "✅ Payé";
       const adminEmailResponse = await resend.emails.send({
-        from: "Make Music Studio <onboarding@resend.dev>",
-        reply_to: "prod.makemusic@gmail.com",
-        to: ["romain.scheyvaerts@gmail.com"],
+        from: fromAddress,
+        reply_to: adminEmailAddress,
+        to: [adminEmailAddress],
         subject: `🎵 Nouvelle réservation - ${payload.payerName} - ${sessionLabel}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
@@ -1554,7 +1569,12 @@ serve(async (req) => {
           </div>
         `,
       });
-      console.log("[EMAIL] Admin notification sent:", adminEmailResponse);
+      
+      if (adminEmailResponse.error) {
+        console.error("[EMAIL] Admin notification error:", JSON.stringify(adminEmailResponse.error));
+      } else {
+        console.log("[EMAIL] Admin notification sent, ID:", adminEmailResponse.data?.id);
+      }
     } catch (emailError) {
       console.error("[EMAIL] Failed to send email:", emailError);
       // Don't fail the whole webhook if email fails
