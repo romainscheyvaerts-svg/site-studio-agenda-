@@ -598,19 +598,22 @@ const VIPCalendar = ({
           {/* Multi-select delete button for admin */}
           {hasAdminFeatures && selectedSlots.length > 0 && (
             <div className="mt-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-sm text-blue-400">
-                  {selectedSlots.length} créneau(x) sélectionné(s)
+                  {selectedSlots.length} créneau(x) à supprimer
                 </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedSlots([])}
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Désélectionner
-                  </Button>
+                <div className="flex gap-2 flex-wrap">
+                  {driveFolderLink && (
+                    <Button 
+                      onClick={() => window.open(driveFolderLink, '_blank')}
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-500 text-blue-500 hover:bg-blue-500/10"
+                    >
+                      <FolderOpen className="w-4 h-4 mr-1" />
+                      Dossier Drive
+                    </Button>
+                  )}
                   <Button
                     variant="destructive"
                     size="sm"
@@ -622,7 +625,15 @@ const VIPCalendar = ({
                     ) : (
                       <Trash2 className="w-4 h-4 mr-1" />
                     )}
-                    Supprimer ({selectedSlots.length})
+                    Supprimer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedSlots([])}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Effacer
                   </Button>
                 </div>
               </div>
