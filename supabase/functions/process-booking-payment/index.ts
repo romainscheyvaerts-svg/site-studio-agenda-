@@ -7,21 +7,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Get the from email address.
-// IMPORTANT: Resend only allows sending from verified domains.
-// If a non-verified domain is configured, we fallback to resend.dev.
+// Email configuration for Resend
+// PRIMARY: Use verified domain noreply@makemusicstudio.be
+// FALLBACK: onboarding@resend.dev (sandbox - only works for verified emails in Resend dashboard)
+const PRIMARY_FROM = "Make Music Studio <noreply@makemusicstudio.be>";
 const FALLBACK_FROM = "Make Music Studio <onboarding@resend.dev>";
+
 const getFromEmail = () => {
+  // Check if custom email is set in secrets
   const customFrom = (Deno.env.get("RESEND_FROM_EMAIL") || "").trim();
-  if (!customFrom) return FALLBACK_FROM;
-
-  // If someone configured a gmail address here, it will be rejected by Resend.
-  if (/(@gmail\.com|@googlemail\.com)\b/i.test(customFrom)) return FALLBACK_FROM;
-
-  // If they provided a raw email, wrap it.
-  if (!customFrom.includes("<")) return `Make Music Studio <${customFrom}>`;
-
-  return customFrom;
+  
+  // If custom email is set and not a gmail address, use it
+  if (customFrom && !/(@gmail\.com|@googlemail\.com)\b/i.test(customFrom)) {
+    if (!customFrom.includes("<")) {
+      return `Make Music Studio <${customFrom}>`;
+    }
+    return customFrom;
+  }
+  
+  // Default to verified domain
+  return PRIMARY_FROM;
 };
 
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
@@ -363,33 +368,58 @@ async function sendAdminNotification(
   `;
   
   const fromEmail = getFromEmail();
-  const toEmails = ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'];
-  logStep("Sending admin notification email", { from: fromEmail, to: toEmails });
+  const adminEmail = 'prod.makemusic@gmail.com';
+  logStep("[EMAIL] Attempting to send admin notification", { 
+    from: fromEmail, 
+    to: adminEmail,
+    clientName: booking.client_name,
+    clientEmail: booking.client_email
+  });
 
-  const attemptSend = async (from: string) =>
-    await resend.emails.send({
+  const attemptSend = async (from: string) => {
+    logStep("[EMAIL] Sending with from address", { from });
+    return await resend.emails.send({
       from,
-      to: toEmails,
+      to: [adminEmail],
       subject: hasConflict
         ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}`
-        : `Nouvelle réservation de ${booking.client_name}`,
+        : `🎵 Nouvelle réservation - ${booking.client_name}`,
       html,
     });
+  };
 
-  // 1) try configured sender
+  // 1) Try with primary verified domain
   let emailResult = await attemptSend(fromEmail);
 
-  // 2) if sender domain not verified, fallback to resend.dev sender
-  if (emailResult.error && (emailResult.error as any)?.statusCode === 403) {
-    logStep("Admin email rejected - retrying with fallback sender", { error: emailResult.error });
-    emailResult = await attemptSend(FALLBACK_FROM);
+  // 2) If sender domain not verified (403), try fallback
+  if (emailResult.error) {
+    const statusCode = (emailResult.error as any)?.statusCode;
+    const errorMessage = (emailResult.error as any)?.message || JSON.stringify(emailResult.error);
+    logStep("[EMAIL ERROR] Admin email failed", { 
+      statusCode, 
+      errorMessage,
+      from: fromEmail,
+      to: adminEmail
+    });
+    
+    if (statusCode === 403) {
+      logStep("[EMAIL] Retrying with fallback sender", { fallback: FALLBACK_FROM });
+      emailResult = await attemptSend(FALLBACK_FROM);
+    }
   }
 
   if (emailResult.error) {
-    // Do NOT fail the booking creation; but we keep a clear log.
-    logStep("Admin email FINAL ERROR", { error: emailResult.error });
+    const finalError = (emailResult.error as any)?.message || JSON.stringify(emailResult.error);
+    logStep("[EMAIL ERROR] Admin notification FINAL FAILURE", { 
+      error: finalError,
+      to: adminEmail 
+    });
   } else {
-    logStep("Admin notification sent", { hasConflict });
+    logStep("[EMAIL SUCCESS] Admin notification sent", { 
+      to: adminEmail,
+      hasConflict,
+      emailId: (emailResult.data as any)?.id
+    });
   }
 }
 
@@ -463,29 +493,54 @@ async function sendClientConfirmation(
   `;
   
   const fromEmail = getFromEmail();
-  logStep("Sending client confirmation email", { from: fromEmail, to: booking.client_email });
+  const clientEmail = booking.client_email;
+  logStep("[EMAIL] Attempting to send client confirmation", { 
+    from: fromEmail, 
+    to: clientEmail,
+    clientName: booking.client_name
+  });
 
-  const attemptSend = async (from: string) =>
-    await resend.emails.send({
+  const attemptSend = async (from: string) => {
+    logStep("[EMAIL] Sending client email with from address", { from, to: clientEmail });
+    return await resend.emails.send({
       from,
-      to: [booking.client_email],
-      subject: `Réservation reçue - ${sessionDate}`,
+      to: [clientEmail],
+      subject: `✅ Confirmation de réservation - Make Music Studio - ${sessionDate}`,
       html,
     });
+  };
 
-  // 1) try configured sender
+  // 1) Try with primary verified domain
   let emailResult = await attemptSend(fromEmail);
 
-  // 2) fallback if domain not verified
-  if (emailResult.error && (emailResult.error as any)?.statusCode === 403) {
-    logStep("Client email rejected - retrying with fallback sender", { error: emailResult.error });
-    emailResult = await attemptSend(FALLBACK_FROM);
+  // 2) If sender domain not verified (403), try fallback
+  if (emailResult.error) {
+    const statusCode = (emailResult.error as any)?.statusCode;
+    const errorMessage = (emailResult.error as any)?.message || JSON.stringify(emailResult.error);
+    logStep("[EMAIL ERROR] Client email failed", { 
+      statusCode, 
+      errorMessage,
+      from: fromEmail,
+      to: clientEmail
+    });
+    
+    if (statusCode === 403) {
+      logStep("[EMAIL] Retrying client email with fallback sender", { fallback: FALLBACK_FROM });
+      emailResult = await attemptSend(FALLBACK_FROM);
+    }
   }
 
   if (emailResult.error) {
-    logStep("Client email FINAL ERROR", { error: emailResult.error });
+    const finalError = (emailResult.error as any)?.message || JSON.stringify(emailResult.error);
+    logStep("[EMAIL ERROR] Client confirmation FINAL FAILURE", { 
+      error: finalError,
+      to: clientEmail 
+    });
   } else {
-    logStep("Client confirmation sent", { email: booking.client_email });
+    logStep("[EMAIL SUCCESS] Client confirmation sent", { 
+      to: clientEmail,
+      emailId: (emailResult.data as any)?.id
+    });
   }
 }
 
