@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com", "romain.scheyvaerts@gmail.com"];
-
 export const useAdmin = () => {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -19,14 +17,7 @@ export const useAdmin = () => {
         return;
       }
 
-      // Quick check by email first
-      if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      // Verify in database
+      // Check admin role in user_roles table (the source of truth)
       try {
         const { data, error } = await supabase
           .from("user_roles")
