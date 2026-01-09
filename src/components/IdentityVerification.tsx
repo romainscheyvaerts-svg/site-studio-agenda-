@@ -29,6 +29,61 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
     // Don't interfere with uploading/verifying states
   }, [isVerified, initialVerifiedName]);
 
+  // Compress image to reduce size for upload
+  const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          
+          // Calculate new dimensions (max 1600px on longest side)
+          const maxDimension = 1600;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height && width > maxDimension) {
+            height = (height * maxDimension) / width;
+            width = maxDimension;
+          } else if (height > maxDimension) {
+            width = (width * maxDimension) / height;
+            height = maxDimension;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Start with quality 0.8 and reduce if needed
+          let quality = 0.8;
+          let base64 = canvas.toDataURL('image/jpeg', quality);
+          
+          // Reduce quality until under limit (accounting for base64 overhead)
+          const maxBase64Size = maxSizeMB * 1024 * 1024 * 1.4; // 1.4 factor for base64
+          while (base64.length > maxBase64Size && quality > 0.3) {
+            quality -= 0.1;
+            base64 = canvas.toDataURL('image/jpeg', quality);
+          }
+          
+          console.log(`Image compressed: ${(base64.length / 1024 / 1024).toFixed(2)}MB at quality ${quality.toFixed(1)}`);
+          resolve(base64);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -39,9 +94,9 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
       return;
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage("L'image est trop volumineuse (max 10MB).");
+    // Validate file size (max 20MB raw - will be compressed)
+    if (file.size > 20 * 1024 * 1024) {
+      setErrorMessage("L'image est trop volumineuse (max 20MB).");
       return;
     }
 
@@ -52,17 +107,15 @@ const IdentityVerification = ({ formName, onVerified, isVerified = false, verifi
     const preview = URL.createObjectURL(file);
     setPreviewUrl(preview);
 
-    // Convert to base64
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      await verifyIdentity(base64);
-    };
-    reader.onerror = () => {
+    try {
+      // Compress image before sending
+      const compressedBase64 = await compressImage(file, 3); // Max 3MB after compression
+      await verifyIdentity(compressedBase64);
+    } catch (err) {
+      console.error("Compression error:", err);
       setStatus("failed");
-      setErrorMessage("Erreur lors de la lecture du fichier.");
-    };
-    reader.readAsDataURL(file);
+      setErrorMessage("Erreur lors du traitement de l'image. Veuillez réessayer.");
+    }
   };
 
   const verifyIdentity = async (imageBase64: string) => {
