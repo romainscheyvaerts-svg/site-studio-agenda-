@@ -83,6 +83,14 @@ serve(async (req) => {
       throw new Error("Missing required fields: amount, email, sessionType");
     }
 
+    // Stripe requires a minimum of 0.50€ for EUR payments
+    const MIN_STRIPE_AMOUNT = 0.50;
+    const finalAmount = Math.max(amount, MIN_STRIPE_AMOUNT);
+    
+    if (amount < MIN_STRIPE_AMOUNT) {
+      logStep("Amount adjusted to minimum", { original: amount, adjusted: finalAmount });
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     
     // Check if customer exists
@@ -143,7 +151,7 @@ serve(async (req) => {
               name: sessionLabel,
               description: description,
             },
-            unit_amount: Math.round(amount * 100), // Convert to cents
+            unit_amount: Math.round(finalAmount * 100), // Convert to cents, use adjusted amount
           },
           quantity: 1,
         },
