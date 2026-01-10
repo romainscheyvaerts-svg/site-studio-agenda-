@@ -710,9 +710,87 @@ serve(async (req) => {
       
       logStep("Booking confirmed", { bookingId: booking.id, hasDriveLink: !!driveLink });
       
-      // Redirect to success page
-      const origin = req.headers.get("origin") || "https://makemusicstudio.be";
-      return Response.redirect(`${origin}/booking-status?status=confirmed&name=${encodeURIComponent(booking.client_name)}`, 302);
+      // Return HTML success page directly
+      const successHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Session confirmée | Make Music Studio</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              min-height: 100vh; 
+              background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+              color: white;
+              padding: 20px;
+            }
+            .container { 
+              text-align: center; 
+              padding: 40px;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 16px;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              max-width: 400px;
+              width: 100%;
+            }
+            .icon { 
+              width: 80px; 
+              height: 80px; 
+              margin: 0 auto 20px;
+              color: #10B981;
+            }
+            h1 { 
+              color: #10B981; 
+              font-size: 24px;
+              margin-bottom: 16px;
+            }
+            p { 
+              color: #94a3b8; 
+              line-height: 1.6;
+              margin-bottom: 12px;
+            }
+            .name { 
+              color: #ffffff; 
+              font-weight: 600;
+            }
+            .btn {
+              display: inline-block;
+              margin-top: 24px;
+              padding: 12px 24px;
+              background: #10B981;
+              color: white;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: 500;
+              transition: background 0.2s;
+            }
+            .btn:hover { background: #059669; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h1>Session confirmée !</h1>
+            <p>La session de <span class="name">${booking.client_name}</span> a été confirmée avec succès.</p>
+            <p>Un email de confirmation a été envoyé au client avec tous les détails.</p>
+            <a href="https://makemusicstudio.be" class="btn">Retour à l'accueil</a>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      return new Response(successHtml, {
+        headers: { ...corsHeaders, "Content-Type": "text/html" },
+        status: 200,
+      });
       
     } else if (action === 'reject') {
       // Process refund via Stripe
@@ -753,9 +831,87 @@ serve(async (req) => {
       
       logStep("Booking rejected", { bookingId: booking.id });
       
-      // Redirect to rejection page
-      const origin = req.headers.get("origin") || "https://makemusicstudio.be";
-      return Response.redirect(`${origin}/booking-status?status=rejected&name=${encodeURIComponent(booking.client_name)}`, 302);
+      // Return HTML rejection page directly
+      const rejectHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Session annulée | Make Music Studio</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              min-height: 100vh; 
+              background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+              color: white;
+              padding: 20px;
+            }
+            .container { 
+              text-align: center; 
+              padding: 40px;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 16px;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              max-width: 400px;
+              width: 100%;
+            }
+            .icon { 
+              width: 80px; 
+              height: 80px; 
+              margin: 0 auto 20px;
+              color: #EF4444;
+            }
+            h1 { 
+              color: #EF4444; 
+              font-size: 24px;
+              margin-bottom: 16px;
+            }
+            p { 
+              color: #94a3b8; 
+              line-height: 1.6;
+              margin-bottom: 12px;
+            }
+            .name { 
+              color: #ffffff; 
+              font-weight: 600;
+            }
+            .btn {
+              display: inline-block;
+              margin-top: 24px;
+              padding: 12px 24px;
+              background: #64748b;
+              color: white;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: 500;
+              transition: background 0.2s;
+            }
+            .btn:hover { background: #475569; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h1>Session annulée</h1>
+            <p>La session de <span class="name">${booking.client_name}</span> a été annulée.</p>
+            <p>Le remboursement a été initié et le client a été notifié par email.</p>
+            <a href="https://makemusicstudio.be" class="btn">Retour à l'accueil</a>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      return new Response(rejectHtml, {
+        headers: { ...corsHeaders, "Content-Type": "text/html" },
+        status: 200,
+      });
     }
     
     throw new Error('Invalid action');
