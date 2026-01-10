@@ -67,7 +67,7 @@ async function getPayPalAccessToken(): Promise<string> {
   if (!response.ok) {
     const error = await response.text();
     console.error("[PAYPAL] Failed to get access token:", error);
-    throw new Error("Failed to authenticate with PayPal");
+    throw new Error("Payment authentication failed"); // Generic message for client
   }
 
   const data = await response.json();
@@ -257,7 +257,7 @@ async function createCalendarEvent(
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[CALENDAR] Error creating event:`, errorText);
-    throw new Error(`Failed to create calendar event: ${response.status}`);
+    throw new Error("Failed to create calendar event"); // Generic message - no status code exposed
   }
 
   const createdEvent = await response.json();
@@ -1636,10 +1636,15 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error in paypal-webhook:", errorMessage);
+    console.error("[PAYPAL-WEBHOOK] Error:", errorMessage, error instanceof Error ? error.stack : '');
     
+    // Return generic error to client - don't expose internal details
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ 
+        success: false, 
+        error: "PAYMENT_ERROR",
+        message: "Unable to process payment at this time. Please try again or contact support."
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -22,6 +22,17 @@ const verifyIdentitySchema = z.object({
 // Parent folder for all client folders
 const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
+// Escape single quotes in Drive API query values to prevent injection
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/'/g, "\\'");
+}
+
+// Validate folder name matches expected safe pattern
+function isValidFolderName(name: string): boolean {
+  const SAFE_FOLDER_NAME = /^[a-zA-Z0-9\s\-_@.àâäéèêëïîôùûüç]+$/i;
+  return SAFE_FOLDER_NAME.test(name) && name.length <= 200;
+}
+
 // Get Google OAuth2 access token using service account
 async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
@@ -84,8 +95,15 @@ async function findOrCreateFolder(
   name: string,
   parentId: string
 ): Promise<string> {
-  // Search for existing folder
-  const query = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  // Validate folder name
+  if (!isValidFolderName(name)) {
+    console.error(`[SECURITY] Invalid folder name rejected: ${name.substring(0, 50)}`);
+    throw new Error("Invalid folder name format");
+  }
+
+  // Search for existing folder with escaped values
+  const escapedName = escapeDriveQueryValue(name);
+  const query = `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
   
   const searchResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,

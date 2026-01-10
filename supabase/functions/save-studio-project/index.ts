@@ -54,9 +54,27 @@ async function getAccessToken(credentials: ServiceAccountCredentials): Promise<s
   return tokenData.access_token;
 }
 
+// Escape single quotes in Drive API query values to prevent injection
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/'/g, "\\'");
+}
+
+// Validate folder name matches expected safe pattern
+function isValidFolderName(name: string): boolean {
+  const SAFE_FOLDER_NAME = /^[a-zA-Z0-9\s\-_@.àâäéèêëïîôùûüç]+$/i;
+  return SAFE_FOLDER_NAME.test(name) && name.length <= 200;
+}
+
 async function findOrCreateFolder(accessToken: string, name: string, parentId?: string): Promise<string> {
-  // Search for existing folder
-  let query = `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  // Validate folder name
+  if (!isValidFolderName(name)) {
+    console.error(`[SECURITY] Invalid folder name rejected: ${name.substring(0, 50)}`);
+    throw new Error("Invalid folder name format");
+  }
+
+  // Search for existing folder with escaped values
+  const escapedName = escapeDriveQueryValue(name);
+  let query = `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   if (parentId) {
     query += ` and '${parentId}' in parents`;
   }
@@ -96,8 +114,15 @@ async function findOrCreateFolder(accessToken: string, name: string, parentId?: 
 async function listProjectsFromDrive(accessToken: string, clientFolderName: string, parentFolderId: string): Promise<{ name: string; id: string; folderId: string }[]> {
   const projects: { name: string; id: string; folderId: string }[] = [];
 
-  // Find client folder
-  const clientQuery = `name='${clientFolderName}' and mimeType='application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed=false`;
+  // Validate folder name before querying
+  if (!isValidFolderName(clientFolderName)) {
+    console.error(`[SECURITY] Invalid client folder name rejected: ${clientFolderName.substring(0, 50)}`);
+    return projects;
+  }
+
+  // Find client folder with escaped values
+  const escapedClientName = escapeDriveQueryValue(clientFolderName);
+  const clientQuery = `name='${escapedClientName}' and mimeType='application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed=false`;
   const clientResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(clientQuery)}&fields=files(id,name)`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -249,8 +274,9 @@ serve(async (req) => {
     const fileName = `${projectName}.json`;
     const fileContent = JSON.stringify(projectData, null, 2);
     
-    // Check if file already exists
-    const searchQuery = `name='${fileName}' and '${projectFolderIdNew}' in parents and trashed=false`;
+    // Check if file already exists - escape filename for safety
+    const escapedFileName = escapeDriveQueryValue(fileName);
+    const searchQuery = `name='${escapedFileName}' and '${projectFolderIdNew}' in parents and trashed=false`;
     const existingFileResponse = await fetch(
       `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(searchQuery)}&fields=files(id)`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
