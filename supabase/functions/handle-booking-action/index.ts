@@ -557,10 +557,6 @@ async function sendAdminNotification(resend: Resend, booking: any, action: 'conf
       <meta charset="utf-8">
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0;">Make Music Studio</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.8;">Notification Admin</p>
-      </div>
       
       <div style="background-color: ${statusBg}; border: 2px solid ${statusColor}; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
         <h2 style="color: ${statusColor}; margin: 0 0 8px 0; font-size: 24px;">${statusIcon} Session ${statusText}</h2>
