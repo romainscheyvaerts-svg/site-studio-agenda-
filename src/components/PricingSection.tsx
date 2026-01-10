@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,9 +50,8 @@ interface PricingCardProps {
   isMobileView?: boolean;
 }
 
-const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, discountPercent, unit, features, icon, highlighted, buttonText, isMobileView }: PricingCardProps) => {
-  const scrollToBookingAndSelectService = () => {
-    // Dispatch an event to auto-select the service based on title
+const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, discountPercent, unit, features, icon, highlighted, buttonText, isMobileView, onSelectService }: PricingCardProps & { onSelectService: (serviceType: string) => void }) => {
+  const handleClick = () => {
     const serviceMap: Record<string, string> = {
       "Session accompagnée": "with-engineer",
       "Sans ingénieur": "without-engineer",
@@ -64,10 +64,8 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
     
     const serviceType = serviceMap[subtitle] || null;
     if (serviceType) {
-      window.dispatchEvent(new CustomEvent("select-service", { detail: serviceType }));
+      onSelectService(serviceType);
     }
-    
-    document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -149,7 +147,7 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
         variant={highlighted ? "hero" : "neon"}
         className="w-full"
         size={isMobileView ? "default" : "lg"}
-        onClick={scrollToBookingAndSelectService}
+        onClick={handleClick}
       >
         {buttonText}
       </Button>
@@ -159,10 +157,16 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
 const PricingSection = () => {
   const { t } = useTranslation();
   const { isMobileView } = useViewMode();
+  const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [serviceFeatures, setServiceFeatures] = useState<ServiceFeature[]>([]);
   const [salesConfig, setSalesConfig] = useState<SalesConfig | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleSelectService = (serviceType: string) => {
+    window.dispatchEvent(new CustomEvent("select-service", { detail: serviceType }));
+    navigate('/reservation');
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -294,6 +298,7 @@ const PricingSection = () => {
               highlighted={true}
               buttonText={t("pricing.book").toUpperCase()}
               isMobileView={isMobileView}
+              onSelectService={handleSelectService}
               features={[
                 ...getFeatures('with-engineer'),
                 `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
@@ -313,6 +318,7 @@ const PricingSection = () => {
               icon={<Building2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
               buttonText={t("pricing.book").toUpperCase()}
               isMobileView={isMobileView}
+              onSelectService={handleSelectService}
               features={[
                 ...getFeatures('without-engineer'),
                 `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
@@ -332,6 +338,7 @@ const PricingSection = () => {
               icon={<Music2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
               buttonText={t("pricing.book").toUpperCase()}
               isMobileView={isMobileView}
+              onSelectService={handleSelectService}
               features={getFeatures('mixing')}
             />
           </div>
@@ -348,6 +355,7 @@ const PricingSection = () => {
               icon={<Sparkles className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
               buttonText={t("pricing.book").toUpperCase()}
               isMobileView={isMobileView}
+              onSelectService={handleSelectService}
               features={getFeatures('mastering')}
             />
           </div>
@@ -364,6 +372,7 @@ const PricingSection = () => {
               icon={<Disc3 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
               buttonText={t("pricing.book").toUpperCase()}
               isMobileView={isMobileView}
+              onSelectService={handleSelectService}
               features={getFeatures('analog-mastering')}
             />
           </div>
@@ -380,6 +389,7 @@ const PricingSection = () => {
               icon={<Radio className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
               buttonText={t("pricing.book").toUpperCase()}
               isMobileView={isMobileView}
+              onSelectService={handleSelectService}
               features={getFeatures('podcast')}
             />
           </div>

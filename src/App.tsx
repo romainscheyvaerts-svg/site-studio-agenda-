@@ -20,6 +20,9 @@ import DawNova from "./pages/DawNova";
 import StudioGalleryPage from "./pages/StudioGallery";
 import BookingAction from "./pages/BookingAction";
 import BookingStatus from "./pages/BookingStatus";
+import Arsenal from "./pages/Arsenal";
+import Offres from "./pages/Offres";
+import Reservation from "./pages/Reservation";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +37,9 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Index />} />
+              <Route path="/arsenal" element={<Arsenal />} />
+              <Route path="/offres" element={<Offres />} />
+              <Route path="/reservation" element={<Reservation />} />
               <Route path="/instrumentals" element={<Instrumentals />} />
               <Route path="/checkout/instrumental/:instrumentalId/:licenseId" element={<InstrumentalCheckout />} />
               <Route path="/download/:token" element={<Download />} />
