@@ -168,8 +168,7 @@ const PricingSection = () => {
   const [loading, setLoading] = useState(true);
 
   const handleSelectService = (serviceType: string) => {
-    window.dispatchEvent(new CustomEvent("select-service", { detail: serviceType }));
-    navigate('/reservation');
+    navigate(`/reservation?service=${serviceType}`);
   };
 
   useEffect(() => {
