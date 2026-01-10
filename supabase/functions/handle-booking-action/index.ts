@@ -369,6 +369,37 @@ async function addToGoogleCalendar(
   return createdEvent.id;
 }
 
+// Delete event from Google Calendar
+async function deleteFromGoogleCalendar(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      }
+    );
+    
+    if (response.ok || response.status === 204) {
+      logStep("Event deleted from Google Calendar", { eventId });
+      return true;
+    } else {
+      const errorText = await response.text();
+      logStep("Failed to delete from Google Calendar", { eventId, status: response.status, error: errorText });
+      return false;
+    }
+  } catch (error) {
+    logStep("Error deleting from Google Calendar", { eventId, error: error instanceof Error ? error.message : String(error) });
+    return false;
+  }
+}
+
 // Send confirmation email to client with Drive folder link
 async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLink?: string): Promise<void> {
   const sessionDate = new Date(booking.session_date).toLocaleDateString('fr-FR', {
@@ -810,12 +841,36 @@ serve(async (req) => {
         }
       }
       
-      // Update booking status
+      // Delete event from Google Calendar if it exists
+      const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+      const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+      
+      if (booking.google_calendar_event_id && serviceAccountKey && studioCalendarId) {
+        try {
+          const calendarAccessToken = await getAccessToken(serviceAccountKey);
+          const deleted = await deleteFromGoogleCalendar(calendarAccessToken, studioCalendarId, booking.google_calendar_event_id);
+          if (deleted) {
+            logStep("Calendar event deleted", { eventId: booking.google_calendar_event_id });
+          }
+        } catch (calendarError) {
+          logStep("Error deleting calendar event", { error: calendarError instanceof Error ? calendarError.message : String(calendarError) });
+          // Continue anyway - don't block the rejection
+        }
+      } else {
+        logStep("No calendar event to delete", { 
+          hasEventId: !!booking.google_calendar_event_id, 
+          hasServiceKey: !!serviceAccountKey, 
+          hasCalendarId: !!studioCalendarId 
+        });
+      }
+      
+      // Update booking status and clear calendar event ID
       const { error: updateError } = await supabaseClient
         .from('bookings')
         .update({
           status: 'rejected',
-          conflict_resolved: true
+          conflict_resolved: true,
+          google_calendar_event_id: null
         })
         .eq('id', booking.id);
       
@@ -829,7 +884,7 @@ serve(async (req) => {
       // Send notification to admin
       await sendAdminNotification(resend, booking, 'rejected');
       
-      logStep("Booking rejected", { bookingId: booking.id });
+      logStep("Booking rejected", { bookingId: booking.id, calendarEventDeleted: !!booking.google_calendar_event_id });
       
       // Return HTML rejection page directly
       const rejectHtml = `
