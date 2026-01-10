@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Pause, ShoppingCart, Music } from "lucide-react";
+import { Play, Pause, ShoppingCart, Music, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -16,13 +16,17 @@ interface Instrumental {
   preview_url?: string;
   cover_image_url?: string;
   drive_file_id?: string;
+  has_stems?: boolean;
+  stems_folder_id?: string;
 }
 
 interface InstrumentalCardProps {
   instrumental: Instrumental;
   onPlay: (instrumental: Instrumental) => void;
   onBuy: (instrumental: Instrumental) => void;
+  onAdminDownload?: (instrumental: Instrumental) => void;
   isPlaying?: boolean;
+  isAdmin?: boolean;
   className?: string;
 }
 
@@ -30,7 +34,9 @@ const InstrumentalCard = ({
   instrumental, 
   onPlay, 
   onBuy, 
+  onAdminDownload,
   isPlaying = false,
+  isAdmin = false,
   className 
 }: InstrumentalCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -126,18 +132,37 @@ const InstrumentalCard = ({
           )}
         </div>
 
-        {/* Buy Button */}
-        <Button 
-          onClick={() => onBuy(instrumental)}
-          className={cn(
-            "w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90",
-            isMobileView && "h-9 text-xs"
+        {/* Buttons */}
+        <div className={cn("space-y-2", isMobileView && "space-y-1.5")}>
+          {/* Admin Download Button */}
+          {isAdmin && onAdminDownload && (
+            <Button 
+              onClick={() => onAdminDownload(instrumental)}
+              variant="outline"
+              className={cn(
+                "w-full border-green-500/50 text-green-600 hover:bg-green-500/10 hover:text-green-500",
+                isMobileView && "h-8 text-xs"
+              )}
+              size={isMobileView ? "sm" : "default"}
+            >
+              <Download className={cn(isMobileView ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2")} />
+              {isMobileView ? "DL" : "Télécharger (Admin)"}
+            </Button>
           )}
-          size={isMobileView ? "sm" : "default"}
-        >
-          <ShoppingCart className={cn(isMobileView ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2")} />
-          {isMobileView ? t("instrumentals.buy") : t("instrumentals.buy_license")}
-        </Button>
+          
+          {/* Buy Button */}
+          <Button 
+            onClick={() => onBuy(instrumental)}
+            className={cn(
+              "w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90",
+              isMobileView && "h-9 text-xs"
+            )}
+            size={isMobileView ? "sm" : "default"}
+          >
+            <ShoppingCart className={cn(isMobileView ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2")} />
+            {isMobileView ? t("instrumentals.buy") : t("instrumentals.buy_license")}
+          </Button>
+        </div>
       </div>
     </div>
   );
