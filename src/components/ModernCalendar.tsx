@@ -50,6 +50,10 @@ interface TimeSlot {
   clientEmail?: string;
   driveFolderLink?: string;
   driveSessionFolderLink?: string;
+  secondaryCalendarEventName?: string;
+  hasSecondaryCalendarConflict?: boolean;
+  tertiaryCalendarEventName?: string;
+  hasTertiaryCalendarConflict?: boolean;
 }
 
 interface DayAvailability {
@@ -377,13 +381,42 @@ const ModernCalendar = () => {
     }
   };
 
+  // Check if day has secondary/tertiary calendar events
+  const getSecondaryTertiaryStatus = (date: Date): { hasSecondaryOrTertiary: boolean; eventNames: string[] } => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const dayData = availability.find(d => d.date === dateStr);
+    if (!dayData) return { hasSecondaryOrTertiary: false, eventNames: [] };
+    
+    const eventNames: string[] = [];
+    let hasConflict = false;
+    
+    dayData.slots.forEach(slot => {
+      if (slot.hasSecondaryCalendarConflict && slot.secondaryCalendarEventName) {
+        if (!eventNames.includes(slot.secondaryCalendarEventName)) {
+          eventNames.push(slot.secondaryCalendarEventName);
+        }
+        hasConflict = true;
+      }
+      if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
+        if (!eventNames.includes(slot.tertiaryCalendarEventName)) {
+          eventNames.push(slot.tertiaryCalendarEventName);
+        }
+        hasConflict = true;
+      }
+    });
+    
+    return { hasSecondaryOrTertiary: hasConflict, eventNames };
+  };
+
   // Get slot status for a day
-  const getDayStatus = (date: Date): { hasEvents: boolean; eventCount: number; colors: string[] } => {
+  const getDayStatus = (date: Date): { hasEvents: boolean; eventCount: number; colors: string[]; hasSecondaryOrTertiary: boolean } => {
     const events = getEventsForDay(date);
+    const { hasSecondaryOrTertiary } = getSecondaryTertiaryStatus(date);
     return {
       hasEvents: events.length > 0,
       eventCount: events.length,
       colors: events.slice(0, 3).map(e => e.color),
+      hasSecondaryOrTertiary,
     };
   };
 
@@ -456,6 +489,22 @@ const ModernCalendar = () => {
             </div>
           </div>
         </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 px-4 py-2 border-b border-border text-xs text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            <span>2e/3e Agenda</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span>Disponible</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span>Sur demande</span>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -509,8 +558,12 @@ const ModernCalendar = () => {
                       </span>
 
                       {/* Event indicators */}
-                      {dayStatus.hasEvents && (
+                      {(dayStatus.hasEvents || dayStatus.hasSecondaryOrTertiary) && (
                         <div className="flex justify-center gap-0.5 mt-0.5">
+                          {/* Orange dot for secondary/tertiary calendar events */}
+                          {dayStatus.hasSecondaryOrTertiary && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                          )}
                           {dayStatus.colors.map((color, i) => (
                             <div
                               key={i}
@@ -801,6 +854,31 @@ const ModernCalendar = () => {
                   </div>
                 )}
               </div>
+
+              {/* Secondary/Tertiary Calendar Events */}
+              {selectedDay && (() => {
+                const { hasSecondaryOrTertiary, eventNames } = getSecondaryTertiaryStatus(selectedDay);
+                if (!hasSecondaryOrTertiary) return null;
+                return (
+                  <div className="space-y-2 mt-4">
+                    <h4 className="font-medium text-foreground flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                      2e / 3e Agenda
+                    </h4>
+                    <div className="space-y-1">
+                      {eventNames.map((name, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-orange-500/10 border border-orange-500/30"
+                        >
+                          <div className="w-1 h-8 bg-orange-500 rounded-full" />
+                          <span className="text-sm text-foreground">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Create event form */}
               {showCreateForm && (
