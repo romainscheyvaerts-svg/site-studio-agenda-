@@ -280,127 +280,108 @@ const PricingSection = () => {
           </div>
         ) : (
         <div className={cn(
-          "max-w-7xl mx-auto",
+          "max-w-7xl mx-auto grid gap-4",
           isMobileView 
-            ? "flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4" 
-            : "grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            ? "grid-cols-2" 
+            : "md:grid-cols-2 lg:grid-cols-3 gap-6"
         )}>
-          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
-            <PricingCard
-              title={t("pricing.with_engineer.title")}
-              subtitle="Session accompagnée"
-              price={formatPrice('with-engineer')}
-              originalPrice={`${getPrice('with-engineer')}€`}
-              hasDiscount={getDiscountedPrice('with-engineer').hasDiscount}
-              discountPercent={getDiscountPercent('with-engineer')}
-              unit={t("pricing.per_hour")}
-              icon={<Mic className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
-              highlighted={true}
-              buttonText={t("pricing.book").toUpperCase()}
-              isMobileView={isMobileView}
-              onSelectService={handleSelectService}
-              features={[
-                ...getFeatures('with-engineer'),
-                `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
-              ]}
-            />
-          </div>
+          <PricingCard
+            title={t("pricing.with_engineer.title")}
+            subtitle="Session accompagnée"
+            price={formatPrice('with-engineer')}
+            originalPrice={`${getPrice('with-engineer')}€`}
+            hasDiscount={getDiscountedPrice('with-engineer').hasDiscount}
+            discountPercent={getDiscountPercent('with-engineer')}
+            unit={t("pricing.per_hour")}
+            icon={<Mic className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            highlighted={true}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={[
+              ...getFeatures('with-engineer'),
+              `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
+            ]}
+          />
 
-          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
-            <PricingCard
-              title={t("pricing.without_engineer.title")}
-              subtitle="Sans ingénieur"
-              price={formatPrice('without-engineer')}
-              originalPrice={`${getPrice('without-engineer')}€`}
-              hasDiscount={getDiscountedPrice('without-engineer').hasDiscount}
-              discountPercent={getDiscountPercent('without-engineer')}
-              unit={t("pricing.per_hour")}
-              icon={<Building2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
-              buttonText={t("pricing.book").toUpperCase()}
-              isMobileView={isMobileView}
-              onSelectService={handleSelectService}
-              features={[
-                ...getFeatures('without-engineer'),
-                `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
-              ]}
-            />
-          </div>
+          <PricingCard
+            title={t("pricing.without_engineer.title")}
+            subtitle="Sans ingénieur"
+            price={formatPrice('without-engineer')}
+            originalPrice={`${getPrice('without-engineer')}€`}
+            hasDiscount={getDiscountedPrice('without-engineer').hasDiscount}
+            discountPercent={getDiscountPercent('without-engineer')}
+            unit={t("pricing.per_hour")}
+            icon={<Building2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={[
+              ...getFeatures('without-engineer'),
+              `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
+            ]}
+          />
 
-          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
-            <PricingCard
-              title={t("pricing.mixing.title")}
-              subtitle="Piste par piste"
-              price={formatPrice('mixing')}
-              originalPrice={`${getPrice('mixing')}€`}
-              hasDiscount={getDiscountedPrice('mixing').hasDiscount}
-              discountPercent={getDiscountPercent('mixing')}
-              unit="/projet"
-              icon={<Music2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
-              buttonText={t("pricing.book").toUpperCase()}
-              isMobileView={isMobileView}
-              onSelectService={handleSelectService}
-              features={getFeatures('mixing')}
-            />
-          </div>
+          <PricingCard
+            title={t("pricing.mixing.title")}
+            subtitle="Piste par piste"
+            price={formatPrice('mixing')}
+            originalPrice={`${getPrice('mixing')}€`}
+            hasDiscount={getDiscountedPrice('mixing').hasDiscount}
+            discountPercent={getDiscountPercent('mixing')}
+            unit="/projet"
+            icon={<Music2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={getFeatures('mixing')}
+          />
 
-          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
-            <PricingCard
-              title={t("pricing.mastering.title")}
-              subtitle="Finalisation"
-              price={formatPrice('mastering')}
-              originalPrice={`${getPrice('mastering')}€`}
-              hasDiscount={getDiscountedPrice('mastering').hasDiscount}
-              discountPercent={getDiscountPercent('mastering')}
-              unit={t("pricing.per_track")}
-              icon={<Sparkles className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
-              buttonText={t("pricing.book").toUpperCase()}
-              isMobileView={isMobileView}
-              onSelectService={handleSelectService}
-              features={getFeatures('mastering')}
-            />
-          </div>
+          <PricingCard
+            title={t("pricing.mastering.title")}
+            subtitle="Finalisation"
+            price={formatPrice('mastering')}
+            originalPrice={`${getPrice('mastering')}€`}
+            hasDiscount={getDiscountedPrice('mastering').hasDiscount}
+            discountPercent={getDiscountPercent('mastering')}
+            unit={t("pricing.per_track")}
+            icon={<Sparkles className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={getFeatures('mastering')}
+          />
 
-          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
-            <PricingCard
-              title={t("pricing.analog_mastering.title")}
-              subtitle="Mastering premium"
-              price={formatPrice('analog-mastering')}
-              originalPrice={`${getPrice('analog-mastering')}€`}
-              hasDiscount={getDiscountedPrice('analog-mastering').hasDiscount}
-              discountPercent={getDiscountPercent('analog-mastering')}
-              unit={t("pricing.per_track")}
-              icon={<Disc3 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
-              buttonText={t("pricing.book").toUpperCase()}
-              isMobileView={isMobileView}
-              onSelectService={handleSelectService}
-              features={getFeatures('analog-mastering')}
-            />
-          </div>
+          <PricingCard
+            title={t("pricing.analog_mastering.title")}
+            subtitle="Mastering premium"
+            price={formatPrice('analog-mastering')}
+            originalPrice={`${getPrice('analog-mastering')}€`}
+            hasDiscount={getDiscountedPrice('analog-mastering').hasDiscount}
+            discountPercent={getDiscountPercent('analog-mastering')}
+            unit={t("pricing.per_track")}
+            icon={<Disc3 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={getFeatures('analog-mastering')}
+          />
 
-          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
-            <PricingCard
-              title={t("pricing.podcast.title")}
-              subtitle="Audio podcast"
-              price={formatPrice('podcast')}
-              originalPrice={`${getPrice('podcast')}€`}
-              hasDiscount={getDiscountedPrice('podcast').hasDiscount}
-              discountPercent={getDiscountPercent('podcast')}
-              unit="/min"
-              icon={<Radio className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
-              buttonText={t("pricing.book").toUpperCase()}
-              isMobileView={isMobileView}
-              onSelectService={handleSelectService}
-              features={getFeatures('podcast')}
-            />
-          </div>
+          <PricingCard
+            title={t("pricing.podcast.title")}
+            subtitle="Audio podcast"
+            price={formatPrice('podcast')}
+            originalPrice={`${getPrice('podcast')}€`}
+            hasDiscount={getDiscountedPrice('podcast').hasDiscount}
+            discountPercent={getDiscountPercent('podcast')}
+            unit="/min"
+            icon={<Radio className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={getFeatures('podcast')}
+          />
         </div>
-        )}
-
-        {/* Mobile scroll hint */}
-        {isMobileView && (
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            ← Faites défiler pour voir tous les services →
-          </p>
         )}
 
         {/* Payment info */}
