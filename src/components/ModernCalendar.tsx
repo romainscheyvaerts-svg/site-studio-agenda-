@@ -498,7 +498,7 @@ const ModernCalendar = () => {
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span>Disponible</span>
+            <span>Session</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
