@@ -142,7 +142,8 @@ async function getCalendarEvents(
   accessToken: string,
   calendarId: string,
   timeMin: string,
-  timeMax: string
+  timeMax: string,
+  calendarName?: string
 ): Promise<CalendarEvent[]> {
   const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
   url.searchParams.set("timeMin", timeMin);
@@ -158,11 +159,19 @@ async function getCalendarEvents(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Calendar API error for ${calendarId}:`, errorText);
+    const label = calendarName || calendarId;
+    console.error(`[${label}] Calendar API error (${response.status}):`, errorText);
+    // For secondary/tertiary calendars, don't throw - just return empty array with warning
+    // This usually means the service account doesn't have access to the calendar
+    if (errorText.includes("notFound") || errorText.includes("403") || errorText.includes("Not Found")) {
+      console.warn(`[${label}] ⚠️ Le compte de service n'a pas accès à cet agenda. Partagez l'agenda avec le compte de service dans les paramètres Google Calendar.`);
+      return [];
+    }
     throw new Error(`Failed to fetch calendar events: ${response.status}`);
   }
 
   const data: CalendarResponse = await response.json();
+  console.log(`[${calendarName || calendarId}] Successfully fetched ${data.items?.length || 0} events`);
   return data.items || [];
 }
 
@@ -362,11 +371,11 @@ serve(async (req) => {
 
     // Fetch events from all calendars (including secondary and tertiary if configured)
     const [patronEvents, studioEvents, claridgeEvents, secondaryEvents, tertiaryEvents] = await Promise.all([
-      getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString()),
-      getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString()),
+      getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString(), "Patron"),
+      getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString(), "Studio"),
       claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
-      secondaryCalendarId ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString()) : Promise.resolve([]),
-      tertiaryCalendarId ? getCalendarEvents(accessToken, tertiaryCalendarId, start.toISOString(), end.toISOString()) : Promise.resolve([]),
+      secondaryCalendarId ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString(), "Secondary") : Promise.resolve([]),
+      tertiaryCalendarId ? getCalendarEvents(accessToken, tertiaryCalendarId, start.toISOString(), end.toISOString(), "Tertiary") : Promise.resolve([]),
     ]);
 
     // Only studio calendar determines main availability (unavailable)
