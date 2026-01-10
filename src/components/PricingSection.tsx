@@ -133,20 +133,19 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
         <span className={cn("text-muted-foreground ml-1", isMobileView ? "text-[10px]" : "text-sm")}>{unit}</span>
       </div>
 
-      {/* Features - hidden on mobile, shown on desktop */}
-      {!isMobileView && (
-        <ul className="mb-6 space-y-3 flex-grow">
-          {features.map((feature, index) => (
-            <li key={index} className="flex items-center gap-3 text-sm">
-              <Check className={cn(
-                "w-4 h-4 flex-shrink-0",
-                highlighted ? "text-primary" : "text-accent"
-              )} />
-              <span className="text-muted-foreground text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Features - shown on both mobile and desktop */}
+      <ul className={cn("flex-grow", isMobileView ? "mb-3 space-y-1.5" : "mb-6 space-y-3")}>
+        {features.map((feature, index) => (
+          <li key={index} className={cn("flex items-start gap-2", isMobileView ? "text-[10px]" : "text-sm")}>
+            <Check className={cn(
+              "flex-shrink-0 mt-0.5",
+              isMobileView ? "w-3 h-3" : "w-4 h-4",
+              highlighted ? "text-primary" : "text-accent"
+            )} />
+            <span className="text-muted-foreground">{feature}</span>
+          </li>
+        ))}
+      </ul>
 
       <Button
         variant={highlighted ? "hero" : "neon"}
