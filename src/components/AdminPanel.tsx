@@ -20,6 +20,7 @@ import AdminActivitySecurity from "./AdminActivitySecurity";
 import AdminGallery from "./AdminGallery";
 import AdminPromoCodeManager from "./AdminPromoCodeManager";
 import AdminRoleManager from "./AdminRoleManager";
+import AdminDawConfig from "./AdminDawConfig";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AdminPanelProps {
@@ -122,9 +123,10 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                     <h3 className="font-semibold text-amber-200">Zone Super Admin</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Gérez les rôles, tarifs des services et le catalogue d'instrumentales.
+                    Gérez les rôles, tarifs des services, le catalogue d'instrumentales et le DAW.
                   </p>
                 </div>
+                <AdminDawConfig />
                 <AdminRoleManager />
                 <AdminServicesPricing />
                 <AdminInstrumentals />

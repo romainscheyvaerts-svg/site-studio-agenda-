@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music, Search } from "lucide-react";
+import { Music, Search, AudioLines } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -136,10 +137,20 @@ const Instrumentals = () => {
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-4">
               Instrumentaux
             </h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg mb-6">
               Parcourez notre collection de beats et instrumentaux produits par Make Music.
               Écoutez gratuitement, achetez en un clic.
             </p>
+            
+            {/* DAW Button */}
+            <Button 
+              onClick={() => navigate('/daw')}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              size="lg"
+            >
+              <AudioLines className="w-5 h-5 mr-2" />
+              Essaie ton instru dans un logiciel de musique
+            </Button>
           </div>
 
           {/* Search & Filters */}

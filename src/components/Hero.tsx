@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones, Music, CalendarDays } from "lucide-react";
+import { Mic, Headphones, Music, CalendarDays, AudioLines } from "lucide-react";
 import { usePricing } from "@/hooks/usePricing";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
@@ -24,6 +24,10 @@ const Hero = () => {
 
   const goToInstrumentals = () => {
     navigate('/instrumentals');
+  };
+
+  const goToDaw = () => {
+    navigate('/daw');
   };
 
   const openAdminCalendar = () => {
@@ -121,6 +125,18 @@ const Hero = () => {
             >
               <Music className="w-5 h-5" />
               INSTRUMENTAUX
+            </Button>
+            <Button 
+              variant="outline" 
+              size={isMobileView ? "lg" : "xl"} 
+              onClick={goToDaw} 
+              className={cn(
+                "border-purple-500/50 hover:bg-purple-500/10 hover:border-purple-500 text-purple-300",
+                isMobileView && "w-full"
+              )}
+            >
+              <AudioLines className="w-5 h-5" />
+              DAW NOVA STUDIO
             </Button>
           </div>
 
