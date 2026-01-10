@@ -12,6 +12,17 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Escape single quotes in Drive API query values to prevent injection
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/'/g, "\\'");
+}
+
+// Validate folder name matches expected safe pattern
+function isValidFolderName(name: string): boolean {
+  const SAFE_FOLDER_NAME = /^[a-zA-Z0-9\s\-_@.àâäéèêëïîôùûüç]+$/i;
+  return SAFE_FOLDER_NAME.test(name) && name.length <= 200;
+}
+
 // Input validation schema
 const AvailabilityRequestSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
@@ -397,7 +408,15 @@ serve(async (req) => {
       accessToken: string
     ): Promise<string | undefined> {
       try {
-        const query = `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '${sessionDate}' and trashed = false`;
+        // Validate sessionDate format (YYYY-MM-DD) to prevent injection
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+          console.error(`[SECURITY] Invalid session date format rejected: ${sessionDate}`);
+          return undefined;
+        }
+        
+        // Escape the session date value for safety
+        const escapedDate = escapeDriveQueryValue(sessionDate);
+        const query = `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '${escapedDate}' and trashed = false`;
         const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`;
         
         const response = await fetch(url, {
