@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -426,7 +426,24 @@ const BookingSection = () => {
     }
   }, [toast]);
 
-  // Listen for select-service event from pricing cards
+  // Read service from URL query params (from pricing page navigation)
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  useEffect(() => {
+    const serviceFromUrl = searchParams.get('service') as SessionType;
+    if (serviceFromUrl && ['with-engineer', 'without-engineer', 'mixing', 'mastering', 'analog-mastering', 'podcast'].includes(serviceFromUrl)) {
+      setSessionType(serviceFromUrl);
+      setShowPayment(false);
+      // Clear the URL param after reading it
+      setSearchParams({}, { replace: true });
+      // Scroll to details form after a short delay to let DOM update
+      setTimeout(() => {
+        document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Listen for select-service event from pricing cards (for same-page navigation)
   useEffect(() => {
     const handleSelectService = (event: CustomEvent<string>) => {
       const serviceType = event.detail as SessionType;
