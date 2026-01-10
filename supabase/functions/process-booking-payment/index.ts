@@ -563,12 +563,32 @@ async function sendAdminNotification(
       </div>
       
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${confirmUrl}" style="display: inline-block; background-color: #10B981; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 0 10px;">
-          ✓ Confirmer la session
-        </a>
-        <a href="${rejectUrl}" style="display: inline-block; background-color: #EF4444; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 0 10px;">
-          ✗ Problème / Remboursement
-        </a>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+          <tr>
+            <td style="padding: 0 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="background-color: #10B981; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 14px 28px;">
+                    <a href="${confirmUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: 600; font-size: 16px; display: block;">
+                      ✓ Confirmer la session
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td style="padding: 0 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="background-color: #EF4444; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 14px 28px;">
+                    <a href="${rejectUrl}" target="_blank" style="color: white; text-decoration: none; font-weight: 600; font-size: 16px; display: block;">
+                      ✗ Problème / Remboursement
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </div>
       
       <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
