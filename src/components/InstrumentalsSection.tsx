@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import InstrumentalCard from "./InstrumentalCard";
 import LicenseSelector from "./LicenseSelector";
 import AudioPlayer from "./AudioPlayer";
+import AdminDownloadModal from "./AdminDownloadModal";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
@@ -21,6 +23,8 @@ interface Instrumental {
   preview_url?: string;
   cover_image_url?: string;
   drive_file_id?: string;
+  has_stems?: boolean;
+  stems_folder_id?: string;
 }
 
 // Helper to get audio URL from Google Drive file ID via streaming proxy
@@ -31,6 +35,7 @@ const getDriveAudioUrl = (fileId: string) => {
 const InstrumentalsSection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
 
@@ -39,6 +44,8 @@ const InstrumentalsSection = () => {
   const [currentPlaying, setCurrentPlaying] = useState<Instrumental | null>(null);
   const [selectedInstrumental, setSelectedInstrumental] = useState<Instrumental | null>(null);
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [adminDownloadInstrumental, setAdminDownloadInstrumental] = useState<Instrumental | null>(null);
+  const [isAdminDownloadModalOpen, setIsAdminDownloadModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchInstrumentals = async () => {
@@ -90,6 +97,11 @@ const InstrumentalsSection = () => {
   const handleSelectLicense = (license: any) => {
     setIsLicenseModalOpen(false);
     navigate(`/checkout/instrumental/${selectedInstrumental?.id}/${license.id}`);
+  };
+
+  const handleAdminDownload = (instrumental: Instrumental) => {
+    setAdminDownloadInstrumental(instrumental);
+    setIsAdminDownloadModalOpen(true);
   };
 
   if (loading) {
@@ -165,7 +177,9 @@ const InstrumentalsSection = () => {
               instrumental={instrumental}
               onPlay={handlePlay}
               onBuy={handleBuy}
+              onAdminDownload={isAdmin ? handleAdminDownload : undefined}
               isPlaying={currentPlaying?.id === instrumental.id}
+              isAdmin={isAdmin}
             />
           ))}
         </div>
@@ -189,6 +203,13 @@ const InstrumentalsSection = () => {
           isOpen={isLicenseModalOpen}
           onClose={() => setIsLicenseModalOpen(false)}
           onSelectLicense={handleSelectLicense}
+        />
+
+        {/* Admin Download Modal */}
+        <AdminDownloadModal
+          instrumental={adminDownloadInstrumental}
+          isOpen={isAdminDownloadModalOpen}
+          onClose={() => setIsAdminDownloadModalOpen(false)}
         />
       </div>
     </section>
