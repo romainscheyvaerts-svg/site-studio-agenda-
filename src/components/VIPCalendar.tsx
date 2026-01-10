@@ -18,6 +18,12 @@ interface TimeSlot {
   eventId?: string;
   clientEmail?: string;
   driveFolderLink?: string;
+
+  // Optional visibility of other calendars (admin/superadmin)
+  secondaryCalendarEventName?: string;
+  hasSecondaryCalendarConflict?: boolean;
+  tertiaryCalendarEventName?: string;
+  hasTertiaryCalendarConflict?: boolean;
 }
 
 interface DayAvailability {
@@ -507,6 +513,19 @@ const VIPCalendar = ({
           <div className={cn("rounded bg-primary ring-2 ring-primary", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
           <span className="text-muted-foreground">{isMobileView ? "Sélec." : "Sélectionné"}</span>
         </div>
+
+        {hasAdminFeatures && (
+          <>
+            <div className="flex items-center gap-1">
+              <div className={cn("rounded bg-purple-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+              <span className="text-muted-foreground">2e agenda</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className={cn("rounded bg-pink-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+              <span className="text-muted-foreground">3e agenda</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Duration selector */}
@@ -599,35 +618,72 @@ const VIPCalendar = ({
                   if (!day) return null;
                   
                   const displayStatus = getSlotDisplayStatus(day.slots, hour);
+                  const slot = day.slots.find(s => s.hour === hour);
                   const eventName = getSlotEventName(day.slots, hour);
+
+                  const hasSecondaryConflict = !!slot?.hasSecondaryCalendarConflict;
+                  const secondaryEventName = slot?.secondaryCalendarEventName;
+                  const hasTertiaryConflict = !!slot?.hasTertiaryCalendarConflict;
+                  const tertiaryEventName = slot?.tertiaryCalendarEventName;
+
+                  const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
+
+                  // Color overlay: only for admins/VIP; regular users shouldn't see other calendars
+                  const specialConflictColor = hasAdminFeatures && hasAnySpecialConflict
+                    ? (hasTertiaryConflict
+                      ? "bg-pink-500/30 text-pink-400 active:bg-pink-500/50 ring-1 ring-pink-500/50"
+                      : "bg-purple-500/30 text-purple-400 active:bg-purple-500/50 ring-1 ring-purple-500/50")
+                    : "";
+
                   const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
                   const isSelected = selectedDay === day.date && selectedHour === hour;
                   const isMultiSelected = hasAdminFeatures && isSlotMultiSelected(day.date, hour);
-                  
+
+                  let hoverTitle = eventName || formatHour(hour);
+                  if (hasAdminFeatures && hasSecondaryConflict && secondaryEventName) {
+                    hoverTitle += ` | 📅2: ${secondaryEventName}`;
+                  }
+                  if (hasAdminFeatures && hasTertiaryConflict && tertiaryEventName) {
+                    hoverTitle += ` | 📅3: ${tertiaryEventName}`;
+                  }
+
                   return (
                     <button
                       key={`${day.date}-${hour}`}
                       onClick={() => isClickable && handleSelectSlot(day.date, hour)}
                       disabled={!isClickable && !hasAdminFeatures}
                       className={cn(
-                        "p-2 rounded-lg text-xs transition-all duration-200 min-h-[48px] flex flex-col items-center justify-center",
+                        "p-2 rounded-lg text-xs transition-all duration-200 min-h-[48px] flex flex-col items-center justify-center relative",
                         isMultiSelected
                           ? "bg-blue-500 text-white ring-2 ring-blue-400"
                           : displayStatus === "available"
-                            ? isSelected
-                              ? "bg-primary text-primary-foreground ring-2 ring-primary"
-                              : "bg-green-500/20 text-green-500 active:bg-green-500/40"
-                            : displayStatus === "on-request"
-                              ? isSelected
-                                ? "bg-primary text-primary-foreground ring-2 ring-amber-500"
-                                : "bg-amber-500/20 text-amber-500 active:bg-amber-500/40"
+                            ? hasAdminFeatures && hasAnySpecialConflict
+                              ? specialConflictColor
                               : isSelected
                                 ? "bg-primary text-primary-foreground ring-2 ring-primary"
-                                : hasAdminFeatures 
+                                : "bg-green-500/20 text-green-500 active:bg-green-500/40"
+                            : displayStatus === "on-request"
+                              ? hasAdminFeatures && hasAnySpecialConflict
+                                ? specialConflictColor
+                                : isSelected
+                                  ? "bg-primary text-primary-foreground ring-2 ring-amber-500"
+                                  : "bg-amber-500/20 text-amber-500 active:bg-amber-500/40"
+                              : isSelected
+                                ? "bg-primary text-primary-foreground ring-2 ring-primary"
+                                : hasAdminFeatures
                                   ? "bg-destructive/20 text-destructive active:bg-destructive/40"
                                   : "bg-destructive/20 text-destructive/60"
                       )}
+                      title={hoverTitle}
                     >
+                      {/* Secondary/Tertiary indicators (admin/VIP only) */}
+                      {hasAdminFeatures && hasSecondaryConflict && displayStatus !== "unavailable" && (
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full" />
+                      )}
+                      {hasAdminFeatures && hasTertiaryConflict && displayStatus !== "unavailable" && (
+                        <span className="absolute top-1 left-1 w-2 h-2 bg-pink-500 rounded-full" />
+                      )}
+
                       <span className="font-semibold text-sm">{formatHour(hour)}</span>
                       {isMultiSelected ? (
                         <span className="text-[10px]">✓</span>
@@ -674,10 +730,33 @@ const VIPCalendar = ({
                     <div key={hour} className="grid grid-cols-8 gap-1">
                       {displayDays.map((day) => {
                         const displayStatus = getSlotDisplayStatus(day.slots, hour);
+                        const slot = day.slots.find(s => s.hour === hour);
                         const eventName = getSlotEventName(day.slots, hour);
+
+                        const hasSecondaryConflict = !!slot?.hasSecondaryCalendarConflict;
+                        const secondaryEventName = slot?.secondaryCalendarEventName;
+                        const hasTertiaryConflict = !!slot?.hasTertiaryCalendarConflict;
+                        const tertiaryEventName = slot?.tertiaryCalendarEventName;
+
+                        const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
+
+                        const specialConflictColor = hasAdminFeatures && hasAnySpecialConflict
+                          ? (hasTertiaryConflict
+                            ? "bg-pink-500/30 text-pink-400 hover:bg-pink-500/50 ring-1 ring-pink-500/50"
+                            : "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50")
+                          : "";
+
                         const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
                         const isSelected = selectedDay === day.date && selectedHour === hour;
                         const isMultiSelected = hasAdminFeatures && isSlotMultiSelected(day.date, hour);
+
+                        let hoverTitle = eventName || formatHour(hour);
+                        if (hasAdminFeatures && hasSecondaryConflict && secondaryEventName) {
+                          hoverTitle += ` | 📅2: ${secondaryEventName}`;
+                        }
+                        if (hasAdminFeatures && hasTertiaryConflict && tertiaryEventName) {
+                          hoverTitle += ` | 📅3: ${tertiaryEventName}`;
+                        }
                         
                         return (
                           <button
@@ -685,25 +764,36 @@ const VIPCalendar = ({
                             onClick={() => isClickable && handleSelectSlot(day.date, hour)}
                             disabled={!isClickable && !hasAdminFeatures}
                             className={cn(
-                              "p-1 rounded text-[10px] transition-all duration-200 min-h-[36px] flex flex-col items-center justify-center",
+                              "p-1 rounded text-[10px] transition-all duration-200 min-h-[36px] flex flex-col items-center justify-center relative",
                               isMultiSelected
                                 ? "bg-blue-500 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-background"
                                 : displayStatus === "available"
-                                  ? isSelected
-                                    ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                    : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
-                                  : displayStatus === "on-request"
-                                    ? isSelected
-                                      ? "bg-primary text-primary-foreground ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
-                                      : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
+                                  ? hasAdminFeatures && hasAnySpecialConflict
+                                    ? specialConflictColor
                                     : isSelected
                                       ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                      : hasAdminFeatures 
+                                      : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
+                                  : displayStatus === "on-request"
+                                    ? hasAdminFeatures && hasAnySpecialConflict
+                                      ? specialConflictColor
+                                      : isSelected
+                                        ? "bg-primary text-primary-foreground ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+                                        : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
+                                    : isSelected
+                                      ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
+                                      : hasAdminFeatures
                                         ? "bg-destructive/20 text-destructive hover:bg-destructive/40 cursor-pointer"
                                         : "bg-destructive/20 text-destructive cursor-pointer"
                             )}
-                            title={eventName || formatHour(hour)}
+                            title={hoverTitle}
                           >
+                            {hasAdminFeatures && hasSecondaryConflict && displayStatus !== "unavailable" && (
+                              <span className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full" />
+                            )}
+                            {hasAdminFeatures && hasTertiaryConflict && displayStatus !== "unavailable" && (
+                              <span className="absolute top-1 left-1 w-2 h-2 bg-pink-500 rounded-full" />
+                            )}
+
                             <span className="font-medium">{formatHour(hour)}</span>
                             {isMultiSelected ? (
                               <span className="text-[8px]">✓ sélectionné</span>
