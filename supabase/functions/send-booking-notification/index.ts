@@ -54,6 +54,8 @@ const BookingNotificationSchema = z.object({
   isAdmin: z.boolean().default(false),
   driveFolderLink: z.string().optional(),
   isCashPayment: z.boolean().default(false),
+  validationToken: z.string().optional(), // For confirmation flow
+  bookingId: z.string().optional(), // For confirmation flow
 });
 
 const escapeHtml = (str: string) =>
@@ -432,38 +434,56 @@ serve(async (req) => {
     const googleCalendarLink = generateGoogleCalendarLink(booking);
     const isStudioSession = booking.sessionType === "with-engineer" || booking.sessionType === "without-engineer";
 
+    // Check if booking is less than 24 hours in advance (only for non-admin studio sessions)
+    const sessionDateTime = new Date(`${booking.date}T${booking.time}:00`);
+    const now = new Date();
+    const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const isLessThan24Hours = hoursUntilSession < 24 && hoursUntilSession > 0;
+    const requiresConfirmation = isLessThan24Hours && isStudioSession && !booking.isAdmin;
+    
+    logStep("Checking 24h rule", { 
+      hoursUntilSession: Math.round(hoursUntilSession * 10) / 10, 
+      isLessThan24Hours, 
+      requiresConfirmation,
+      isAdmin: booking.isAdmin
+    });
+
     // Ensure we create Drive folder link for studio sessions (if not already provided)
+    // BUT only if not requiring confirmation (will be created on confirm)
     let driveFolderLink = booking.driveFolderLink;
 
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
 
-    if (!driveFolderLink && isStudioSession && serviceAccountKey) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-          { auth: { persistSession: false } }
-        );
+    // Only create Drive folder and add to calendar if NOT requiring confirmation
+    if (!requiresConfirmation) {
+      if (!driveFolderLink && isStudioSession && serviceAccountKey) {
+        try {
+          const supabaseClient = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+            { auth: { persistSession: false } }
+          );
 
-        const driveToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/drive");
-        const driveResult = await createClientDriveFolder(supabaseClient, driveToken, booking);
+          const driveToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/drive");
+          const driveResult = await createClientDriveFolder(supabaseClient, driveToken, booking);
 
-        if (driveResult?.subfolderLink) {
-          driveFolderLink = driveResult.subfolderLink;
+          if (driveResult?.subfolderLink) {
+            driveFolderLink = driveResult.subfolderLink;
+          }
+        } catch (e) {
+          logStep("Drive folder creation failed", { error: e instanceof Error ? e.message : String(e) });
         }
-      } catch (e) {
-        logStep("Drive folder creation failed", { error: e instanceof Error ? e.message : String(e) });
       }
-    }
 
-    // Add event to the studio agenda (best effort)
-    if (isStudioSession && serviceAccountKey && studioCalendarId) {
-      try {
-        const calendarToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/calendar");
-        await addToStudioGoogleCalendar(calendarToken, studioCalendarId, booking);
-      } catch (e) {
-        logStep("Studio calendar insertion failed", { error: e instanceof Error ? e.message : String(e) });
+      // Add event to the studio agenda (best effort) - only if not requiring confirmation
+      if (isStudioSession && serviceAccountKey && studioCalendarId) {
+        try {
+          const calendarToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/calendar");
+          await addToStudioGoogleCalendar(calendarToken, studioCalendarId, booking);
+        } catch (e) {
+          logStep("Studio calendar insertion failed", { error: e instanceof Error ? e.message : String(e) });
+        }
       }
     }
 
@@ -505,16 +525,54 @@ serve(async (req) => {
       "romain.scheyvaerts@gmail.com",
     ];
 
-    logStep("Sending admin notification", { to: adminEmails, from: fromAddress });
+    logStep("Sending admin notification", { to: adminEmails, from: fromAddress, requiresConfirmation });
+
+    // Build confirmation buttons for 24h bookings
+    let confirmationButtonsHtml = "";
+    if (requiresConfirmation && booking.validationToken) {
+      const baseUrl = "https://aafjeezfrmxssehnpwct.supabase.co/functions/v1/handle-booking-action";
+      const confirmUrl = `${baseUrl}?token=${booking.validationToken}&action=confirm`;
+      const rejectUrl = `${baseUrl}?token=${booking.validationToken}&action=reject`;
+      
+      confirmationButtonsHtml = `
+        <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #92400e; margin: 0 0 15px 0;">⚠️ RÉSERVATION À MOINS DE 24H - ACTION REQUISE</h3>
+          <p style="color: #78350f; margin: 0 0 20px 0;">
+            Cette réservation est à moins de 24 heures. Veuillez confirmer ou refuser :
+          </p>
+          <div style="display: flex; gap: 15px; justify-content: center;">
+            <a href="${confirmUrl}" 
+               style="display: inline-block; background: #10b981; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+              ✅ CONFIRMER
+            </a>
+            <a href="${rejectUrl}" 
+               style="display: inline-block; background: #ef4444; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+              ❌ REFUSER
+            </a>
+          </div>
+          <p style="color: #92400e; margin: 15px 0 0 0; font-size: 12px; text-align: center;">
+            ⏰ Temps restant avant la session : ${Math.round(hoursUntilSession)} heures
+          </p>
+        </div>
+      `;
+    }
+
+    const adminSubject = requiresConfirmation 
+      ? `⚠️ [URGENT -24H] Réservation à confirmer - ${escapeHtml(booking.clientName)}`
+      : `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`;
 
     const { data: adminEmailData, error: adminEmailError } = await resend.emails.send({
       from: fromAddress,
       to: adminEmails,
       reply_to: "prod.makemusic@gmail.com",
-      subject: `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`,
+      subject: adminSubject,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
-          <h2 style="color: #22d3ee; margin-bottom: 20px;">Nouvelle réservation ${bookedBy === "ADMIN" ? "(Admin)" : ""}</h2>
+          <h2 style="color: #22d3ee; margin-bottom: 20px;">
+            ${requiresConfirmation ? "⚠️ Réservation à confirmer (-24h)" : `Nouvelle réservation ${bookedBy === "ADMIN" ? "(Admin)" : ""}`}
+          </h2>
+
+          ${confirmationButtonsHtml}
 
           <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
             <h3 style="color: #fafafa; margin-top: 0;">👤 Informations client</h3>
@@ -559,14 +617,69 @@ serve(async (req) => {
     }
 
     // ---------- 2. EMAIL TO CLIENT ----------
-    logStep("Sending client email", { to: booking.clientEmail });
+    logStep("Sending client email", { to: booking.clientEmail, requiresConfirmation });
 
-    const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
-      from: fromAddress,
-      to: [booking.clientEmail],
-      reply_to: "prod.makemusic@gmail.com",
-      subject: `✅ Confirmation de réservation - Make Music Studio`,
-      html: `
+    // Different email content based on whether confirmation is required
+    let clientSubject: string;
+    let clientHtmlContent: string;
+
+    if (requiresConfirmation) {
+      // Email for bookings requiring confirmation
+      clientSubject = "⏳ Réservation en attente de confirmation - Make Music Studio";
+      clientHtmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
+            <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
+          </div>
+
+          <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #92400e; margin: 0 0 10px 0;">⏳ En attente de confirmation</h2>
+            <p style="color: #78350f; margin: 0;">
+              Votre réservation étant à moins de 24h, elle doit être confirmée par notre équipe.<br>
+              Vous recevrez un email de confirmation ou d'annulation très prochainement.
+            </p>
+          </div>
+
+          <h3 style="color: #22d3ee; margin-bottom: 15px;">Bonjour ${escapeHtml(booking.clientName)},</h3>
+
+          <p style="color: #fafafa; margin-bottom: 20px;">
+            Merci pour votre demande de réservation. Voici les détails :
+          </p>
+
+          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+            <h3 style="color: #fafafa; margin-top: 0;">📅 Session demandée</h3>
+            <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
+            <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
+            <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
+            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
+          </div>
+
+          <div style="background: #fbbf24; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+            <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">💰 Montant réservé</p>
+            <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
+            <p style="font-size: 12px; margin: 5px 0 0 0;">
+              En cas de refus, vous serez intégralement remboursé.
+            </p>
+          </div>
+
+          <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Une question ?</h4>
+            <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
+              Téléphone : <a href="tel:+32476094172" style="color: #22d3ee;">+32 476 09 41 72</a><br>
+              Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
+            </p>
+          </div>
+
+          <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
+            L'équipe Make Music
+          </p>
+        </div>
+      `;
+    } else {
+      // Standard confirmation email
+      clientSubject = "✅ Confirmation de réservation - Make Music Studio";
+      clientHtmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
@@ -629,7 +742,15 @@ serve(async (req) => {
             L'équipe Make Music
           </p>
         </div>
-      `,
+      `;
+    }
+
+    const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
+      from: fromAddress,
+      to: [booking.clientEmail],
+      reply_to: "prod.makemusic@gmail.com",
+      subject: clientSubject,
+      html: clientHtmlContent,
     });
 
     if (clientEmailError) {
@@ -639,7 +760,7 @@ serve(async (req) => {
 
     logStep("Client email sent", { id: clientEmailData?.id });
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, requiresConfirmation }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
