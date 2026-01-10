@@ -16,6 +16,7 @@ import InstrumentalCheckout from "./pages/InstrumentalCheckout";
 import Download from "./pages/Download";
 import Studio from "./pages/Studio";
 import StudioMusic from "./pages/StudioMusic";
+import DawNova from "./pages/DawNova";
 import StudioGalleryPage from "./pages/StudioGallery";
 import BookingAction from "./pages/BookingAction";
 import BookingStatus from "./pages/BookingStatus";
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/download/:token" element={<Download />} />
               <Route path="/studio" element={<Studio />} />
               <Route path="/studiomusic" element={<StudioMusic />} />
+              <Route path="/daw" element={<DawNova />} />
               <Route path="/gallery" element={<StudioGalleryPage />} />
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/payment-success" element={<PaymentSuccess />} />
