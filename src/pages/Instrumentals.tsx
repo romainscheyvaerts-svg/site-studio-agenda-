@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music, Search, AudioLines } from "lucide-react";
+import { Music, Search, AudioLines, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +128,18 @@ const Instrumentals = () => {
       
       <main className="pt-24 pb-20 px-4">
         <div className="container mx-auto">
+          {/* Back Button */}
+          <div className="mb-8">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/')}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour à l'accueil
+            </Button>
+          </div>
+
           {/* Header */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-4">
