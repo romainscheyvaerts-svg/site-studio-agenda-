@@ -15,7 +15,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Input validation schema
 const AvailabilityRequestSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
-  days: z.number().int().min(1).max(30).default(14),
+  days: z.number().int().min(1).max(90).default(14), // Increased to 90 for monthly view
 });
 
 interface CalendarEvent {

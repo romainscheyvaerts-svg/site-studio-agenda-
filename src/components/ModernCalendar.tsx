@@ -89,11 +89,12 @@ const ModernCalendar = () => {
   const fetchAvailability = useCallback(async () => {
     setLoading(true);
     try {
-      const startDate = startOfMonth(addMonths(currentDate, -1));
+      // Fetch 45 days to cover current month + buffer
+      const startDate = startOfMonth(currentDate);
       const { data, error } = await supabase.functions.invoke("get-weekly-availability", {
         body: {
           startDate: format(startDate, "yyyy-MM-dd"),
-          days: 90, // Get 3 months of data
+          days: 45, // Current month + next month buffer
         },
       });
 
