@@ -280,12 +280,8 @@ const AdminCalendar = ({
           <span className="text-muted-foreground">Sélection</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className={cn("rounded bg-purple-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
-          <span className="text-muted-foreground">2e Agenda</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className={cn("rounded bg-pink-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
-          <span className="text-muted-foreground">3e Agenda</span>
+          <div className={cn("rounded bg-orange-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">2e/3e Agenda</span>
         </div>
       </div>
 
@@ -361,13 +357,11 @@ const AdminCalendar = ({
                         hoverTitle += ` | 📅3: ${tertiaryEventName}`;
                       }
                       
-                      // Determine special calendar conflict styling
+                      // Determine special calendar conflict styling (orange for both secondary and tertiary)
                       const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
-                      const specialConflictColor = hasTertiaryConflict 
-                        ? "bg-pink-500/30 text-pink-400 hover:bg-pink-500/50 ring-1 ring-pink-500/50"
-                        : hasSecondaryConflict
-                          ? "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50"
-                          : "";
+                      const specialConflictColor = hasAnySpecialConflict
+                        ? "bg-orange-500/30 text-orange-400 hover:bg-orange-500/50 ring-1 ring-orange-500/50"
+                        : "";
                       
                       return (
                         <button
@@ -395,13 +389,9 @@ const AdminCalendar = ({
                           )}
                           title={hoverTitle}
                         >
-                          {/* Secondary calendar indicator */}
-                          {hasSecondaryConflict && status !== "unavailable" && (
-                            <span className="absolute top-0 right-0 w-2 h-2 bg-purple-500 rounded-full" />
-                          )}
-                          {/* Tertiary calendar indicator */}
-                          {hasTertiaryConflict && status !== "unavailable" && (
-                            <span className={cn("absolute w-2 h-2 bg-pink-500 rounded-full", hasSecondaryConflict ? "top-0 right-2.5" : "top-0 right-0")} />
+                          {/* Secondary/Tertiary calendar indicator (orange dot) */}
+                          {hasAnySpecialConflict && status !== "unavailable" && (
+                            <span className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full" />
                           )}
                           <span className="font-medium">{isMobileView ? hour.toString().padStart(2, "0") : formatHour(hour)}</span>
                           {forDeletion ? (

@@ -19,13 +19,14 @@ interface AdminEventCreatorProps {
 }
 
 // Color options for calendar events
+// Note: "Mandarine" (id 6, orange) is reserved for secondary/tertiary calendars display
 const colorOptions = [
   { id: "1", name: "Lavande", color: "#7986cb", bgClass: "bg-[#7986cb]" },
   { id: "2", name: "Sauge", color: "#33b679", bgClass: "bg-[#33b679]" },
   { id: "3", name: "Raisin", color: "#8e24aa", bgClass: "bg-[#8e24aa]" },
   { id: "4", name: "Flamant", color: "#e67c73", bgClass: "bg-[#e67c73]" },
   { id: "5", name: "Banane", color: "#f6bf26", bgClass: "bg-[#f6bf26]" },
-  { id: "6", name: "Mandarine", color: "#f4511e", bgClass: "bg-[#f4511e]" },
+  // { id: "6", name: "Mandarine" } - RESERVED for 2e/3e agenda display
   { id: "7", name: "Paon", color: "#039be5", bgClass: "bg-[#039be5]" },
   { id: "8", name: "Graphite", color: "#616161", bgClass: "bg-[#616161]" },
   { id: "9", name: "Myrtille", color: "#3f51b5", bgClass: "bg-[#3f51b5]" },
