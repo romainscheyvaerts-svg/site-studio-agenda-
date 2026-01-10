@@ -45,117 +45,160 @@ const Hero = () => {
   return (
     <section id="hero" className={cn(
       "relative flex items-center justify-center overflow-hidden noise-bg",
-      isMobileView ? "min-h-[100svh] pt-20 pb-8" : "min-h-screen"
+      isMobileView ? "min-h-[100svh] pt-16 pb-6" : "min-h-screen"
     )}>
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/20 to-background" />
       
-      {/* Animated grid */}
-      <div className={cn(
-        "absolute inset-0 bg-grid-pattern opacity-20",
-        isMobileView ? "bg-[size:40px_40px]" : "bg-[size:60px_60px]"
-      )} />
+      {/* Animated grid - hidden on mobile for performance */}
+      {!isMobileView && (
+        <div className="absolute inset-0 bg-grid-pattern opacity-20 bg-[size:60px_60px]" />
+      )}
       
-      {/* Glowing orbs - smaller on mobile */}
+      {/* Glowing orbs - smaller and simpler on mobile */}
       <div className={cn(
         "absolute top-1/4 left-1/4 bg-primary/20 rounded-full animate-pulse-slow",
-        isMobileView ? "w-48 h-48 blur-[60px]" : "w-96 h-96 blur-[120px]"
+        isMobileView ? "w-32 h-32 blur-[40px]" : "w-96 h-96 blur-[120px]"
       )} />
       <div className={cn(
         "absolute bottom-1/4 right-1/4 bg-accent/10 rounded-full animate-pulse-slow",
-        isMobileView ? "w-40 h-40 blur-[50px]" : "w-80 h-80 blur-[100px]"
+        isMobileView ? "w-24 h-24 blur-[30px]" : "w-80 h-80 blur-[100px]"
       )} style={{ animationDelay: '1s' }} />
       
       {/* Content */}
       <div className={cn(
         "relative z-10 container mx-auto text-center",
-        isMobileView ? "px-4" : "px-6"
+        isMobileView ? "px-5" : "px-6"
       )}>
         <div className="animate-slide-up">
           {/* Main title */}
           <h1 className={cn(
-            "font-display text-foreground mb-4 leading-none",
-            isMobileView ? "text-4xl" : "text-6xl md:text-8xl lg:text-9xl mb-6"
+            "font-display text-foreground leading-none",
+            isMobileView ? "text-5xl mb-3" : "text-6xl md:text-8xl lg:text-9xl mb-6"
           )}>
             {t("hero.title1")}
             <br />
             <span className="text-glow-cyan text-primary">{t("hero.title2")} {t("hero.title3")}</span>
           </h1>
           
-          {/* Subtitle */}
+          {/* Subtitle - shorter on mobile */}
           <p className={cn(
             "text-muted-foreground max-w-2xl mx-auto leading-relaxed",
-            isMobileView ? "text-sm mb-6 px-2" : "text-lg md:text-xl mb-10"
+            isMobileView ? "text-sm mb-6" : "text-lg md:text-xl mb-10"
           )}>
-            {t("hero.description")}
+            {isMobileView 
+              ? "Studio professionnel pour vos projets musicaux."
+              : t("hero.description")
+            }
           </p>
           
-          {/* CTA Buttons - Stack vertically on mobile */}
-          <div className={cn(
-            "flex gap-3 justify-center",
-            isMobileView ? "flex-col px-4" : "flex-col sm:flex-row gap-4 mb-4"
-          )}>
-            <Button 
-              variant="hero" 
-              size={isMobileView ? "lg" : "xl"} 
-              onClick={goToBooking}
-              className={cn(isMobileView && "w-full")}
-            >
-              <Mic className="w-5 h-5" />
-              {t("hero.cta_book").toUpperCase()}
-            </Button>
-            <Button 
-              variant="neon" 
-              size={isMobileView ? "lg" : "xl"} 
-              onClick={goToOffers}
-              className={cn(isMobileView && "w-full")}
-            >
-              <Euro className="w-5 h-5" />
-              NOS OFFRES
-            </Button>
-            <Button 
-              variant="outline" 
-              size={isMobileView ? "lg" : "xl"} 
-              onClick={goToGear}
-              className={cn(
-                "border-primary/50 hover:bg-primary/10 hover:border-primary",
-                isMobileView && "w-full"
-              )}
-            >
-              <Headphones className="w-5 h-5" />
-              {t("hero.cta_discover").toUpperCase()}
-            </Button>
-            <Button 
-              variant="outline" 
-              size={isMobileView ? "lg" : "xl"} 
-              onClick={goToInstrumentals} 
-              className={cn(
-                "border-accent/50 hover:bg-accent/10 hover:border-accent",
-                isMobileView && "w-full"
-              )}
-            >
-              <Music className="w-5 h-5" />
-              INSTRUMENTAUX
-            </Button>
-            <Button 
-              variant="outline" 
-              size={isMobileView ? "lg" : "xl"} 
-              onClick={goToDaw} 
-              className={cn(
-                "border-purple-500/50 hover:bg-purple-500/10 hover:border-purple-500 text-purple-300",
-                isMobileView && "w-full"
-              )}
-            >
-              <AudioLines className="w-5 h-5" />
-              DAW NOVA STUDIO
-            </Button>
-          </div>
+          {/* Mobile: Primary CTA buttons only (2 buttons) */}
+          {isMobileView ? (
+            <div className="space-y-3 mb-6">
+              <Button 
+                variant="hero" 
+                size="lg" 
+                onClick={goToBooking}
+                className="w-full h-14 text-base"
+              >
+                <Mic className="w-5 h-5" />
+                {t("hero.cta_book").toUpperCase()}
+              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  variant="neon" 
+                  size="default"
+                  onClick={goToOffers}
+                  className="h-12"
+                >
+                  <Euro className="w-4 h-4" />
+                  OFFRES
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="default"
+                  onClick={goToGear}
+                  className="h-12 border-primary/50"
+                >
+                  <Headphones className="w-4 h-4" />
+                  STUDIO
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  variant="outline" 
+                  size="default"
+                  onClick={goToInstrumentals}
+                  className="h-12 border-accent/50 text-accent"
+                >
+                  <Music className="w-4 h-4" />
+                  BEATS
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="default"
+                  onClick={goToDaw}
+                  className="h-12 border-purple-500/50 text-purple-400"
+                >
+                  <AudioLines className="w-4 h-4" />
+                  DAW
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Desktop: All buttons in a row */
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+              <Button 
+                variant="hero" 
+                size="xl" 
+                onClick={goToBooking}
+              >
+                <Mic className="w-5 h-5" />
+                {t("hero.cta_book").toUpperCase()}
+              </Button>
+              <Button 
+                variant="neon" 
+                size="xl" 
+                onClick={goToOffers}
+              >
+                <Euro className="w-5 h-5" />
+                NOS OFFRES
+              </Button>
+              <Button 
+                variant="outline" 
+                size="xl" 
+                onClick={goToGear}
+                className="border-primary/50 hover:bg-primary/10 hover:border-primary"
+              >
+                <Headphones className="w-5 h-5" />
+                {t("hero.cta_discover").toUpperCase()}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="xl" 
+                onClick={goToInstrumentals} 
+                className="border-accent/50 hover:bg-accent/10 hover:border-accent"
+              >
+                <Music className="w-5 h-5" />
+                INSTRUMENTAUX
+              </Button>
+              <Button 
+                variant="outline" 
+                size="xl" 
+                onClick={goToDaw} 
+                className="border-purple-500/50 hover:bg-purple-500/10 hover:border-purple-500 text-purple-300"
+              >
+                <AudioLines className="w-5 h-5" />
+                DAW NOVA STUDIO
+              </Button>
+            </div>
+          )}
 
           {/* Admin: View Calendar Button */}
           {isAdmin && (
             <div className={cn(
               "flex justify-center",
-              isMobileView ? "mt-3 mb-6 px-4" : "mb-12"
+              isMobileView ? "mb-6" : "mb-12"
             )}>
               <Button 
                 variant="outline" 
@@ -163,7 +206,7 @@ const Hero = () => {
                 onClick={openAdminCalendar}
                 className={cn(
                   "border-green-500 text-green-500 hover:bg-green-500/10 hover:border-green-400",
-                  isMobileView && "w-full"
+                  isMobileView && "w-full h-12"
                 )}
               >
                 <CalendarDays className="w-5 h-5" />
@@ -174,44 +217,44 @@ const Hero = () => {
 
           {!isAdmin && <div className={isMobileView ? "mb-4" : "mb-12"} />}
           
-          {/* Stats - More compact on mobile */}
+          {/* Stats - Redesigned for mobile */}
           <div className={cn(
             "grid grid-cols-3 max-w-xl mx-auto",
-            isMobileView ? "gap-2 px-2" : "gap-8"
+            isMobileView ? "gap-1 bg-card/50 rounded-xl p-4 backdrop-blur-sm border border-border/50" : "gap-8"
           )}>
             <div className="text-center">
               <div className={cn(
-                "font-display text-primary text-glow-cyan mb-1",
-                isMobileView ? "text-2xl" : "text-4xl md:text-5xl"
+                "font-display text-primary text-glow-cyan",
+                isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
               )}>
                 {loading ? "..." : `${priceWithEngineer}€`}
               </div>
               <div className={cn(
                 "text-muted-foreground",
-                isMobileView ? "text-xs" : "text-sm"
-              )}>{t("pricing.per_hour")} + eng.</div>
+                isMobileView ? "text-[10px] leading-tight" : "text-sm"
+              )}>{isMobileView ? "/h ingé" : `${t("pricing.per_hour")} + eng.`}</div>
             </div>
-            <div className="text-center border-x border-border">
+            <div className={cn("text-center", isMobileView ? "border-x border-border/50" : "border-x border-border")}>
               <div className={cn(
-                "font-display text-accent mb-1",
-                isMobileView ? "text-2xl" : "text-4xl md:text-5xl"
+                "font-display text-accent",
+                isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
               )}>
                 {loading ? "..." : `${priceWithoutEngineer}€`}
               </div>
               <div className={cn(
                 "text-muted-foreground",
-                isMobileView ? "text-xs" : "text-sm"
-              )}>{t("pricing.per_hour")} dry</div>
+                isMobileView ? "text-[10px] leading-tight" : "text-sm"
+              )}>{isMobileView ? "/h solo" : `${t("pricing.per_hour")} dry`}</div>
             </div>
             <div className="text-center">
               <div className={cn(
-                "font-display text-foreground mb-1",
-                isMobileView ? "text-2xl" : "text-4xl md:text-5xl"
+                "font-display text-foreground",
+                isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
               )}>PRO</div>
               <div className={cn(
                 "text-muted-foreground",
-                isMobileView ? "text-xs" : "text-sm"
-              )}>Studio quality</div>
+                isMobileView ? "text-[10px] leading-tight" : "text-sm"
+              )}>{isMobileView ? "Qualité" : "Studio quality"}</div>
             </div>
           </div>
         </div>

@@ -71,8 +71,8 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
   return (
     <div
       className={cn(
-        "relative rounded-2xl transition-all duration-300 hover:scale-[1.02]",
-        isMobileView ? "p-4" : "p-8",
+        "relative rounded-xl transition-all duration-300 hover:scale-[1.02] flex flex-col",
+        isMobileView ? "p-3" : "p-8",
         highlighted
           ? "bg-card border-2 border-primary box-glow-cyan"
           : "bg-secondary/30 border border-border hover:border-primary/30"
@@ -81,8 +81,8 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
       {/* Discount badge */}
       {hasDiscount && discountPercent && discountPercent > 0 && (
         <div className={cn(
-          "absolute -top-3 -right-3 px-3 py-1 rounded-full bg-destructive text-destructive-foreground font-bold animate-pulse",
-          isMobileView ? "text-xs" : "text-sm"
+          "absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground font-bold animate-pulse",
+          isMobileView ? "text-[10px]" : "text-sm"
         )}>
           -{discountPercent}%
         </div>
@@ -90,66 +90,71 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
       
       {highlighted && !hasDiscount && (
         <div className={cn(
-          "absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground font-semibold",
-          isMobileView ? "text-xs" : "text-sm"
+          "absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground font-semibold whitespace-nowrap",
+          isMobileView ? "text-[9px]" : "text-sm"
         )}>
           POPULAIRE
         </div>
       )}
 
-      <div className={cn("flex items-center gap-3", isMobileView ? "mb-3" : "mb-4")}>
+      <div className={cn("flex items-center gap-2", isMobileView ? "mb-2" : "mb-4")}>
         <div className={cn(
-          "rounded-xl flex items-center justify-center",
-          isMobileView ? "w-10 h-10" : "w-12 h-12",
+          "rounded-lg flex items-center justify-center flex-shrink-0",
+          isMobileView ? "w-8 h-8" : "w-12 h-12",
           highlighted ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
         )}>
           {icon}
         </div>
-        <div>
-          <h3 className={cn("font-display text-foreground", isMobileView ? "text-lg" : "text-xl")}>{title}</h3>
-          <p className={cn("text-muted-foreground", isMobileView ? "text-xs" : "text-sm")}>{subtitle}</p>
+        <div className="min-w-0">
+          <h3 className={cn(
+            "font-display text-foreground truncate",
+            isMobileView ? "text-sm leading-tight" : "text-xl"
+          )}>{title}</h3>
+          <p className={cn(
+            "text-muted-foreground truncate",
+            isMobileView ? "text-[10px]" : "text-sm"
+          )}>{subtitle}</p>
         </div>
       </div>
 
-      <div className={isMobileView ? "mb-4" : "mb-6"}>
+      <div className={isMobileView ? "mb-2" : "mb-6"}>
         {hasDiscount && originalPrice && (
-          <span className={cn("text-muted-foreground line-through mr-2", isMobileView ? "text-base" : "text-xl")}>
+          <span className={cn("text-muted-foreground line-through mr-1", isMobileView ? "text-xs" : "text-xl")}>
             {originalPrice}
           </span>
         )}
         <span className={cn(
           "font-display",
-          isMobileView ? "text-3xl" : "text-5xl",
+          isMobileView ? "text-2xl" : "text-5xl",
           hasDiscount ? "text-destructive" : highlighted ? "text-primary text-glow-cyan" : "text-foreground"
         )}>
           {price}
         </span>
-        <span className={cn("text-muted-foreground ml-2", isMobileView ? "text-xs" : "text-sm")}>{unit}</span>
+        <span className={cn("text-muted-foreground ml-1", isMobileView ? "text-[10px]" : "text-sm")}>{unit}</span>
       </div>
 
-      <ul className={cn("mb-6", isMobileView ? "space-y-2" : "space-y-3")}>
-        {features.slice(0, isMobileView ? 3 : features.length).map((feature, index) => (
-          <li key={index} className="flex items-center gap-3 text-sm">
-            <Check className={cn(
-              "flex-shrink-0",
-              isMobileView ? "w-3 h-3" : "w-4 h-4",
-              highlighted ? "text-primary" : "text-accent"
-            )} />
-            <span className={cn("text-muted-foreground", isMobileView ? "text-xs" : "text-sm")}>{feature}</span>
-          </li>
-        ))}
-        {isMobileView && features.length > 3 && (
-          <li className="text-xs text-muted-foreground italic">+{features.length - 3} autres...</li>
-        )}
-      </ul>
+      {/* Features - hidden on mobile, shown on desktop */}
+      {!isMobileView && (
+        <ul className="mb-6 space-y-3 flex-grow">
+          {features.map((feature, index) => (
+            <li key={index} className="flex items-center gap-3 text-sm">
+              <Check className={cn(
+                "w-4 h-4 flex-shrink-0",
+                highlighted ? "text-primary" : "text-accent"
+              )} />
+              <span className="text-muted-foreground text-sm">{feature}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <Button
         variant={highlighted ? "hero" : "neon"}
-        className="w-full"
-        size={isMobileView ? "default" : "lg"}
+        className={cn("w-full mt-auto", isMobileView && "h-9 text-xs")}
+        size={isMobileView ? "sm" : "lg"}
         onClick={handleClick}
       >
-        {buttonText}
+        {isMobileView ? "RÉSERVER" : buttonText}
       </Button>
     </div>
   );

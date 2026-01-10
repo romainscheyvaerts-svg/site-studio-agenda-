@@ -140,57 +140,65 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Mobile menu - shown when mobile menu is open AND (mobile view forced OR small screen) */}
+        {/* Mobile menu - Full screen overlay */}
         {isMobileMenuOpen && (
           <div className={cn(
-            "py-4 border-t border-border animate-fade-in bg-background",
+            "fixed inset-0 top-16 bg-background z-50 animate-fade-in overflow-y-auto",
             isMobileView ? "block" : "md:hidden block"
           )}>
-            <div className="flex flex-col gap-3">
-              {navLinks.map((link) => (
+            <div className="container mx-auto px-6 py-6">
+              <div className="flex flex-col gap-2">
+                {navLinks.map((link) => (
+                  <button
+                    key={link.path}
+                    onClick={() => goToPage(link.path)}
+                    className="text-left text-foreground hover:text-primary transition-colors py-4 text-xl font-display border-b border-border/50"
+                  >
+                    {link.label.toUpperCase()}
+                  </button>
+                ))}
                 <button
-                  key={link.path}
-                  onClick={() => goToPage(link.path)}
-                  className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 text-base"
+                  onClick={() => {
+                    navigate("/instrumentals");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-left text-foreground hover:text-primary transition-colors py-4 flex items-center gap-3 text-xl font-display border-b border-border/50"
                 >
-                  {link.label}
+                  <Music className="h-5 w-5 text-accent" />
+                  INSTRUMENTAUX
                 </button>
-              ))}
-              <button
-                onClick={() => {
-                  navigate("/instrumentals");
-                  setIsMobileMenuOpen(false);
-                }}
-                className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 flex items-center gap-2 text-base"
-              >
-                <Music className="h-4 w-4" />
-                Instrumentaux
-              </button>
-              <div className="flex flex-col gap-2 mt-2">
-                <Button variant="neon" size="lg" className="w-full" onClick={() => goToPage("/reservation")}>
+              </div>
+              
+              <div className="flex flex-col gap-3 mt-8">
+                <Button 
+                  variant="hero" 
+                  size="lg" 
+                  className="w-full h-14 text-lg" 
+                  onClick={() => goToPage("/reservation")}
+                >
                   {t("nav.booking").toUpperCase()}
                 </Button>
                 {user ? (
                   <Button 
                     variant="outline" 
                     size="lg"
-                    className="w-full"
+                    className="w-full h-14 text-lg"
                     onClick={signOut}
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="w-5 h-5 mr-2" />
                     Déconnexion
                   </Button>
                 ) : (
                   <Button 
                     variant="outline" 
                     size="lg"
-                    className="w-full"
+                    className="w-full h-14 text-lg"
                     onClick={() => {
                       navigate("/auth");
                       setIsMobileMenuOpen(false);
                     }}
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-5 h-5 mr-2" />
                     Connexion / Inscription
                   </Button>
                 )}

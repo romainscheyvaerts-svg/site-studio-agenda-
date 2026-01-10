@@ -3,6 +3,7 @@ import { Play, Pause, ShoppingCart, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useViewMode } from "@/hooks/useViewMode";
 
 interface Instrumental {
   id: string;
@@ -32,6 +33,7 @@ const InstrumentalCard = ({
   className 
 }: InstrumentalCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const { isMobileView } = useViewMode();
 
   return (
     <div 
@@ -44,7 +46,10 @@ const InstrumentalCard = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Cover Image */}
-      <div className="relative aspect-square bg-gradient-to-br from-primary/20 to-secondary/20">
+      <div className={cn(
+        "relative bg-gradient-to-br from-primary/20 to-secondary/20",
+        isMobileView ? "aspect-[4/3]" : "aspect-square"
+      )}>
         {instrumental.cover_image_url ? (
           <img 
             src={instrumental.cover_image_url} 
@@ -53,25 +58,28 @@ const InstrumentalCard = ({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Music className="w-16 h-16 text-primary/40" />
+            <Music className={cn("text-primary/40", isMobileView ? "w-10 h-10" : "w-16 h-16")} />
           </div>
         )}
         
         {/* Play Overlay */}
         <div className={cn(
           "absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity duration-300",
-          isHovered || isPlaying ? "opacity-100" : "opacity-0"
+          isHovered || isPlaying ? "opacity-100" : isMobileView ? "opacity-100" : "opacity-0"
         )}>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onPlay(instrumental)}
-            className="h-16 w-16 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
+            className={cn(
+              "rounded-full bg-primary hover:bg-primary/90 text-primary-foreground",
+              isMobileView ? "h-12 w-12" : "h-16 w-16"
+            )}
           >
             {isPlaying ? (
-              <Pause className="h-8 w-8" />
+              <Pause className={cn(isMobileView ? "h-5 w-5" : "h-8 w-8")} />
             ) : (
-              <Play className="h-8 w-8 ml-1" />
+              <Play className={cn("ml-0.5", isMobileView ? "h-5 w-5" : "h-8 w-8")} />
             )}
           </Button>
         </div>
@@ -80,7 +88,10 @@ const InstrumentalCard = ({
         {instrumental.genre && (
           <Badge 
             variant="secondary" 
-            className="absolute top-3 left-3 bg-black/70 text-white border-none"
+            className={cn(
+              "absolute top-2 left-2 bg-black/70 text-white border-none",
+              isMobileView && "text-[10px] px-1.5 py-0.5"
+            )}
           >
             {instrumental.genre}
           </Badge>
@@ -88,21 +99,27 @@ const InstrumentalCard = ({
       </div>
 
       {/* Info */}
-      <div className="p-4">
-        <h3 className="font-bold text-lg text-foreground truncate mb-1">
+      <div className={cn(isMobileView ? "p-3" : "p-4")}>
+        <h3 className={cn(
+          "font-bold text-foreground truncate mb-1",
+          isMobileView ? "text-sm" : "text-lg"
+        )}>
           {instrumental.title}
         </h3>
         
         {/* BPM & Key */}
-        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
+        <div className={cn(
+          "flex items-center gap-2 text-muted-foreground",
+          isMobileView ? "text-[10px] mb-2" : "text-sm mb-3"
+        )}>
           {instrumental.bpm && (
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-0.5">
               <span className="font-semibold text-primary">{instrumental.bpm}</span> BPM
             </span>
           )}
           {instrumental.key && (
-            <span className="flex items-center gap-1">
-              Tonalité: <span className="font-semibold text-primary">{instrumental.key}</span>
+            <span className="flex items-center gap-0.5">
+              <span className="font-semibold text-primary">{instrumental.key}</span>
             </span>
           )}
         </div>
@@ -110,10 +127,14 @@ const InstrumentalCard = ({
         {/* Buy Button */}
         <Button 
           onClick={() => onBuy(instrumental)}
-          className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+          className={cn(
+            "w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90",
+            isMobileView && "h-9 text-xs"
+          )}
+          size={isMobileView ? "sm" : "default"}
         >
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          Acheter une licence
+          <ShoppingCart className={cn(isMobileView ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2")} />
+          {isMobileView ? "Acheter" : "Acheter une licence"}
         </Button>
       </div>
     </div>

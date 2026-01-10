@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Mic } from "lucide-react";
+import { Mic, Phone, Mail, MapPin } from "lucide-react";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
 
@@ -8,80 +8,109 @@ const Footer = () => {
   const { isMobileView } = useViewMode();
 
   return (
-    <footer className={cn("border-t border-border bg-secondary/20", isMobileView ? "py-8" : "py-12")}>
-      <div className={cn("container mx-auto", isMobileView ? "px-4" : "px-6")}>
-        <div className={cn("gap-8 mb-8", isMobileView ? "space-y-6" : "grid md:grid-cols-4")}>
-          {/* Brand */}
-          <div className={isMobileView ? "" : "md:col-span-2"}>
-            <div className={cn("flex items-center gap-2 mb-4", isMobileView && "justify-center")}>
-              <div className={cn(
-                "rounded-lg bg-primary/20 flex items-center justify-center",
-                isMobileView ? "w-8 h-8" : "w-10 h-10"
-              )}>
-                <Mic className={cn("text-primary", isMobileView ? "w-4 h-4" : "w-5 h-5")} />
+    <footer className={cn("border-t border-border bg-secondary/20", isMobileView ? "py-6" : "py-12")}>
+      <div className={cn("container mx-auto", isMobileView ? "px-5" : "px-6")}>
+        {isMobileView ? (
+          // Mobile Footer - Compact version
+          <div className="space-y-6">
+            {/* Brand */}
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Mic className="w-4 h-4 text-primary" />
+                </div>
+                <span className="font-display text-xl text-foreground">
+                  MAKE<span className="text-primary">MUSIC</span>
+                </span>
               </div>
-              <span className={cn("font-display text-foreground", isMobileView ? "text-xl" : "text-2xl")}>
-                MAKE<span className="text-primary">MUSIC</span>
+              <p className="text-xs text-muted-foreground">
+                Studio d'enregistrement professionnel
+              </p>
+            </div>
+            
+            {/* Quick contact */}
+            <div className="flex justify-center gap-6 text-xs text-muted-foreground">
+              <a href="tel:+32476094172" className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                <Phone className="w-3.5 h-3.5" />
+                Appeler
+              </a>
+              <a href="mailto:prod.makemusic@gmail.com" className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                <Mail className="w-3.5 h-3.5" />
+                Email
+              </a>
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
+                Bruxelles
               </span>
             </div>
-            <p className={cn(
-              "text-muted-foreground max-w-md mb-4",
-              isMobileView ? "text-xs text-center" : "text-sm"
-            )}>
-              {t("footer.description")}
-            </p>
-          </div>
-
-          {/* Services & Contact - side by side on mobile */}
-          <div className={cn(isMobileView && "grid grid-cols-2 gap-4")}>
-            {/* Services */}
-            <div className={isMobileView ? "" : "mb-0"}>
-              <h4 className={cn(
-                "font-display text-foreground mb-3",
-                isMobileView ? "text-sm" : "text-lg mb-4"
-              )}>
-                {t("nav.services").toUpperCase()}
-              </h4>
-              <ul className={cn("space-y-1 text-muted-foreground", isMobileView ? "text-xs" : "text-sm space-y-2")}>
-                <li>{t("pricing.with_engineer.title")}</li>
-                <li>{t("pricing.mixing.title")}</li>
-                <li>{t("pricing.mastering.title")}</li>
-                <li>{t("pricing.without_engineer.title")}</li>
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className={cn(
-                "font-display text-foreground mb-3",
-                isMobileView ? "text-sm" : "text-lg mb-4"
-              )}>
-                {t("footer.contact").toUpperCase()}
-              </h4>
-              <ul className={cn("space-y-1 text-muted-foreground", isMobileView ? "text-xs" : "text-sm space-y-2")}>
-                <li className={isMobileView ? "break-all" : ""}>prod.makemusic@gmail.com</li>
-                <li>+32 476 09 41 72</li>
-                <li>Bruxelles, Belgique</li>
-              </ul>
+            
+            {/* Copyright */}
+            <div className="border-t border-border pt-4 text-center">
+              <p className="text-[10px] text-muted-foreground">
+                © 2024 Make Music. Tous droits réservés.
+              </p>
             </div>
           </div>
-        </div>
+        ) : (
+          // Desktop Footer
+          <>
+            <div className="grid md:grid-cols-4 gap-8 mb-8">
+              {/* Brand */}
+              <div className="md:col-span-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Mic className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="font-display text-2xl text-foreground">
+                    MAKE<span className="text-primary">MUSIC</span>
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground max-w-md mb-4">
+                  {t("footer.description")}
+                </p>
+              </div>
 
-        <div className={cn(
-          "border-t border-border flex flex-col items-center gap-4",
-          isMobileView ? "pt-6" : "pt-8 md:flex-row justify-between"
-        )}>
-          <p className={cn("text-muted-foreground", isMobileView ? "text-[10px]" : "text-xs")}>
-            © 2024 Make Music. {t("footer.rights")}.
-          </p>
-          <div className={cn("flex gap-4 text-muted-foreground", isMobileView ? "text-[10px] gap-3" : "text-xs gap-6")}>
-            <a href="#" className="hover:text-foreground transition-colors">Mentions légales</a>
-            <a href="#" className="hover:text-foreground transition-colors">Confidentialité</a>
-            <a href="#" className="hover:text-foreground transition-colors">CGV</a>
-          </div>
-        </div>
+              {/* Services */}
+              <div>
+                <h4 className="font-display text-lg text-foreground mb-4">
+                  {t("nav.services").toUpperCase()}
+                </h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>{t("pricing.with_engineer.title")}</li>
+                  <li>{t("pricing.mixing.title")}</li>
+                  <li>{t("pricing.mastering.title")}</li>
+                  <li>{t("pricing.without_engineer.title")}</li>
+                </ul>
+              </div>
+
+              {/* Contact */}
+              <div>
+                <h4 className="font-display text-lg text-foreground mb-4">
+                  {t("footer.contact").toUpperCase()}
+                </h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>prod.makemusic@gmail.com</li>
+                  <li>+32 476 09 41 72</li>
+                  <li>Bruxelles, Belgique</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+              <p className="text-xs text-muted-foreground">
+                © 2024 Make Music. {t("footer.rights")}.
+              </p>
+              <div className="flex gap-6 text-xs text-muted-foreground">
+                <a href="#" className="hover:text-foreground transition-colors">Mentions légales</a>
+                <a href="#" className="hover:text-foreground transition-colors">Confidentialité</a>
+                <a href="#" className="hover:text-foreground transition-colors">CGV</a>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </footer>
   );
 };
+
 export default Footer;
