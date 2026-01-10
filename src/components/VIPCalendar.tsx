@@ -515,16 +515,10 @@ const VIPCalendar = ({
         </div>
 
         {hasAdminFeatures && (
-          <>
-            <div className="flex items-center gap-1">
-              <div className={cn("rounded bg-purple-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
-              <span className="text-muted-foreground">2e agenda</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className={cn("rounded bg-pink-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
-              <span className="text-muted-foreground">3e agenda</span>
-            </div>
-          </>
+          <div className="flex items-center gap-1">
+            <div className={cn("rounded bg-orange-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+            <span className="text-muted-foreground">2e/3e agenda</span>
+          </div>
         )}
       </div>
 
@@ -628,11 +622,9 @@ const VIPCalendar = ({
 
                   const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
 
-                  // Color overlay: only for admins/VIP; regular users shouldn't see other calendars
+                  // Color overlay: only for admins/VIP; regular users shouldn't see other calendars (orange for 2e/3e)
                   const specialConflictColor = hasAdminFeatures && hasAnySpecialConflict
-                    ? (hasTertiaryConflict
-                      ? "bg-pink-500/30 text-pink-400 active:bg-pink-500/50 ring-1 ring-pink-500/50"
-                      : "bg-purple-500/30 text-purple-400 active:bg-purple-500/50 ring-1 ring-purple-500/50")
+                    ? "bg-orange-500/30 text-orange-400 active:bg-orange-500/50 ring-1 ring-orange-500/50"
                     : "";
 
                   const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
@@ -676,12 +668,9 @@ const VIPCalendar = ({
                       )}
                       title={hoverTitle}
                     >
-                      {/* Secondary/Tertiary indicators (admin/VIP only) */}
-                      {hasAdminFeatures && hasSecondaryConflict && displayStatus !== "unavailable" && (
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full" />
-                      )}
-                      {hasAdminFeatures && hasTertiaryConflict && displayStatus !== "unavailable" && (
-                        <span className="absolute top-1 left-1 w-2 h-2 bg-pink-500 rounded-full" />
+                      {/* Secondary/Tertiary indicator (admin/VIP only) - orange dot */}
+                      {hasAdminFeatures && hasAnySpecialConflict && displayStatus !== "unavailable" && (
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
                       )}
 
                       <span className="font-semibold text-sm">{formatHour(hour)}</span>
@@ -741,9 +730,7 @@ const VIPCalendar = ({
                         const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
 
                         const specialConflictColor = hasAdminFeatures && hasAnySpecialConflict
-                          ? (hasTertiaryConflict
-                            ? "bg-pink-500/30 text-pink-400 hover:bg-pink-500/50 ring-1 ring-pink-500/50"
-                            : "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50")
+                          ? "bg-orange-500/30 text-orange-400 hover:bg-orange-500/50 ring-1 ring-orange-500/50"
                           : "";
 
                         const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
@@ -787,11 +774,9 @@ const VIPCalendar = ({
                             )}
                             title={hoverTitle}
                           >
-                            {hasAdminFeatures && hasSecondaryConflict && displayStatus !== "unavailable" && (
-                              <span className="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full" />
-                            )}
-                            {hasAdminFeatures && hasTertiaryConflict && displayStatus !== "unavailable" && (
-                              <span className="absolute top-1 left-1 w-2 h-2 bg-pink-500 rounded-full" />
+                            {/* Secondary/Tertiary indicator - orange dot */}
+                            {hasAdminFeatures && hasAnySpecialConflict && displayStatus !== "unavailable" && (
+                              <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
                             )}
 
                             <span className="font-medium">{formatHour(hour)}</span>
