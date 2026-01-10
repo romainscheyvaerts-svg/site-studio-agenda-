@@ -27,6 +27,7 @@ function isValidFolderName(name: string): boolean {
 const AvailabilityRequestSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
   days: z.number().int().min(1).max(90).default(14), // Increased to 90 for monthly view
+  includeSuperadminCalendars: z.boolean().optional().default(false), // Only include 2nd/3rd calendars if superadmin
 });
 
 interface CalendarEvent {
@@ -348,7 +349,7 @@ serve(async (req) => {
       );
     }
     
-    const { startDate, days } = validationResult.data;
+    const { startDate, days, includeSuperadminCalendars } = validationResult.data;
     
     console.log(`Fetching weekly availability starting from: ${startDate} for ${days} days`);
 
@@ -369,13 +370,14 @@ serve(async (req) => {
 
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch events from all calendars (including secondary and tertiary if configured)
+    // Fetch events from all calendars (including secondary and tertiary only if superadmin requested)
     const [patronEvents, studioEvents, claridgeEvents, secondaryEvents, tertiaryEvents] = await Promise.all([
       getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString(), "Patron"),
       getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString(), "Studio"),
       claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
-      secondaryCalendarId ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString(), "Secondary") : Promise.resolve([]),
-      tertiaryCalendarId ? getCalendarEvents(accessToken, tertiaryCalendarId, start.toISOString(), end.toISOString(), "Tertiary") : Promise.resolve([]),
+      // Only fetch secondary/tertiary calendars if includeSuperadminCalendars is true
+      (includeSuperadminCalendars && secondaryCalendarId) ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString(), "Secondary") : Promise.resolve([]),
+      (includeSuperadminCalendars && tertiaryCalendarId) ? getCalendarEvents(accessToken, tertiaryCalendarId, start.toISOString(), end.toISOString(), "Tertiary") : Promise.resolve([]),
     ]);
 
     // Only studio calendar determines main availability (unavailable)

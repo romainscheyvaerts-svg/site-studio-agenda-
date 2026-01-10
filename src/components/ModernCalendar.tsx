@@ -32,6 +32,7 @@ import {
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useAdmin } from "@/hooks/useAdmin";
 import {
   Dialog,
   DialogContent,
@@ -91,6 +92,7 @@ const CALENDAR_COLORS = [
 const ModernCalendar = () => {
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
+  const { isSuperAdmin } = useAdmin();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
@@ -125,6 +127,7 @@ const ModernCalendar = () => {
         body: {
           startDate: format(startDate, "yyyy-MM-dd"),
           days: 45, // Current month + next month buffer
+          includeSuperadminCalendars: isSuperAdmin, // Only superadmins see 2nd/3rd calendars
         },
       });
 
@@ -135,7 +138,7 @@ const ModernCalendar = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentDate]);
+  }, [currentDate, isSuperAdmin]);
 
   useEffect(() => {
     fetchAvailability();
@@ -492,10 +495,12 @@ const ModernCalendar = () => {
 
         {/* Legend */}
         <div className="flex items-center gap-4 px-4 py-2 border-b border-border text-xs text-muted-foreground flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-            <span>2e/3e Agenda</span>
-          </div>
+          {isSuperAdmin && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+              <span>2e/3e Agenda</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
             <span>Session</span>

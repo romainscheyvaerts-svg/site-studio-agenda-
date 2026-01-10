@@ -8,6 +8,7 @@ import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import AdminEventCreator from "./AdminEventCreator";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useAdmin } from "@/hooks/useAdmin";
 interface TimeSlot {
   hour: number;
   available: boolean;
@@ -47,6 +48,7 @@ const AdminCalendar = ({
 }: AdminCalendarProps) => {
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
+  const { isSuperAdmin } = useAdmin();
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,7 @@ const AdminCalendar = ({
         body: {
           startDate: weekStart.toISOString().split("T")[0],
           days: 14,
+          includeSuperadminCalendars: isSuperAdmin, // Only superadmins see 2nd/3rd calendars
         },
       });
 
@@ -82,7 +85,7 @@ const AdminCalendar = ({
     } finally {
       setLoading(false);
     }
-  }, [weekStart]);
+  }, [weekStart, isSuperAdmin]);
 
   useEffect(() => {
     fetchAvailability();
@@ -279,10 +282,12 @@ const AdminCalendar = ({
           <div className={cn("rounded bg-primary", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
           <span className="text-muted-foreground">Sélection</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className={cn("rounded bg-orange-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
-          <span className="text-muted-foreground">2e/3e Agenda</span>
-        </div>
+        {isSuperAdmin && (
+          <div className="flex items-center gap-1">
+            <div className={cn("rounded bg-orange-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+            <span className="text-muted-foreground">2e/3e Agenda</span>
+          </div>
+        )}
       </div>
 
       {/* Instructions - hidden on mobile for space */}
