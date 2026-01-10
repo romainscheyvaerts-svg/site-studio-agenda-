@@ -859,6 +859,18 @@ async function sendClientPendingEmail(
     day: 'numeric'
   });
 
+  const calendarLink = generateClientCalendarLink(booking);
+  const calendarSection = `
+    <div style="text-align: center; margin: 24px 0;">
+      <p style="margin: 0 0 12px 0; color: #475569; font-size: 14px; line-height: 1.5;">
+        Vous pouvez déjà ajouter ce créneau à votre agenda (il sera confirmé après validation du studio).
+      </p>
+      <a href="${calendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
+        📅 Ajouter à mon calendrier
+      </a>
+    </div>
+  `;
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -896,6 +908,8 @@ async function sendClientPendingEmail(
           </tr>
         </table>
       </div>
+
+      ${calendarSection}
 
       <div style="background-color: #EFF6FF; border: 1px solid #3B82F6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
         <h4 style="color: #1E40AF; margin: 0 0 8px 0;">ℹ️ Prochaines étapes</h4>
