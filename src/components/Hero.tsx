@@ -14,12 +14,12 @@ const Hero = () => {
   const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
 
-  const scrollToBooking = () => {
-    document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' });
+  const goToBooking = () => {
+    navigate('/reservation');
   };
 
-  const scrollToGear = () => {
-    document.getElementById('gear')?.scrollIntoView({ behavior: 'smooth' });
+  const goToGear = () => {
+    navigate('/arsenal');
   };
 
   const goToInstrumentals = () => {
@@ -32,12 +32,7 @@ const Hero = () => {
 
   const openAdminCalendar = () => {
     window.dispatchEvent(new CustomEvent('open-admin-calendar'));
-    setTimeout(() => {
-      const bookingSection = document.getElementById('booking');
-      if (bookingSection) {
-        bookingSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
+    navigate('/reservation');
   };
 
   const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
@@ -99,7 +94,7 @@ const Hero = () => {
             <Button 
               variant="hero" 
               size={isMobileView ? "lg" : "xl"} 
-              onClick={scrollToBooking}
+              onClick={goToBooking}
               className={cn(isMobileView && "w-full")}
             >
               <Mic className="w-5 h-5" />
@@ -108,7 +103,7 @@ const Hero = () => {
             <Button 
               variant="neon" 
               size={isMobileView ? "lg" : "xl"} 
-              onClick={scrollToGear}
+              onClick={goToGear}
               className={cn(isMobileView && "w-full")}
             >
               <Headphones className="w-5 h-5" />

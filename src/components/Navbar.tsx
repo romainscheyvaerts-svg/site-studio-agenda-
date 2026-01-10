@@ -28,23 +28,16 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollTo = (id: string) => {
-    if (!isHomePage) {
-      navigate("/");
-      setTimeout(() => {
-        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    } else {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    }
+  const goToPage = (path: string) => {
+    navigate(path);
     setIsMobileMenuOpen(false);
   };
 
   const navLinks = [
-    { label: t("nav.home"), id: "hero" },
-    { label: t("nav.gear"), id: "gear" },
-    { label: t("nav.pricing"), id: "pricing" },
-    { label: t("nav.booking"), id: "booking" },
+    { label: t("nav.home"), path: "/" },
+    { label: t("nav.gear"), path: "/arsenal" },
+    { label: t("nav.pricing"), path: "/offres" },
+    { label: t("nav.booking"), path: "/reservation" },
   ];
 
   return (
@@ -75,8 +68,8 @@ const Navbar = () => {
           )}>
             {navLinks.map((link) => (
               <button
-                key={link.id}
-                onClick={() => scrollTo(link.id)}
+                key={link.path}
+                onClick={() => goToPage(link.path)}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors relative group"
               >
                 {link.label}
@@ -102,7 +95,7 @@ const Navbar = () => {
             <LanguageSwitcher />
             {user ? (
               <>
-                <Button variant="neon" onClick={() => scrollTo("booking")}>
+                <Button variant="neon" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
                 </Button>
                 <Button 
@@ -124,7 +117,7 @@ const Navbar = () => {
                   <User className="w-4 h-4" />
                   Connexion
                 </Button>
-                <Button variant="neon" onClick={() => scrollTo("booking")}>
+                <Button variant="neon" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
                 </Button>
               </>
@@ -156,8 +149,8 @@ const Navbar = () => {
             <div className="flex flex-col gap-3">
               {navLinks.map((link) => (
                 <button
-                  key={link.id}
-                  onClick={() => scrollTo(link.id)}
+                  key={link.path}
+                  onClick={() => goToPage(link.path)}
                   className="text-left text-muted-foreground hover:text-foreground transition-colors py-2 text-base"
                 >
                   {link.label}
@@ -174,7 +167,7 @@ const Navbar = () => {
                 Instrumentaux
               </button>
               <div className="flex flex-col gap-2 mt-2">
-                <Button variant="neon" size="lg" className="w-full" onClick={() => scrollTo("booking")}>
+                <Button variant="neon" size="lg" className="w-full" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
                 </Button>
                 {user ? (
