@@ -74,6 +74,14 @@ interface CalendarEvent {
 
 type ViewMode = "month" | "week";
 
+// Props for optional slot selection mode
+interface ModernCalendarProps {
+  onSelectSlot?: (date: string, time: string, duration: number) => void;
+  selectedDate?: string;
+  selectedTime?: string;
+  selectionMode?: boolean; // When true, enables slot selection in week view
+}
+
 // Google Calendar color IDs mapping
 const CALENDAR_COLORS = [
   { id: "1", name: "Lavande", color: "bg-purple-400", hex: "#7986cb" },
@@ -89,7 +97,12 @@ const CALENDAR_COLORS = [
   { id: "11", name: "Tomate", color: "bg-red-500", hex: "#d50000" },
 ];
 
-const ModernCalendar = () => {
+const ModernCalendar = ({ 
+  onSelectSlot, 
+  selectedDate: externalSelectedDate, 
+  selectedTime: externalSelectedTime,
+  selectionMode = false 
+}: ModernCalendarProps = {}) => {
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
   const { isSuperAdmin } = useAdmin();
@@ -116,6 +129,12 @@ const ModernCalendar = () => {
   const [editEventEndHour, setEditEventEndHour] = useState(12);
   const [editEventColorId, setEditEventColorId] = useState("7");
   const [updatingEvent, setUpdatingEvent] = useState(false);
+  
+  // Slot selection state (for selectionMode)
+  const [selectionStart, setSelectionStart] = useState<{ date: string; hour: number } | null>(null);
+  const [selectedSlotRange, setSelectedSlotRange] = useState<{ date: string; startHour: number; endHour: number } | null>(null);
+  const [hoveredSlot, setHoveredSlot] = useState<{ date: string; hour: number } | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState(2);
 
   // Fetch availability for a date range
   const fetchAvailability = useCallback(async () => {
@@ -447,6 +466,99 @@ const ModernCalendar = () => {
   const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h (full 24 hours)
 
+  // Slot selection helpers (for selectionMode)
+  const handleSlotClick = (date: Date, hour: number) => {
+    if (!selectionMode) {
+      openDayDetail(date);
+      return;
+    }
+    
+    const dateStr = format(date, "yyyy-MM-dd");
+    const slot = getHourStatus(date, hour);
+    
+    // Can't select unavailable slots
+    if (slot?.status === "unavailable") {
+      toast({
+        title: "Créneau non disponible",
+        description: "Ce créneau est déjà réservé.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectionStart) {
+      // Start new selection
+      setSelectionStart({ date: dateStr, hour });
+      setSelectedSlotRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+    } else if (selectionStart.date === dateStr) {
+      // Complete selection on same day
+      const startHour = Math.min(selectionStart.hour, hour);
+      const endHour = Math.max(selectionStart.hour, hour) + 1;
+      const duration = endHour - startHour;
+      
+      setSelectedSlotRange({ date: dateStr, startHour, endHour });
+      setSelectedDuration(duration);
+      
+      // Check if all slots in range are available
+      const dayData = availability.find(d => d.date === dateStr);
+      const allAvailable = dayData?.slots
+        .filter(s => s.hour >= startHour && s.hour < endHour)
+        .every(s => s.status !== "unavailable");
+      
+      if (!allAvailable) {
+        toast({
+          title: "Créneaux non disponibles",
+          description: "Certains créneaux dans cette plage sont déjà réservés.",
+          variant: "destructive",
+        });
+        setSelectionStart(null);
+        setSelectedSlotRange(null);
+        return;
+      }
+      
+      // Call the callback
+      if (onSelectSlot) {
+        onSelectSlot(dateStr, `${startHour.toString().padStart(2, "0")}:00`, duration);
+      }
+      
+      setSelectionStart(null);
+    } else {
+      // Different day, restart selection
+      setSelectionStart({ date: dateStr, hour });
+      setSelectedSlotRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+    }
+  };
+
+  const handleSlotHover = (date: Date, hour: number) => {
+    if (!selectionMode || !selectionStart) return;
+    
+    const dateStr = format(date, "yyyy-MM-dd");
+    if (selectionStart.date === dateStr) {
+      setHoveredSlot({ date: dateStr, hour });
+    }
+  };
+
+  const isSlotInSelection = (dateStr: string, hour: number): boolean => {
+    if (!selectedSlotRange || selectedSlotRange.date !== dateStr) return false;
+    return hour >= selectedSlotRange.startHour && hour < selectedSlotRange.endHour;
+  };
+
+  const isSlotInPreview = (dateStr: string, hour: number): boolean => {
+    if (!selectionStart || !hoveredSlot) return false;
+    if (selectionStart.date !== dateStr || hoveredSlot.date !== dateStr) return false;
+    
+    const startHour = Math.min(selectionStart.hour, hoveredSlot.hour);
+    const endHour = Math.max(selectionStart.hour, hoveredSlot.hour) + 1;
+    return hour >= startHour && hour < endHour;
+  };
+
+  const clearSelection = () => {
+    setSelectionStart(null);
+    setSelectedSlotRange(null);
+    setHoveredSlot(null);
+  };
+
+
   return (
     <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
       {/* Header */}
@@ -633,6 +745,26 @@ const ModernCalendar = () => {
                   ))}
                 </div>
 
+                {/* Selection mode instructions */}
+                {selectionMode && (
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 mb-3">
+                    <p className="text-sm text-foreground">
+                      💡 <strong>Sélection:</strong> Cliquez sur une heure de début puis une heure de fin pour définir votre créneau.
+                    </p>
+                    {selectedSlotRange && (
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-sm text-primary font-medium">
+                          Sélection: {formatHour(selectedSlotRange.startHour)} - {formatHour(selectedSlotRange.endHour)} ({selectedSlotRange.endHour - selectedSlotRange.startHour}h)
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={clearSelection}>
+                          <X className="w-4 h-4 mr-1" />
+                          Annuler
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Time grid - scroll starts at 8am */}
                 <div id="modern-calendar-scroll-container" className="max-h-[500px] overflow-y-auto">
                   {hours.map((hour) => (
@@ -641,22 +773,46 @@ const ModernCalendar = () => {
                         {formatHour(hour)}
                       </div>
                       {getWeekDays().map((day) => {
+                        const dateStr = format(day, "yyyy-MM-dd");
                         const slot = getHourStatus(day, hour);
                         const events = getEventsForDay(day).filter(
                           (e) => e.startHour === hour
                         );
+                        const isSelected = isSlotInSelection(dateStr, hour);
+                        const isPreview = isSlotInPreview(dateStr, hour);
+                        const isExternallySelected = externalSelectedDate === dateStr && 
+                          externalSelectedTime === `${hour.toString().padStart(2, "0")}:00`;
 
                         return (
                           <div
                             key={`${day.toISOString()}-${hour}`}
-                            onClick={() => openDayDetail(day)}
+                            onClick={() => handleSlotClick(day, hour)}
+                            onMouseEnter={() => handleSlotHover(day, hour)}
                             className={cn(
                               "min-h-[48px] border-r border-border/30 last:border-r-0 relative cursor-pointer transition-colors",
-                              slot?.status === "available" && "hover:bg-green-500/10",
-                              slot?.status === "on-request" && "bg-amber-500/5 hover:bg-amber-500/10",
+                              // Selection mode styles
+                              selectionMode && slot?.status === "available" && "hover:bg-green-500/20",
+                              selectionMode && slot?.status === "on-request" && "hover:bg-amber-500/20",
+                              selectionMode && isSelected && "bg-primary/30 border-primary",
+                              selectionMode && isPreview && "bg-primary/15",
+                              selectionMode && isExternallySelected && "ring-2 ring-primary",
+                              // Normal mode styles
+                              !selectionMode && slot?.status === "available" && "hover:bg-green-500/10",
+                              !selectionMode && slot?.status === "on-request" && "bg-amber-500/5 hover:bg-amber-500/10",
                               slot?.status === "unavailable" && !events.length && "bg-muted/30"
                             )}
                           >
+                            {/* Selection mode indicator for available slots */}
+                            {selectionMode && slot?.status === "available" && !events.length && (
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                              </div>
+                            )}
+                            {selectionMode && slot?.status === "on-request" && !events.length && (
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                <div className="w-3 h-3 rounded-full bg-amber-500/50" />
+                              </div>
+                            )}
                             {events.map((event) => (
                               <div
                                 key={event.id}
