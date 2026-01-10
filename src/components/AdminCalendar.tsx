@@ -7,6 +7,7 @@ import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import AdminEventCreator from "./AdminEventCreator";
+import { useViewMode } from "@/hooks/useViewMode";
 interface TimeSlot {
   hour: number;
   available: boolean;
@@ -41,6 +42,7 @@ const AdminCalendar = ({
   selectedTime: externalTime
 }: AdminCalendarProps) => {
   const { toast } = useToast();
+  const { isMobileView } = useViewMode();
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,58 +228,62 @@ const AdminCalendar = ({
 
   const formatHour = (hour: number) => `${hour.toString().padStart(2, "0")}:00`;
 
-  const displayDays = availability.slice(0, 7);
+  // Show fewer days on mobile
+  const displayDays = availability.slice(0, isMobileView ? 3 : 7);
 
   return (
-    <div className="bg-card rounded-2xl border border-primary/30 p-6 box-glow-cyan">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="font-display text-xl text-foreground flex items-center gap-2">
-          <Clock className="w-5 h-5 text-primary" />
-          AGENDA ADMIN
+    <div className={cn("bg-card rounded-2xl border border-primary/30 box-glow-cyan", isMobileView ? "p-3" : "p-6")}>
+      <div className={cn("flex items-center justify-between", isMobileView ? "mb-3" : "mb-6")}>
+        <h3 className={cn("font-display text-foreground flex items-center gap-2", isMobileView ? "text-base" : "text-xl")}>
+          <Clock className={cn("text-primary", isMobileView ? "w-4 h-4" : "w-5 h-5")} />
+          {isMobileView ? "AGENDA" : "AGENDA ADMIN"}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="icon"
+            className={isMobileView ? "h-7 w-7" : ""}
             onClick={handlePreviousWeek}
             disabled={isSameDay(weekStart, startOfDay(new Date()))}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
           </Button>
-          <span className="text-sm text-muted-foreground min-w-[150px] text-center">
-            {format(weekStart, "d MMM", { locale: fr })} - {format(addDays(weekStart, 6), "d MMM yyyy", { locale: fr })}
+          <span className={cn("text-muted-foreground text-center", isMobileView ? "text-xs min-w-[100px]" : "text-sm min-w-[150px]")}>
+            {format(weekStart, "d MMM", { locale: fr })} - {format(addDays(weekStart, isMobileView ? 2 : 6), "d MMM", { locale: fr })}
           </span>
-          <Button variant="outline" size="icon" onClick={handleNextWeek}>
-            <ChevronRight className="w-4 h-4" />
+          <Button variant="outline" size="icon" className={isMobileView ? "h-7 w-7" : ""} onClick={handleNextWeek}>
+            <ChevronRight className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
           </Button>
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-4 text-xs flex-wrap">
+      {/* Legend - compact on mobile */}
+      <div className={cn("flex items-center flex-wrap", isMobileView ? "gap-2 mb-3 text-[10px]" : "gap-4 mb-4 text-xs")}>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-green-500" />
-          <span className="text-muted-foreground">Disponible</span>
+          <div className={cn("rounded bg-green-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">Dispo</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-amber-500" />
-          <span className="text-muted-foreground">Sur demande</span>
+          <div className={cn("rounded bg-amber-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">Demande</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-destructive" />
-          <span className="text-muted-foreground">Réservé (cliquez pour supprimer)</span>
+          <div className={cn("rounded bg-destructive", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">Réservé</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-primary" />
-          <span className="text-muted-foreground">Sélectionné</span>
+          <div className={cn("rounded bg-primary", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">Sélection</span>
         </div>
       </div>
 
-      {/* Instructions */}
-      <div className="mb-4 p-3 rounded-lg bg-secondary/50 border border-border text-sm text-muted-foreground">
-        <p>💡 <strong>Sélection:</strong> Cliquez sur une case de début puis une case de fin pour définir la durée.</p>
-        <p>🗑️ <strong>Suppression:</strong> Cliquez sur les cases réservées (rouges) pour les sélectionner, puis "Supprimer".</p>
-      </div>
+      {/* Instructions - hidden on mobile for space */}
+      {!isMobileView && (
+        <div className="mb-4 p-3 rounded-lg bg-secondary/50 border border-border text-sm text-muted-foreground">
+          <p>💡 <strong>Sélection:</strong> Cliquez sur une case de début puis une case de fin pour définir la durée.</p>
+          <p>🗑️ <strong>Suppression:</strong> Cliquez sur les cases réservées (rouges) pour les sélectionner, puis "Supprimer".</p>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -287,11 +293,11 @@ const AdminCalendar = ({
       ) : (
         <>
           {/* Calendar grid */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[700px]">
+          <div className="overflow-x-auto -mx-3 px-3">
+            <div className={isMobileView ? "min-w-[320px]" : "min-w-[700px]"}>
               {/* Days header */}
-              <div className="grid grid-cols-8 gap-1 mb-2">
-                <div className="text-xs text-muted-foreground p-2">Heure</div>
+              <div className={cn("grid gap-1 mb-2", isMobileView ? "grid-cols-4" : "grid-cols-8")}>
+                <div className={cn("text-muted-foreground p-1", isMobileView ? "text-[10px]" : "text-xs p-2")}>H</div>
                 {displayDays.map((day) => {
                   const date = new Date(day.date);
                   const isSelected = selectedRange?.date === day.date;
@@ -299,24 +305,27 @@ const AdminCalendar = ({
                     <div
                       key={day.date}
                       className={cn(
-                        "text-center p-2 rounded-lg text-xs",
+                        "text-center rounded-lg",
+                        isMobileView ? "p-1" : "p-2",
                         isSelected ? "bg-primary/20 text-primary" : "text-muted-foreground"
                       )}
                     >
-                      <div className="font-semibold">{format(date, "EEE", { locale: fr })}</div>
-                      <div className="text-lg font-display">{format(date, "d")}</div>
-                      <div className="text-[10px]">{format(date, "MMM", { locale: fr })}</div>
+                      <div className={cn("font-semibold", isMobileView ? "text-[10px]" : "text-xs")}>
+                        {format(date, "EEE", { locale: fr })}
+                      </div>
+                      <div className={cn("font-display", isMobileView ? "text-sm" : "text-lg")}>{format(date, "d")}</div>
+                      <div className={isMobileView ? "text-[8px]" : "text-[10px]"}>{format(date, "MMM", { locale: fr })}</div>
                     </div>
                   );
                 })}
               </div>
 
               {/* Time slots grid */}
-              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+              <div className={cn("space-y-1 overflow-y-auto", isMobileView ? "max-h-[300px]" : "max-h-[400px]")}>
                 {Array.from({ length: 24 }, (_, i) => i).map((hour) => (
-                  <div key={hour} className="grid grid-cols-8 gap-1">
-                    <div className="text-xs text-muted-foreground p-2 flex items-center">
-                      {formatHour(hour)}
+                  <div key={hour} className={cn("grid gap-1", isMobileView ? "grid-cols-4" : "grid-cols-8")}>
+                    <div className={cn("text-muted-foreground flex items-center", isMobileView ? "text-[10px] p-0.5" : "text-xs p-2")}>
+                      {isMobileView ? hour.toString().padStart(2, "0") : formatHour(hour)}
                     </div>
                     {displayDays.map((day) => {
                       const slot = day.slots.find(s => s.hour === hour);
@@ -333,7 +342,8 @@ const AdminCalendar = ({
                           onClick={() => handleSlotClick(day.date, hour)}
                           onMouseEnter={() => handleSlotHover(day.date, hour)}
                           className={cn(
-                            "p-1 rounded text-[10px] transition-all duration-200 min-h-[36px] flex flex-col items-center justify-center cursor-pointer",
+                            "rounded transition-all duration-200 flex flex-col items-center justify-center cursor-pointer",
+                            isMobileView ? "p-0.5 min-h-[28px] text-[8px]" : "p-1 min-h-[36px] text-[10px]",
                             forDeletion
                               ? "bg-blue-500 text-white ring-2 ring-blue-400"
                               : inRange
@@ -348,10 +358,10 @@ const AdminCalendar = ({
                           )}
                           title={eventName || formatHour(hour)}
                         >
-                          <span className="font-medium">{formatHour(hour)}</span>
+                          <span className="font-medium">{isMobileView ? hour.toString().padStart(2, "0") : formatHour(hour)}</span>
                           {forDeletion ? (
-                            <span className="text-[8px]">✓</span>
-                          ) : status === "unavailable" && eventName ? (
+                            <span className={isMobileView ? "text-[6px]" : "text-[8px]"}>✓</span>
+                          ) : status === "unavailable" && eventName && !isMobileView ? (
                             <span className="truncate w-full text-[8px] opacity-80 px-0.5">{eventName}</span>
                           ) : status === "available" ? (
                             <span className="opacity-50">✓</span>
@@ -369,13 +379,13 @@ const AdminCalendar = ({
 
           {/* Selection actions */}
           {(selectedRange || selectedForDeletion.length > 0) && (
-            <div className="mt-4 p-4 rounded-xl bg-secondary/50 border border-border">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className={cn("rounded-xl bg-secondary/50 border border-border", isMobileView ? "mt-3 p-3" : "mt-4 p-4")}>
+              <div className={cn("flex flex-wrap items-center gap-3", isMobileView ? "justify-center" : "justify-between gap-4")}>
                 {selectedRange && (
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm text-foreground">
-                      <Calendar className="w-4 h-4 inline mr-2" />
-                      <strong>{format(new Date(selectedRange.date), "EEEE d MMMM", { locale: fr })}</strong>
+                  <div className={cn("flex items-center", isMobileView ? "flex-col gap-2" : "gap-3")}>
+                    <p className={cn("text-foreground", isMobileView ? "text-xs text-center" : "text-sm")}>
+                      <Calendar className={cn("inline mr-1", isMobileView ? "w-3 h-3" : "w-4 h-4")} />
+                      <strong>{format(new Date(selectedRange.date), isMobileView ? "d MMM" : "EEEE d MMMM", { locale: fr })}</strong>
                       {" • "}
                       {formatHour(selectedRange.startHour)} - {formatHour(selectedRange.endHour + 1)}
                       {" • "}
@@ -385,28 +395,28 @@ const AdminCalendar = ({
                     </p>
                     {!showEventCreator && (
                       <Button
-                        size="sm"
+                        size={isMobileView ? "sm" : "default"}
                         onClick={() => setShowEventCreator(true)}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Créer un événement
+                        <Plus className={cn(isMobileView ? "w-3 h-3 mr-1" : "w-4 h-4 mr-1")} />
+                        {isMobileView ? "Créer" : "Créer un événement"}
                       </Button>
                     )}
                   </div>
                 )}
                 
                 {selectedForDeletion.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-blue-400">
-                      {selectedForDeletion.length} créneau(x) à supprimer
+                  <div className={cn("flex items-center gap-2", isMobileView && "flex-wrap justify-center")}>
+                    <span className={cn("text-blue-400", isMobileView ? "text-xs" : "text-sm")}>
+                      {selectedForDeletion.length} à supprimer
                     </span>
 
-                    {selectedDriveFolderLink && (
+                    {selectedDriveFolderLink && !isMobileView && (
                       <Button asChild variant="outline" size="sm">
                         <a href={selectedDriveFolderLink} target="_blank" rel="noreferrer">
                           <FolderOpen className="w-4 h-4 mr-1" />
-                          DOSSIER GOOGLE DRIVE
+                          DRIVE
                         </a>
                       </Button>
                     )}
@@ -418,11 +428,11 @@ const AdminCalendar = ({
                       disabled={deletingEvent}
                     >
                       {deletingEvent ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        <Loader2 className={cn("animate-spin", isMobileView ? "w-3 h-3" : "w-4 h-4 mr-1")} />
                       ) : (
-                        <Trash2 className="w-4 h-4 mr-1" />
+                        <Trash2 className={cn(isMobileView ? "w-3 h-3" : "w-4 h-4 mr-1")} />
                       )}
-                      Supprimer
+                      {!isMobileView && "Supprimer"}
                     </Button>
                   </div>
                 )}

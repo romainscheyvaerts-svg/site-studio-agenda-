@@ -5,6 +5,7 @@ import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio } from "lucide-re
 import { cn } from "@/lib/utils";
 import QuoteRequestDialog from "./QuoteRequestDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useViewMode } from "@/hooks/useViewMode";
 
 interface Service {
   id: string;
@@ -45,9 +46,10 @@ interface PricingCardProps {
   icon: React.ReactNode;
   highlighted?: boolean;
   buttonText: string;
+  isMobileView?: boolean;
 }
 
-const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, discountPercent, unit, features, icon, highlighted, buttonText }: PricingCardProps) => {
+const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, discountPercent, unit, features, icon, highlighted, buttonText, isMobileView }: PricingCardProps) => {
   const scrollToBookingAndSelectService = () => {
     // Dispatch an event to auto-select the service based on title
     const serviceMap: Record<string, string> = {
@@ -71,7 +73,8 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
   return (
     <div
       className={cn(
-        "relative p-8 rounded-2xl transition-all duration-300 hover:scale-[1.02]",
+        "relative rounded-2xl transition-all duration-300 hover:scale-[1.02]",
+        isMobileView ? "p-4" : "p-8",
         highlighted
           ? "bg-card border-2 border-primary box-glow-cyan"
           : "bg-secondary/30 border border-border hover:border-primary/30"
@@ -79,61 +82,73 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
     >
       {/* Discount badge */}
       {hasDiscount && discountPercent && discountPercent > 0 && (
-        <div className="absolute -top-3 -right-3 px-3 py-1 rounded-full bg-destructive text-destructive-foreground text-sm font-bold animate-pulse">
+        <div className={cn(
+          "absolute -top-3 -right-3 px-3 py-1 rounded-full bg-destructive text-destructive-foreground font-bold animate-pulse",
+          isMobileView ? "text-xs" : "text-sm"
+        )}>
           -{discountPercent}%
         </div>
       )}
       
       {highlighted && !hasDiscount && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+        <div className={cn(
+          "absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground font-semibold",
+          isMobileView ? "text-xs" : "text-sm"
+        )}>
           POPULAIRE
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className={cn("flex items-center gap-3", isMobileView ? "mb-3" : "mb-4")}>
         <div className={cn(
-          "w-12 h-12 rounded-xl flex items-center justify-center",
+          "rounded-xl flex items-center justify-center",
+          isMobileView ? "w-10 h-10" : "w-12 h-12",
           highlighted ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
         )}>
           {icon}
         </div>
         <div>
-          <h3 className="font-display text-xl text-foreground">{title}</h3>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <h3 className={cn("font-display text-foreground", isMobileView ? "text-lg" : "text-xl")}>{title}</h3>
+          <p className={cn("text-muted-foreground", isMobileView ? "text-xs" : "text-sm")}>{subtitle}</p>
         </div>
       </div>
 
-      <div className="mb-6">
+      <div className={isMobileView ? "mb-4" : "mb-6"}>
         {hasDiscount && originalPrice && (
-          <span className="text-xl text-muted-foreground line-through mr-2">
+          <span className={cn("text-muted-foreground line-through mr-2", isMobileView ? "text-base" : "text-xl")}>
             {originalPrice}
           </span>
         )}
         <span className={cn(
-          "font-display text-5xl",
+          "font-display",
+          isMobileView ? "text-3xl" : "text-5xl",
           hasDiscount ? "text-destructive" : highlighted ? "text-primary text-glow-cyan" : "text-foreground"
         )}>
           {price}
         </span>
-        <span className="text-muted-foreground ml-2">{unit}</span>
+        <span className={cn("text-muted-foreground ml-2", isMobileView ? "text-xs" : "text-sm")}>{unit}</span>
       </div>
 
-      <ul className="space-y-3 mb-8">
-        {features.map((feature, index) => (
+      <ul className={cn("mb-6", isMobileView ? "space-y-2" : "space-y-3")}>
+        {features.slice(0, isMobileView ? 3 : features.length).map((feature, index) => (
           <li key={index} className="flex items-center gap-3 text-sm">
             <Check className={cn(
-              "w-4 h-4 flex-shrink-0",
+              "flex-shrink-0",
+              isMobileView ? "w-3 h-3" : "w-4 h-4",
               highlighted ? "text-primary" : "text-accent"
             )} />
-            <span className="text-muted-foreground">{feature}</span>
+            <span className={cn("text-muted-foreground", isMobileView ? "text-xs" : "text-sm")}>{feature}</span>
           </li>
         ))}
+        {isMobileView && features.length > 3 && (
+          <li className="text-xs text-muted-foreground italic">+{features.length - 3} autres...</li>
+        )}
       </ul>
 
       <Button
         variant={highlighted ? "hero" : "neon"}
         className="w-full"
-        size="lg"
+        size={isMobileView ? "default" : "lg"}
         onClick={scrollToBookingAndSelectService}
       >
         {buttonText}
@@ -141,9 +156,9 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
     </div>
   );
 };
-
 const PricingSection = () => {
   const { t } = useTranslation();
+  const { isMobileView } = useViewMode();
   const [services, setServices] = useState<Service[]>([]);
   const [serviceFeatures, setServiceFeatures] = useState<ServiceFeature[]>([]);
   const [salesConfig, setSalesConfig] = useState<SalesConfig | null>(null);
@@ -218,32 +233,38 @@ const PricingSection = () => {
   };
 
   return (
-    <section id="pricing" className="py-24 relative">
+    <section id="pricing" className={cn("relative", isMobileView ? "py-12" : "py-24")}>
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/5 to-background" />
       
-      <div className="container mx-auto px-6 relative z-10">
+      <div className={cn("container mx-auto relative z-10", isMobileView ? "px-4" : "px-6")}>
         {/* Sale Banner */}
         {salesConfig?.is_active && (
-          <div className="mb-8 p-4 rounded-xl bg-gradient-to-r from-destructive/20 via-destructive/10 to-destructive/20 border border-destructive/30 text-center animate-pulse">
-            <span className="text-2xl font-bold text-destructive">
+          <div className={cn(
+            "mb-8 rounded-xl bg-gradient-to-r from-destructive/20 via-destructive/10 to-destructive/20 border border-destructive/30 text-center animate-pulse",
+            isMobileView ? "p-3" : "p-4"
+          )}>
+            <span className={cn("font-bold text-destructive", isMobileView ? "text-lg" : "text-2xl")}>
               🔥 {salesConfig.sale_name} 🔥
             </span>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className={cn("text-muted-foreground mt-1", isMobileView ? "text-xs" : "text-sm")}>
               Profitez de nos réductions exceptionnelles sur tous nos services !
             </p>
           </div>
         )}
         
         {/* Header */}
-        <div className="text-center mb-16">
-          <span className="inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-sm font-medium mb-4">
+        <div className={cn("text-center", isMobileView ? "mb-8" : "mb-16")}>
+          <span className={cn(
+            "inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary font-medium mb-4",
+            isMobileView ? "text-xs" : "text-sm"
+          )}>
             {t("pricing.badge")}
           </span>
-          <h2 className="font-display text-5xl md:text-7xl text-foreground mb-4">
+          <h2 className={cn("font-display text-foreground mb-4", isMobileView ? "text-3xl" : "text-5xl md:text-7xl")}>
             {t("pricing.title")} <span className="text-accent text-glow-gold">{t("pricing.title_highlight")}</span>
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
+          <p className={cn("text-muted-foreground max-w-xl mx-auto", isMobileView ? "text-sm" : "text-base")}>
             {t("pricing.description")}
           </p>
         </div>
@@ -254,101 +275,135 @@ const PricingSection = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-          <PricingCard
-            title={t("pricing.with_engineer.title")}
-            subtitle="Session accompagnée"
-            price={formatPrice('with-engineer')}
-            originalPrice={`${getPrice('with-engineer')}€`}
-            hasDiscount={getDiscountedPrice('with-engineer').hasDiscount}
-            discountPercent={getDiscountPercent('with-engineer')}
-            unit={t("pricing.per_hour")}
-            icon={<Mic className="w-6 h-6" />}
-            highlighted={true}
-            buttonText={t("pricing.book").toUpperCase()}
-            features={[
-              ...getFeatures('with-engineer'),
-              `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
-            ]}
-          />
+        <div className={cn(
+          "max-w-7xl mx-auto",
+          isMobileView 
+            ? "flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4" 
+            : "grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+        )}>
+          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
+            <PricingCard
+              title={t("pricing.with_engineer.title")}
+              subtitle="Session accompagnée"
+              price={formatPrice('with-engineer')}
+              originalPrice={`${getPrice('with-engineer')}€`}
+              hasDiscount={getDiscountedPrice('with-engineer').hasDiscount}
+              discountPercent={getDiscountPercent('with-engineer')}
+              unit={t("pricing.per_hour")}
+              icon={<Mic className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+              highlighted={true}
+              buttonText={t("pricing.book").toUpperCase()}
+              isMobileView={isMobileView}
+              features={[
+                ...getFeatures('with-engineer'),
+                `⭐ Dès 5h : ${Math.round(getDiscountedPrice('with-engineer').discounted * 0.9)}€/h (déduit sur place)`,
+              ]}
+            />
+          </div>
 
-          <PricingCard
-            title={t("pricing.without_engineer.title")}
-            subtitle="Sans ingénieur"
-            price={formatPrice('without-engineer')}
-            originalPrice={`${getPrice('without-engineer')}€`}
-            hasDiscount={getDiscountedPrice('without-engineer').hasDiscount}
-            discountPercent={getDiscountPercent('without-engineer')}
-            unit={t("pricing.per_hour")}
-            icon={<Building2 className="w-6 h-6" />}
-            buttonText={t("pricing.book").toUpperCase()}
-            features={[
-              ...getFeatures('without-engineer'),
-              `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
-            ]}
-          />
+          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
+            <PricingCard
+              title={t("pricing.without_engineer.title")}
+              subtitle="Sans ingénieur"
+              price={formatPrice('without-engineer')}
+              originalPrice={`${getPrice('without-engineer')}€`}
+              hasDiscount={getDiscountedPrice('without-engineer').hasDiscount}
+              discountPercent={getDiscountPercent('without-engineer')}
+              unit={t("pricing.per_hour")}
+              icon={<Building2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+              buttonText={t("pricing.book").toUpperCase()}
+              isMobileView={isMobileView}
+              features={[
+                ...getFeatures('without-engineer'),
+                `⭐ Dès 5h : ${Math.round(getDiscountedPrice('without-engineer').discounted * 0.9)}€/h (déduit sur place)`,
+              ]}
+            />
+          </div>
 
-          <PricingCard
-            title={t("pricing.mixing.title")}
-            subtitle="Piste par piste"
-            price={formatPrice('mixing')}
-            originalPrice={`${getPrice('mixing')}€`}
-            hasDiscount={getDiscountedPrice('mixing').hasDiscount}
-            discountPercent={getDiscountPercent('mixing')}
-            unit="/projet"
-            icon={<Music2 className="w-6 h-6" />}
-            buttonText={t("pricing.book").toUpperCase()}
-            features={getFeatures('mixing')}
-          />
+          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
+            <PricingCard
+              title={t("pricing.mixing.title")}
+              subtitle="Piste par piste"
+              price={formatPrice('mixing')}
+              originalPrice={`${getPrice('mixing')}€`}
+              hasDiscount={getDiscountedPrice('mixing').hasDiscount}
+              discountPercent={getDiscountPercent('mixing')}
+              unit="/projet"
+              icon={<Music2 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+              buttonText={t("pricing.book").toUpperCase()}
+              isMobileView={isMobileView}
+              features={getFeatures('mixing')}
+            />
+          </div>
 
-          <PricingCard
-            title={t("pricing.mastering.title")}
-            subtitle="Finalisation"
-            price={formatPrice('mastering')}
-            originalPrice={`${getPrice('mastering')}€`}
-            hasDiscount={getDiscountedPrice('mastering').hasDiscount}
-            discountPercent={getDiscountPercent('mastering')}
-            unit={t("pricing.per_track")}
-            icon={<Sparkles className="w-6 h-6" />}
-            buttonText={t("pricing.book").toUpperCase()}
-            features={getFeatures('mastering')}
-          />
+          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
+            <PricingCard
+              title={t("pricing.mastering.title")}
+              subtitle="Finalisation"
+              price={formatPrice('mastering')}
+              originalPrice={`${getPrice('mastering')}€`}
+              hasDiscount={getDiscountedPrice('mastering').hasDiscount}
+              discountPercent={getDiscountPercent('mastering')}
+              unit={t("pricing.per_track")}
+              icon={<Sparkles className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+              buttonText={t("pricing.book").toUpperCase()}
+              isMobileView={isMobileView}
+              features={getFeatures('mastering')}
+            />
+          </div>
 
-          <PricingCard
-            title={t("pricing.analog_mastering.title")}
-            subtitle="Mastering premium"
-            price={formatPrice('analog-mastering')}
-            originalPrice={`${getPrice('analog-mastering')}€`}
-            hasDiscount={getDiscountedPrice('analog-mastering').hasDiscount}
-            discountPercent={getDiscountPercent('analog-mastering')}
-            unit={t("pricing.per_track")}
-            icon={<Disc3 className="w-6 h-6" />}
-            buttonText={t("pricing.book").toUpperCase()}
-            features={getFeatures('analog-mastering')}
-          />
+          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
+            <PricingCard
+              title={t("pricing.analog_mastering.title")}
+              subtitle="Mastering premium"
+              price={formatPrice('analog-mastering')}
+              originalPrice={`${getPrice('analog-mastering')}€`}
+              hasDiscount={getDiscountedPrice('analog-mastering').hasDiscount}
+              discountPercent={getDiscountPercent('analog-mastering')}
+              unit={t("pricing.per_track")}
+              icon={<Disc3 className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+              buttonText={t("pricing.book").toUpperCase()}
+              isMobileView={isMobileView}
+              features={getFeatures('analog-mastering')}
+            />
+          </div>
 
-          <PricingCard
-            title={t("pricing.podcast.title")}
-            subtitle="Audio podcast"
-            price={formatPrice('podcast')}
-            originalPrice={`${getPrice('podcast')}€`}
-            hasDiscount={getDiscountedPrice('podcast').hasDiscount}
-            discountPercent={getDiscountPercent('podcast')}
-            unit="/min"
-            icon={<Radio className="w-6 h-6" />}
-            buttonText={t("pricing.book").toUpperCase()}
-            features={getFeatures('podcast')}
-          />
+          <div className={cn(isMobileView && "flex-shrink-0 w-[280px] snap-center")}>
+            <PricingCard
+              title={t("pricing.podcast.title")}
+              subtitle="Audio podcast"
+              price={formatPrice('podcast')}
+              originalPrice={`${getPrice('podcast')}€`}
+              hasDiscount={getDiscountedPrice('podcast').hasDiscount}
+              discountPercent={getDiscountPercent('podcast')}
+              unit="/min"
+              icon={<Radio className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+              buttonText={t("pricing.book").toUpperCase()}
+              isMobileView={isMobileView}
+              features={getFeatures('podcast')}
+            />
+          </div>
         </div>
         )}
 
+        {/* Mobile scroll hint */}
+        {isMobileView && (
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            ← Faites défiler pour voir tous les services →
+          </p>
+        )}
+
         {/* Payment info */}
-        <div className="mt-12 max-w-3xl mx-auto">
-          <h3 className="font-display text-xl text-center text-foreground mb-6">MODALITÉS DE PAIEMENT</h3>
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
-            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-              <p className="text-sm font-semibold text-primary mb-2 text-center">{t("pricing.deposit_50")}</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
+        <div className={cn("max-w-3xl mx-auto", isMobileView ? "mt-8" : "mt-12")}>
+          <h3 className={cn("font-display text-center text-foreground", isMobileView ? "text-lg mb-4" : "text-xl mb-6")}>
+            MODALITÉS DE PAIEMENT
+          </h3>
+          <div className={cn("gap-4 mb-8", isMobileView ? "space-y-3" : "grid md:grid-cols-2")}>
+            <div className={cn("rounded-xl bg-primary/5 border border-primary/20", isMobileView ? "p-3" : "p-4")}>
+              <p className={cn("font-semibold text-primary mb-2 text-center", isMobileView ? "text-xs" : "text-sm")}>
+                {t("pricing.deposit_50")}
+              </p>
+              <ul className={cn("text-muted-foreground space-y-1", isMobileView ? "text-[10px]" : "text-xs")}>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                   {t("pricing.with_engineer.title")} ({getPrice("with_engineer")}€/h)
@@ -362,21 +417,27 @@ const PricingSection = () => {
                   {t("pricing.mastering.title")} ({getPrice("mastering")}€{t("pricing.per_track")})
                 </li>
               </ul>
-              <p className="text-xs text-muted-foreground mt-2 text-center italic">Le reste au studio</p>
+              <p className={cn("text-muted-foreground mt-2 text-center italic", isMobileView ? "text-[10px]" : "text-xs")}>
+                Le reste au studio
+              </p>
             </div>
-            <div className="p-4 rounded-xl bg-accent/5 border border-accent/20">
-              <p className="text-sm font-semibold text-accent mb-2 text-center">{t("pricing.full_payment")}</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
+            <div className={cn("rounded-xl bg-accent/5 border border-accent/20", isMobileView ? "p-3" : "p-4")}>
+              <p className={cn("font-semibold text-accent mb-2 text-center", isMobileView ? "text-xs" : "text-sm")}>
+                {t("pricing.full_payment")}
+              </p>
+              <ul className={cn("text-muted-foreground space-y-1", isMobileView ? "text-[10px]" : "text-xs")}>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                   {t("pricing.without_engineer.title")} ({getPrice("without_engineer")}€/h)
                 </li>
               </ul>
-              <p className="text-xs text-muted-foreground mt-2 text-center italic">À régler à la réservation</p>
+              <p className={cn("text-muted-foreground mt-2 text-center italic", isMobileView ? "text-[10px]" : "text-xs")}>
+                À régler à la réservation
+              </p>
             </div>
           </div>
           
-          <p className="text-muted-foreground text-center mb-4">
+          <p className={cn("text-muted-foreground text-center mb-4", isMobileView ? "text-xs" : "text-base")}>
             Forfaits et tarifs dégressifs disponibles pour les projets longs
           </p>
           <div className="text-center">
