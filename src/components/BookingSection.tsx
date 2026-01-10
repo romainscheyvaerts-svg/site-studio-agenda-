@@ -991,8 +991,22 @@ const BookingSection = () => {
           </div>
           )}
 
-          {/* Booking form - Hidden in admin mode */}
-          {!isAdmin && (
+          {/* Booking form - Hidden in admin mode and until a service is selected */}
+          {!isAdmin && !sessionType && !combinedPromoEffects.skipFormFields && (
+            <div className="bg-card/50 rounded-2xl border border-border/50 p-8 text-center">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mic className="w-8 h-8 text-primary/50" />
+              </div>
+              <h4 className="font-display text-xl text-muted-foreground mb-2">
+                SÉLECTIONNEZ UN SERVICE
+              </h4>
+              <p className="text-muted-foreground/70 text-sm">
+                Choisissez un service ci-dessus pour accéder au formulaire de réservation
+              </p>
+            </div>
+          )}
+          
+          {!isAdmin && (sessionType || combinedPromoEffects.skipFormFields) && (
           <div className="bg-card rounded-2xl border border-border p-8">
             {/* Info message for immediate services */}
             {isImmediateService && (
