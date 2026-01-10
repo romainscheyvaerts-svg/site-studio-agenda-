@@ -516,6 +516,110 @@ async function sendClientRejectionEmail(resend: Resend, booking: any): Promise<v
   logStep("Rejection email sent to client", { email: booking.client_email });
 }
 
+// Send admin notification email when booking is confirmed or rejected
+async function sendAdminNotification(resend: Resend, booking: any, action: 'confirmed' | 'rejected', driveLink?: string): Promise<void> {
+  const adminEmail = 'prod.makemusic@gmail.com';
+  const sessionDate = new Date(booking.session_date).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const isConfirmed = action === 'confirmed';
+  const statusColor = isConfirmed ? '#10B981' : '#EF4444';
+  const statusBg = isConfirmed ? '#ECFDF5' : '#FEF2F2';
+  const statusText = isConfirmed ? 'CONFIRMÉE' : 'REFUSÉE';
+  const statusIcon = isConfirmed ? '✅' : '❌';
+  const subject = isConfirmed 
+    ? `✅ Session confirmée - ${booking.client_name} - ${sessionDate}`
+    : `❌ Session refusée - ${booking.client_name} - ${sessionDate}`;
+
+  const driveSectionHtml = driveLink ? `
+      <div style="background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); border-radius: 8px; padding: 16px; margin-bottom: 20px; color: white;">
+        <p style="margin: 0 0 8px 0; font-weight: bold;">📁 Dossier Drive créé:</p>
+        <a href="${driveLink}" target="_blank" style="color: white; word-break: break-all;">${driveLink}</a>
+      </div>
+  ` : '';
+
+  const refundInfo = !isConfirmed && booking.amount_paid > 0 ? `
+      <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <p style="color: #92400E; margin: 0;">
+          <strong>💰 Remboursement:</strong> ${booking.amount_paid}€ - Processus lancé automatiquement
+        </p>
+      </div>
+  ` : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin-bottom: 20px;">
+        <h1 style="margin: 0;">Make Music Studio</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.8;">Notification Admin</p>
+      </div>
+      
+      <div style="background-color: ${statusBg}; border: 2px solid ${statusColor}; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
+        <h2 style="color: ${statusColor}; margin: 0 0 8px 0; font-size: 24px;">${statusIcon} Session ${statusText}</h2>
+      </div>
+      
+      <div style="background-color: #F8FAFC; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 16px 0; color: #1E293B;">Détails de la session</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Client</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.client_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Email</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.client_email}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Téléphone</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.client_phone || 'Non fourni'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Type de session</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.session_type}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Date</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${sessionDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Horaire</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.start_time} - ${booking.end_time}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Montant</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.amount_paid}€</td>
+          </tr>
+        </table>
+      </div>
+
+      ${driveSectionHtml}
+      ${refundInfo}
+      
+      <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
+        Make Music Studio - Notification automatique
+      </p>
+    </body>
+    </html>
+  `;
+
+  await resend.emails.send({
+    from: 'Make Music Studio <noreply@studiomakemusic.com>',
+    to: [adminEmail],
+    subject,
+    html
+  });
+
+  logStep("Admin notification sent", { email: adminEmail, action });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -605,6 +709,9 @@ serve(async (req) => {
       // Send confirmation to client with Drive link
       await sendClientFinalConfirmation(resend, booking, driveLink);
       
+      // Send notification to admin
+      await sendAdminNotification(resend, booking, 'confirmed', driveLink);
+      
       logStep("Booking confirmed", { bookingId: booking.id, hasDriveLink: !!driveLink });
       
       // Redirect to success page
@@ -644,6 +751,9 @@ serve(async (req) => {
       
       // Send rejection email to client
       await sendClientRejectionEmail(resend, booking);
+      
+      // Send notification to admin
+      await sendAdminNotification(resend, booking, 'rejected');
       
       logStep("Booking rejected", { bookingId: booking.id });
       
