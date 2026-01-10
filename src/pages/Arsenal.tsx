@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import GearSection from "@/components/GearSection";
+import StudioGallery from "@/components/StudioGallery";
 import Footer from "@/components/Footer";
 
 const Arsenal = () => {
@@ -23,6 +24,7 @@ const Arsenal = () => {
           </Button>
         </div>
         <GearSection />
+        <StudioGallery />
       </div>
       <Footer />
     </main>
