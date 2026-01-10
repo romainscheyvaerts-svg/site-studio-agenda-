@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
-import AdminCalendar from "./AdminCalendar";
+import ModernCalendar from "./ModernCalendar";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
@@ -753,21 +753,10 @@ const BookingSection = () => {
                 Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
               </p>
               
-              {/* Admin-only Calendar viewer */}
+              {/* Admin-only Calendar viewer - Modern Google-style */}
               {showVIPCalendar && (
                 <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500">
-                  <AdminCalendar
-                    onSelectSlot={(date, time, duration) => {
-                      setFormData(prev => ({ ...prev, date, time }));
-                      setHours(duration);
-                      toast({
-                        title: "Créneau sélectionné",
-                        description: `${date} à ${time} pour ${duration}h`,
-                      });
-                    }}
-                    selectedDate={formData.date}
-                    selectedTime={formData.time}
-                  />
+                  <ModernCalendar />
                 </div>
               )}
               
