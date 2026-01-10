@@ -8,6 +8,8 @@ import LicenseSelector from "./LicenseSelector";
 import AudioPlayer from "./AudioPlayer";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useViewMode } from "@/hooks/useViewMode";
+import { cn } from "@/lib/utils";
 
 interface Instrumental {
   id: string;
@@ -30,6 +32,7 @@ const InstrumentalsSection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isMobileView } = useViewMode();
 
   const [instrumentals, setInstrumentals] = useState<Instrumental[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +47,7 @@ const InstrumentalsSection = () => {
         .select("*")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
-        .limit(4);
+        .limit(isMobileView ? 2 : 4);
 
       if (!error && data) {
         setInstrumentals(data);
@@ -53,7 +56,7 @@ const InstrumentalsSection = () => {
     };
 
     fetchInstrumentals();
-  }, []);
+  }, [isMobileView]);
 
   // Get the audio source URL for an instrumental
   const getAudioSrc = (instrumental: Instrumental): string | null => {
@@ -91,7 +94,7 @@ const InstrumentalsSection = () => {
 
   if (loading) {
     return (
-      <section className="py-20 px-4">
+      <section className={cn("px-4", isMobileView ? "py-10" : "py-20")}>
         <div className="container mx-auto">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -102,29 +105,44 @@ const InstrumentalsSection = () => {
   }
 
   if (instrumentals.length === 0) {
-    return null; // Don't show section if no instrumentals
+    return null;
   }
 
   return (
-    <section id="instrumentals" className="py-20 px-4 bg-gradient-to-b from-background to-background/50">
+    <section id="instrumentals" className={cn(
+      "px-4 bg-gradient-to-b from-background to-background/50",
+      isMobileView ? "py-10" : "py-20"
+    )}>
       <div className="container mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-4">
-            <Music className="h-4 w-4" />
-            <span className="text-sm font-medium">Beats & Instrumentaux</span>
+        <div className={cn("text-center", isMobileView ? "mb-6" : "mb-12")}>
+          <div className={cn(
+            "inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary mb-3",
+            isMobileView && "text-xs"
+          )}>
+            <Music className={cn(isMobileView ? "h-3 w-3" : "h-4 w-4")} />
+            <span className="font-medium">Beats & Instrumentaux</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h2 className={cn(
+            "font-bold text-foreground mb-2",
+            isMobileView ? "text-2xl" : "text-4xl md:text-5xl mb-4"
+          )}>
             Trouvez Votre Son
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Des productions originales prêtes à l'emploi. Écoutez, choisissez et créez votre prochain hit.
+          <p className={cn(
+            "text-muted-foreground max-w-2xl mx-auto",
+            isMobileView ? "text-sm" : "text-base"
+          )}>
+            {isMobileView 
+              ? "Productions originales prêtes à l'emploi."
+              : "Des productions originales prêtes à l'emploi. Écoutez, choisissez et créez votre prochain hit."
+            }
           </p>
         </div>
 
         {/* Current Playing Player */}
         {currentPlaying && getAudioSrc(currentPlaying) && (
-          <div className="mb-8 max-w-2xl mx-auto">
+          <div className={cn("mx-auto", isMobileView ? "mb-4" : "mb-8 max-w-2xl")}>
             <AudioPlayer
               src={getAudioSrc(currentPlaying)!}
               title={currentPlaying.title}
@@ -137,7 +155,10 @@ const InstrumentalsSection = () => {
         )}
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div className={cn(
+          "grid gap-4",
+          isMobileView ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+        )}>
           {instrumentals.map((instrumental) => (
             <InstrumentalCard
               key={instrumental.id}
@@ -150,14 +171,14 @@ const InstrumentalsSection = () => {
         </div>
 
         {/* View All Button */}
-        <div className="text-center">
+        <div className={cn("text-center", isMobileView ? "mt-4" : "mt-10")}>
           <Button
             variant="outline"
-            size="lg"
+            size={isMobileView ? "default" : "lg"}
             onClick={() => navigate("/instrumentals")}
             className="group"
           >
-            Voir tous les instrumentaux
+            {isMobileView ? "Voir tout" : "Voir tous les instrumentaux"}
             <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Button>
         </div>
