@@ -45,6 +45,8 @@ interface TimeSlot {
   clientEmail?: string;
   driveFolderLink?: string;
   driveSessionFolderLink?: string;
+  secondaryCalendarEventName?: string; // For secondary calendar events (visible to admin only)
+  hasSecondaryCalendarConflict?: boolean;
 }
 
 interface DayAvailability {
@@ -332,6 +334,7 @@ serve(async (req) => {
     const patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID");
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
     const claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL");
+    const secondaryCalendarId = Deno.env.get("GOOGLE_SECONDARY_CALENDAR_ID");
 
     if (!serviceAccountKey || !patronCalendarId || !studioCalendarId) {
       throw new Error("Missing calendar configuration");
@@ -343,18 +346,21 @@ serve(async (req) => {
 
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch events from all calendars
-    const [patronEvents, studioEvents, claridgeEvents] = await Promise.all([
+    // Fetch events from all calendars (including secondary if configured)
+    const [patronEvents, studioEvents, claridgeEvents, secondaryEvents] = await Promise.all([
       getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString()),
       getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString()),
       claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
+      secondaryCalendarId ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString()) : Promise.resolve([]),
     ]);
 
     // Only studio calendar determines main availability (unavailable)
     // Patron calendar + Claridge calendar trigger "on-request"
+    // Secondary calendar events are marked for admin visibility
     console.log(`Studio events found: ${studioEvents.length}`);
     console.log(`Patron (personal) events found: ${patronEvents.length}`);
     console.log(`Claridge events found: ${claridgeEvents.length}`);
+    console.log(`Secondary calendar events found: ${secondaryEvents.length}`);
 
     // Generate availability for each day
     const availability: DayAvailability[] = [];
@@ -459,12 +465,28 @@ serve(async (req) => {
           const patronResult = isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);
           const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
           
-          if (!patronResult.available || isPatronBusyInClaridge) {
+        // For available or on-request slots, check if there's a secondary calendar event
+        const secondaryResult = isSlotAvailableInGoogle(secondaryEvents, slotStart, slotEnd);
+        const hasSecondaryConflict = !secondaryResult.available;
+
+        if (!patronResult.available || isPatronBusyInClaridge) {
             // Patron busy (personal or Claridge) but studio is free - show "on request"
-            slots.push({ hour, available: true, status: "on-request" });
+            slots.push({ 
+              hour, 
+              available: true, 
+              status: "on-request",
+              hasSecondaryCalendarConflict: hasSecondaryConflict,
+              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined
+            });
           } else {
             // Fully available
-            slots.push({ hour, available: true, status: "available" });
+            slots.push({ 
+              hour, 
+              available: true, 
+              status: "available",
+              hasSecondaryCalendarConflict: hasSecondaryConflict,
+              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined
+            });
           }
         }
       }

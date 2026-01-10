@@ -802,6 +802,139 @@ async function sendClientConfirmation(
   }
 }
 
+// Send pending confirmation email to client (when session needs admin validation)
+async function sendClientPendingEmail(
+  resend: Resend,
+  booking: any,
+): Promise<void> {
+  const sessionDate = new Date(booking.session_date).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+      <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: center;">
+        <h2 style="color: #92400E; margin: 0;">⏳ En attente de confirmation</h2>
+        <p style="color: #78350F; margin: 8px 0 0 0;">Votre paiement a été reçu, la session doit être confirmée</p>
+      </div>
+      
+      <div style="background-color: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3 style="margin: 0 0 16px 0; color: #1E293B;">📋 Récapitulatif de votre demande</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Type de session</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.session_type}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Date</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${sessionDate}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Horaire</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.start_time} - ${booking.end_time}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Durée</td>
+            <td style="padding: 8px 0; color: #1E293B; text-align: right;">${booking.duration_hours}h</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748B;">Montant payé</td>
+            <td style="padding: 8px 0; color: #10B981; text-align: right; font-weight: 600;">${booking.amount_paid}€</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color: #EFF6FF; border: 1px solid #3B82F6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <h4 style="color: #1E40AF; margin: 0 0 8px 0;">ℹ️ Prochaines étapes</h4>
+        <p style="color: #1E3A8A; margin: 0; line-height: 1.6;">
+          Le studio vérifie actuellement la disponibilité de votre créneau.<br><br>
+          <strong>Vous recevrez un email de confirmation sous peu</strong> avec :
+        </p>
+        <ul style="color: #1E3A8A; margin: 12px 0 0 0; padding-left: 20px; line-height: 1.8;">
+          <li>La confirmation définitive de votre session</li>
+          <li>Le lien pour ajouter la session à votre calendrier</li>
+          <li>L'accès à votre dossier Google Drive pour déposer vos fichiers</li>
+        </ul>
+      </div>
+      
+      <div style="background-color: #ffffff; border-radius: 8px; padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h4 style="margin: 0 0 8px 0; color: #1E293B;">📞 Contact</h4>
+        <p style="margin: 0; color: #64748B; font-size: 14px;">
+          Téléphone : <a href="tel:+32476094172" style="color: #0ea5e9;">+32 476 09 41 72</a><br>
+          Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #0ea5e9;">prod.makemusic@gmail.com</a>
+        </p>
+      </div>
+      
+      <p style="color: #475569; line-height: 1.6; text-align: center;">
+        Bonjour ${booking.client_name},<br>
+        Merci pour votre réservation ! 🎵
+      </p>
+      
+      <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 30px;">
+        Make Music Studio - Bruxelles
+      </p>
+    </body>
+    </html>
+  `;
+  
+  const fromEmail = getFromEmail();
+  const clientEmail = booking.client_email;
+  logStep("[EMAIL] Attempting to send pending email to client", { 
+    from: fromEmail, 
+    to: clientEmail,
+    clientName: booking.client_name
+  });
+
+  const attemptSend = async (from: string) => {
+    logStep("[EMAIL] Sending pending email with from address", { from, to: clientEmail });
+    return await resend.emails.send({
+      from,
+      to: [clientEmail],
+      subject: `⏳ Votre réservation est en attente de confirmation - Make Music Studio - ${sessionDate}`,
+      html,
+    });
+  };
+
+  let emailResult = await attemptSend(fromEmail);
+
+  if (emailResult.error) {
+    const statusCode = (emailResult.error as any)?.statusCode;
+    const errorMessage = (emailResult.error as any)?.message || JSON.stringify(emailResult.error);
+    logStep("[EMAIL ERROR] Pending email failed", { 
+      statusCode, 
+      errorMessage,
+      from: fromEmail,
+      to: clientEmail
+    });
+    
+    if (statusCode === 403) {
+      logStep("[EMAIL] Retrying pending email with fallback sender", { fallback: FALLBACK_FROM });
+      emailResult = await attemptSend(FALLBACK_FROM);
+    }
+  }
+
+  if (emailResult.error) {
+    const finalError = (emailResult.error as any)?.message || JSON.stringify(emailResult.error);
+    logStep("[EMAIL ERROR] Pending email FINAL FAILURE", { 
+      error: finalError,
+      to: clientEmail 
+    });
+  } else {
+    logStep("[EMAIL SUCCESS] Pending email sent", { 
+      to: clientEmail,
+      emailId: (emailResult.data as any)?.id
+    });
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -857,12 +990,58 @@ serve(async (req) => {
     
     // Fetch Claridge events and check for conflicts
     let conflictDetected = false;
+    let secondaryCalendarConflict = false;
+    
     if (claridgeIcalUrl) {
       const claridgeEvents = await fetchClaridgeEvents(claridgeIcalUrl, bookingDate);
       conflictDetected = hasConflict(claridgeEvents, bookingStart, bookingEnd);
     } else {
-      logStep("No Claridge iCal URL configured, skipping conflict check");
+      logStep("No Claridge iCal URL configured, skipping Claridge conflict check");
     }
+    
+    // Check for secondary calendar conflicts
+    const secondaryCalendarId = Deno.env.get("GOOGLE_SECONDARY_CALENDAR_ID");
+    if (secondaryCalendarId) {
+      try {
+        const accessToken = await getGoogleAccessToken();
+        const timeMin = bookingStart.toISOString();
+        const timeMax = bookingEnd.toISOString();
+        
+        const url = `${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(secondaryCalendarId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true`;
+        
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const events = data.items || [];
+          
+          for (const event of events) {
+            const eventStart = new Date(event.start?.dateTime || event.start?.date || "");
+            const eventEnd = new Date(event.end?.dateTime || event.end?.date || "");
+            
+            // Check for overlap
+            if (bookingStart < eventEnd && bookingEnd > eventStart) {
+              secondaryCalendarConflict = true;
+              logStep("Secondary calendar conflict detected", { 
+                eventName: event.summary,
+                eventStart: eventStart.toISOString(),
+                eventEnd: eventEnd.toISOString()
+              });
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        logStep("Secondary calendar check error", { error: e instanceof Error ? e.message : String(e) });
+      }
+    } else {
+      logStep("No secondary calendar configured, skipping secondary conflict check");
+    }
+    
+    // Either Claridge or secondary calendar conflict triggers pending validation
+    const needsValidation = conflictDetected || secondaryCalendarConflict;
     
     // Insert booking into database
     const { data: booking, error: insertError } = await supabaseClient
@@ -878,8 +1057,8 @@ serve(async (req) => {
         duration_hours: body.durationHours,
         amount_paid: body.amount,
         stripe_payment_intent_id: body.stripePaymentIntentId,
-        status: conflictDetected ? 'pending_validation' : 'confirmed',
-        has_conflict: conflictDetected
+        status: needsValidation ? 'pending_validation' : 'confirmed',
+        has_conflict: needsValidation
       })
       .select()
       .single();
@@ -889,25 +1068,34 @@ serve(async (req) => {
       throw new Error(`Failed to create booking: ${insertError.message}`);
     }
 
-    logStep("Booking created", { id: booking.id, hasConflict: conflictDetected });
+    logStep("Booking created", { id: booking.id, needsValidation, secondaryCalendarConflict, claridgeConflict: conflictDetected });
 
-    // Create Drive folder link (best effort) so client gets it in the confirmation email
+    // Create Drive folder link (best effort) - only if confirmed immediately
     let driveLink: string | null = null;
-    try {
-      driveLink = await createDriveFolderForClient(supabaseClient, booking);
-      if (driveLink) logStep("[DRIVE] Link generated", { driveLink });
-    } catch (e) {
-      logStep("[DRIVE] Failed", { error: e instanceof Error ? e.message : String(e) });
+    if (!needsValidation) {
+      try {
+        driveLink = await createDriveFolderForClient(supabaseClient, booking);
+        if (driveLink) logStep("[DRIVE] Link generated", { driveLink });
+      } catch (e) {
+        logStep("[DRIVE] Failed", { error: e instanceof Error ? e.message : String(e) });
+      }
     }
     
     // Get app URL for action buttons
     const appUrl = req.headers.get("origin") || "https://makemusicstudio.be";
     
-    // Send emails
-    await sendAdminNotification(resend, booking, conflictDetected, appUrl);
-    await sendClientConfirmation(resend, booking, driveLink);
+    // Send emails - admin always gets notification, client gets different email based on validation status
+    await sendAdminNotification(resend, booking, needsValidation, appUrl);
+    
+    if (needsValidation) {
+      // Send pending confirmation email to client
+      await sendClientPendingEmail(resend, booking);
+    } else {
+      // Send immediate confirmation email to client
+      await sendClientConfirmation(resend, booking, driveLink);
+    }
 
-    // Add to Google Calendar
+    // Add to Google Calendar (with PENDING prefix if needs validation)
     try {
       const calendarEvent = await createGoogleCalendarEvent(booking);
       await supabaseClient
@@ -923,7 +1111,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       bookingId: booking.id,
-      hasConflict: conflictDetected,
+      hasConflict: needsValidation,
       status: booking.status
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

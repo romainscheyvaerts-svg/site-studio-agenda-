@@ -17,6 +17,8 @@ interface TimeSlot {
   clientEmail?: string;
   driveFolderLink?: string;
   driveSessionFolderLink?: string;
+  secondaryCalendarEventName?: string;
+  hasSecondaryCalendarConflict?: boolean;
 }
 
 interface DayAvailability {
@@ -275,6 +277,10 @@ const AdminCalendar = ({
           <div className={cn("rounded bg-primary", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
           <span className="text-muted-foreground">Sélection</span>
         </div>
+        <div className="flex items-center gap-1">
+          <div className={cn("rounded bg-purple-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">2e Agenda</span>
+        </div>
       </div>
 
       {/* Instructions - hidden on mobile for space */}
@@ -331,10 +337,18 @@ const AdminCalendar = ({
                       const slot = day.slots.find(s => s.hour === hour);
                       const status = slot?.status || "unavailable";
                       const eventName = slot?.eventName;
+                      const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
+                      const secondaryEventName = slot?.secondaryCalendarEventName;
                       
                       const inRange = isInSelectedRange(day.date, hour);
                       const inPreview = isInPreviewRange(day.date, hour);
                       const forDeletion = isSelectedForDeletion(day.date, hour);
+                      
+                      // Build title for hover
+                      let hoverTitle = eventName || formatHour(hour);
+                      if (hasSecondaryConflict && secondaryEventName) {
+                        hoverTitle += ` | 📅 ${secondaryEventName}`;
+                      }
                       
                       return (
                         <button
@@ -342,7 +356,7 @@ const AdminCalendar = ({
                           onClick={() => handleSlotClick(day.date, hour)}
                           onMouseEnter={() => handleSlotHover(day.date, hour)}
                           className={cn(
-                            "rounded transition-all duration-200 flex flex-col items-center justify-center cursor-pointer",
+                            "rounded transition-all duration-200 flex flex-col items-center justify-center cursor-pointer relative",
                             isMobileView ? "p-0.5 min-h-[28px] text-[8px]" : "p-1 min-h-[36px] text-[10px]",
                             forDeletion
                               ? "bg-blue-500 text-white ring-2 ring-blue-400"
@@ -351,18 +365,28 @@ const AdminCalendar = ({
                                 : inPreview
                                   ? "bg-primary/50 text-primary-foreground"
                                   : status === "available"
-                                    ? "bg-green-500/20 text-green-500 hover:bg-green-500/40"
+                                    ? hasSecondaryConflict 
+                                      ? "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50"
+                                      : "bg-green-500/20 text-green-500 hover:bg-green-500/40"
                                     : status === "on-request"
-                                      ? "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40"
+                                      ? hasSecondaryConflict
+                                        ? "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50"
+                                        : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40"
                                       : "bg-destructive/20 text-destructive hover:bg-destructive/40"
                           )}
-                          title={eventName || formatHour(hour)}
+                          title={hoverTitle}
                         >
+                          {/* Secondary calendar indicator */}
+                          {hasSecondaryConflict && status !== "unavailable" && (
+                            <span className="absolute top-0 right-0 w-2 h-2 bg-purple-500 rounded-full" />
+                          )}
                           <span className="font-medium">{isMobileView ? hour.toString().padStart(2, "0") : formatHour(hour)}</span>
                           {forDeletion ? (
                             <span className={isMobileView ? "text-[6px]" : "text-[8px]"}>✓</span>
                           ) : status === "unavailable" && eventName && !isMobileView ? (
                             <span className="truncate w-full text-[8px] opacity-80 px-0.5">{eventName}</span>
+                          ) : hasSecondaryConflict && !isMobileView ? (
+                            <span className="truncate w-full text-[8px] text-purple-400 px-0.5">📅</span>
                           ) : status === "available" ? (
                             <span className="opacity-50">✓</span>
                           ) : status === "on-request" ? (
