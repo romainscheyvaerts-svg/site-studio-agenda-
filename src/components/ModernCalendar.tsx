@@ -445,7 +445,7 @@ const ModernCalendar = () => {
   };
 
   const dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-  const hours = Array.from({ length: 16 }, (_, i) => i + 8); // 8h to 23h
+  const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h (full 24 hours)
 
   return (
     <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
