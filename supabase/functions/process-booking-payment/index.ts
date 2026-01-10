@@ -1040,8 +1040,50 @@ serve(async (req) => {
       logStep("No secondary calendar configured, skipping secondary conflict check");
     }
     
-    // Either Claridge or secondary calendar conflict triggers pending validation
-    const needsValidation = conflictDetected || secondaryCalendarConflict;
+    // Check for tertiary calendar conflicts
+    let tertiaryCalendarConflict = false;
+    const tertiaryCalendarId = Deno.env.get("GOOGLE_TERTIARY_CALENDAR_ID");
+    if (tertiaryCalendarId) {
+      try {
+        const accessToken = await getGoogleAccessToken();
+        const timeMin = bookingStart.toISOString();
+        const timeMax = bookingEnd.toISOString();
+        
+        const url = `${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(tertiaryCalendarId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true`;
+        
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          const events = data.items || [];
+          
+          for (const event of events) {
+            const eventStart = new Date(event.start?.dateTime || event.start?.date || "");
+            const eventEnd = new Date(event.end?.dateTime || event.end?.date || "");
+            
+            // Check for overlap
+            if (bookingStart < eventEnd && bookingEnd > eventStart) {
+              tertiaryCalendarConflict = true;
+              logStep("Tertiary calendar conflict detected", { 
+                eventName: event.summary,
+                eventStart: eventStart.toISOString(),
+                eventEnd: eventEnd.toISOString()
+              });
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        logStep("Tertiary calendar check error", { error: e instanceof Error ? e.message : String(e) });
+      }
+    } else {
+      logStep("No tertiary calendar configured, skipping tertiary conflict check");
+    }
+    
+    // Claridge, secondary or tertiary calendar conflict triggers pending validation
+    const needsValidation = conflictDetected || secondaryCalendarConflict || tertiaryCalendarConflict;
     
     // Insert booking into database
     const { data: booking, error: insertError } = await supabaseClient
@@ -1068,7 +1110,7 @@ serve(async (req) => {
       throw new Error(`Failed to create booking: ${insertError.message}`);
     }
 
-    logStep("Booking created", { id: booking.id, needsValidation, secondaryCalendarConflict, claridgeConflict: conflictDetected });
+    logStep("Booking created", { id: booking.id, needsValidation, secondaryCalendarConflict, tertiaryCalendarConflict, claridgeConflict: conflictDetected });
 
     // Create Drive folder link (best effort) - only if confirmed immediately
     let driveLink: string | null = null;
