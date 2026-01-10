@@ -663,6 +663,17 @@ serve(async (req) => {
             </p>
           </div>
 
+          ${isStudioSession ? `
+          <div style="text-align: center; margin: 20px 0;">
+            <p style="color: #a1a1aa; margin-bottom: 10px; font-size: 14px;">
+              En attendant la confirmation, vous pouvez déjà préparer votre agenda :
+            </p>
+            <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
+              📅 Ajouter à mon calendrier
+            </a>
+          </div>
+          ` : ""}
+
           <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
             <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Une question ?</h4>
             <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
@@ -723,8 +734,8 @@ serve(async (req) => {
 
           ${isStudioSession ? `
           <div style="text-align: center; margin: 20px 0;">
-            <a href="${googleCalendarLink}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
-              📅 Ajouter à Google Calendar
+            <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
+              📅 Ajouter à mon calendrier
             </a>
           </div>
           ` : ""}
