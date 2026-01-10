@@ -143,7 +143,8 @@ const Navbar = () => {
         {/* Mobile menu - Full screen overlay */}
         {isMobileMenuOpen && (
           <div className={cn(
-            "fixed inset-0 top-16 bg-background z-50 animate-fade-in overflow-y-auto",
+            "fixed inset-0 top-16 z-50 animate-fade-in overflow-y-auto",
+            "bg-[hsl(222,47%,6%)]", // Solid opaque background
             isMobileView ? "block" : "md:hidden block"
           )}>
             <div className="container mx-auto px-6 py-6">
