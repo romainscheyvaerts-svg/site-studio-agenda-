@@ -22,6 +22,8 @@ import AdminPromoCodeManager from "./AdminPromoCodeManager";
 import AdminRoleManager from "./AdminRoleManager";
 import AdminDawConfig from "./AdminDawConfig";
 import { supabase } from "@/integrations/supabase/client";
+import { useViewMode } from "@/hooks/useViewMode";
+import { cn } from "@/lib/utils";
 
 interface AdminPanelProps {
   inline?: boolean;
@@ -30,6 +32,7 @@ interface AdminPanelProps {
 const SUPER_ADMIN_EMAILS = ["prod.makemusic@gmail.com", "romain.scheyvaerts@gmail.com"];
 
 const AdminPanel = ({ inline = false }: AdminPanelProps) => {
+  const { isMobileView } = useViewMode();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("pricing");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -68,52 +71,61 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-3xl max-h-[85vh] bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-2">
+      <div className={cn(
+        "relative w-full bg-card border border-border rounded-lg shadow-xl overflow-hidden",
+        isMobileView ? "max-w-full max-h-[95vh]" : "max-w-3xl max-h-[85vh]"
+      )}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-muted/50">
+        <div className={cn(
+          "flex items-center justify-between border-b border-border bg-muted/50",
+          isMobileView ? "p-3" : "p-4"
+        )}>
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">Panneau Admin</h2>
+            <Settings className={cn("text-primary", isMobileView ? "w-4 h-4" : "w-5 h-5")} />
+            <h2 className={cn("font-semibold", isMobileView ? "text-sm" : "text-lg")}>Admin</h2>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-            <X className="w-5 h-5" />
+          <Button variant="ghost" size="icon" className={isMobileView ? "h-8 w-8" : ""} onClick={() => setIsOpen(false)}>
+            <X className={isMobileView ? "w-4 h-4" : "w-5 h-5"} />
           </Button>
         </div>
 
         {/* Tabbed Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-[calc(85vh-80px)]">
-          <div className="border-b border-border bg-muted/30 px-2">
-            <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className={cn("flex flex-col", isMobileView ? "h-[calc(95vh-60px)]" : "h-[calc(85vh-80px)]")}>
+          <div className="border-b border-border bg-muted/30 px-2 overflow-x-auto">
+            <TabsList className={cn("w-full justify-start gap-1 bg-transparent p-0", isMobileView ? "h-10" : "h-12")}>
               {isSuperAdmin && (
                 <TabsTrigger 
                   value="super-admin" 
-                  className="flex items-center gap-2 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300"
+                  className={cn(
+                    "flex items-center gap-1 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300",
+                    isMobileView ? "text-xs px-2" : "gap-2"
+                  )}
                 >
-                  <Crown className="w-4 h-4" />
-                  <span className="hidden sm:inline">Super Admin</span>
+                  <Crown className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                  <span className={isMobileView ? "" : "hidden sm:inline"}>Super</span>
                 </TabsTrigger>
               )}
-              <TabsTrigger value="pricing" className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                <span className="hidden sm:inline">Tarifs</span>
+              <TabsTrigger value="pricing" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
+                <DollarSign className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                <span className={isMobileView ? "" : "hidden sm:inline"}>Tarifs</span>
               </TabsTrigger>
-              <TabsTrigger value="content" className="flex items-center gap-2">
-                <Music className="w-4 h-4" />
-                <span className="hidden sm:inline">Contenu</span>
+              <TabsTrigger value="content" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
+                <Music className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                <span className={isMobileView ? "" : "hidden sm:inline"}>Contenu</span>
               </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Utilisateurs</span>
+              <TabsTrigger value="users" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
+                <Users className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                <span className={isMobileView ? "" : "hidden sm:inline"}>Users</span>
               </TabsTrigger>
-              <TabsTrigger value="config" className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">Config</span>
+              <TabsTrigger value="config" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
+                <MessageSquare className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                <span className={isMobileView ? "" : "hidden sm:inline"}>Config</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className={cn("flex-1 overflow-y-auto", isMobileView ? "p-3" : "p-4")}>
             {/* Super Admin Tab */}
             {isSuperAdmin && (
               <TabsContent value="super-admin" className="mt-0 space-y-4">
