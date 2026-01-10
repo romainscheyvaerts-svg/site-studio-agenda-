@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mic, Euro, Headphones, Music } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const DawNova = () => {
   const navigate = useNavigate();
   const [dawUrl, setDawUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNav, setShowNav] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -49,11 +51,11 @@ const DawNova = () => {
     return (
       <div className="fixed inset-0 w-full h-full bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">DAW non disponible</h1>
-          <p className="text-muted-foreground">Le DAW n'est pas configuré pour le moment.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-2">{t("daw.not_available")}</h1>
+          <p className="text-muted-foreground">{t("daw.not_configured")}</p>
           <Button onClick={() => navigate('/')} className="mt-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Retour à l'accueil
+            {t("daw.back_home")}
           </Button>
         </div>
       </div>
@@ -83,7 +85,7 @@ const DawNova = () => {
           className="h-7 px-2 text-xs gap-1 text-primary border-primary/50"
         >
           <Mic className="w-3 h-3" />
-          Réserver
+          {t("quick_nav.book")}
         </Button>
         <Button 
           variant="outline" 
@@ -92,7 +94,7 @@ const DawNova = () => {
           className="h-7 px-2 text-xs gap-1"
         >
           <Euro className="w-3 h-3" />
-          Offres
+          {t("quick_nav.offers")}
         </Button>
         <Button 
           variant="outline" 
@@ -101,7 +103,7 @@ const DawNova = () => {
           className="h-7 px-2 text-xs gap-1"
         >
           <Headphones className="w-3 h-3" />
-          Studio
+          {t("quick_nav.studio")}
         </Button>
         <Button 
           variant="outline" 
@@ -110,7 +112,7 @@ const DawNova = () => {
           className="h-7 px-2 text-xs gap-1 text-accent border-accent/50"
         >
           <Music className="w-3 h-3" />
-          Beats
+          {t("quick_nav.beats")}
         </Button>
       </div>
 

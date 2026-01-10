@@ -3,11 +3,12 @@ import { ArrowLeft, Mic, Euro, Headphones, Music, AudioLines } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useTranslation } from "react-i18next";
 
 interface NavItem {
   path: string;
-  label: string;
-  shortLabel: string;
+  labelKey: string;
+  shortLabelKey: string;
   icon: React.ReactNode;
   color: string;
 }
@@ -15,36 +16,36 @@ interface NavItem {
 const navItems: NavItem[] = [
   { 
     path: "/reservation", 
-    label: "Réserver", 
-    shortLabel: "Réserver",
+    labelKey: "quick_nav.book", 
+    shortLabelKey: "quick_nav.book",
     icon: <Mic className="w-3 h-3" />,
     color: "text-primary border-primary/50 hover:bg-primary/10"
   },
   { 
     path: "/offres", 
-    label: "Offres", 
-    shortLabel: "Offres",
+    labelKey: "quick_nav.offers", 
+    shortLabelKey: "quick_nav.offers",
     icon: <Euro className="w-3 h-3" />,
     color: "text-primary border-primary/50 hover:bg-primary/10"
   },
   { 
     path: "/arsenal", 
-    label: "Studio", 
-    shortLabel: "Studio",
+    labelKey: "quick_nav.studio", 
+    shortLabelKey: "quick_nav.studio",
     icon: <Headphones className="w-3 h-3" />,
     color: "text-muted-foreground border-border hover:bg-secondary/50"
   },
   { 
     path: "/instrumentals", 
-    label: "Beats", 
-    shortLabel: "Beats",
+    labelKey: "quick_nav.beats", 
+    shortLabelKey: "quick_nav.beats",
     icon: <Music className="w-3 h-3" />,
     color: "text-accent border-accent/50 hover:bg-accent/10"
   },
   { 
     path: "/daw", 
-    label: "DAW", 
-    shortLabel: "DAW",
+    labelKey: "quick_nav.daw", 
+    shortLabelKey: "quick_nav.daw",
     icon: <AudioLines className="w-3 h-3" />,
     color: "text-purple-400 border-purple-500/50 hover:bg-purple-500/10"
   },
@@ -54,6 +55,7 @@ const QuickNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobileView } = useViewMode();
+  const { t } = useTranslation();
 
   // Filter out current page from navigation
   const filteredNavItems = navItems.filter(item => item.path !== location.pathname);
@@ -71,7 +73,7 @@ const QuickNavigation = () => {
         className="gap-1.5 text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        <span className={isMobileView ? "sr-only" : ""}>Accueil</span>
+        <span className={isMobileView ? "sr-only" : ""}>{t("quick_nav.home")}</span>
       </Button>
 
       {/* Separator */}
@@ -91,7 +93,7 @@ const QuickNavigation = () => {
             )}
           >
             {item.icon}
-            {item.shortLabel}
+            {t(item.shortLabelKey)}
           </Button>
         ))}
       </div>

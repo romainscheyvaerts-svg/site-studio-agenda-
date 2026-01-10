@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useTranslation } from "react-i18next";
 
 interface Instrumental {
   id: string;
@@ -34,6 +35,7 @@ const InstrumentalCard = ({
 }: InstrumentalCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const { isMobileView } = useViewMode();
+  const { t } = useTranslation();
 
   return (
     <div 
@@ -134,7 +136,7 @@ const InstrumentalCard = ({
           size={isMobileView ? "sm" : "default"}
         >
           <ShoppingCart className={cn(isMobileView ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2")} />
-          {isMobileView ? "Acheter" : "Acheter une licence"}
+          {isMobileView ? t("instrumentals.buy") : t("instrumentals.buy_license")}
         </Button>
       </div>
     </div>

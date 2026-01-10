@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface License {
   id: string;
@@ -46,6 +47,7 @@ const licenseColors: Record<string, string> = {
 const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: LicenseSelectorProps) => {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchLicenses = async () => {
@@ -100,10 +102,10 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
-            Choisissez votre licence
+            {t("license.choose_title")}
           </DialogTitle>
           <p className="text-center text-muted-foreground">
-            Pour: <span className="text-primary font-semibold">{instrumental.title}</span>
+            {t("license.for")}: <span className="text-primary font-semibold">{instrumental.title}</span>
           </p>
         </DialogHeader>
 
@@ -129,7 +131,7 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
                 {license.name === "Premium" && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-none">
-                      Avec Stems
+                      {t("license.with_stems")}
                     </Badge>
                   </div>
                 )}
@@ -137,7 +139,7 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
                 {license.name === "Exclusive" && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none">
-                      Exclusivité totale
+                      {t("license.total_exclusivity")}
                     </Badge>
                   </div>
                 )}
@@ -181,7 +183,7 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
                       : ""
                   )}
                 >
-                  Sélectionner {license.name}
+                  {t("license.select")} {license.name}
                 </Button>
               </div>
             ))}

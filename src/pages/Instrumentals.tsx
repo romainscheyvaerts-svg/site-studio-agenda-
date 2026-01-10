@@ -13,6 +13,7 @@ import AudioPlayer from "@/components/AudioPlayer";
 import QuickNavigation from "@/components/QuickNavigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface Instrumental {
   id: string;
@@ -39,6 +40,7 @@ const Instrumentals = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [instrumentals, setInstrumentals] = useState<Instrumental[]>([]);
   const [filteredInstrumentals, setFilteredInstrumentals] = useState<Instrumental[]>([]);
@@ -107,8 +109,8 @@ const Instrumentals = () => {
   const handleBuy = (instrumental: Instrumental) => {
     if (!user) {
       toast({
-        title: "Connexion requise",
-        description: "Veuillez vous connecter pour acheter un instrumental.",
+        title: t("instrumentals.login_required"),
+        description: t("instrumentals.login_required_desc"),
         variant: "destructive",
       });
       navigate("/auth");
@@ -136,14 +138,13 @@ const Instrumentals = () => {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-4">
               <Music className="h-4 w-4" />
-              <span className="text-sm font-medium">Catalogue</span>
+              <span className="text-sm font-medium">{t("instrumentals.badge")}</span>
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-4">
-              Instrumentaux
+              {t("instrumentals.title")}
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg mb-6">
-              Parcourez notre collection de beats et instrumentaux produits par Make Music.
-              Écoutez gratuitement, achetez en un clic.
+              {t("instrumentals.description")}
             </p>
             
             {/* DAW Button */}
@@ -153,8 +154,8 @@ const Instrumentals = () => {
               size="lg"
             >
               <AudioLines className="w-5 h-5 mr-2 flex-shrink-0" />
-              <span className="hidden sm:inline">Essaie ton instru dans un logiciel de musique</span>
-              <span className="sm:hidden">Tester dans le DAW</span>
+              <span className="hidden sm:inline">{t("instrumentals.daw_button")}</span>
+              <span className="sm:hidden">{t("instrumentals.daw_button_mobile")}</span>
             </Button>
           </div>
 
@@ -164,7 +165,7 @@ const Instrumentals = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher un instrumental..."
+                  placeholder={t("instrumentals.search_placeholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -180,7 +181,7 @@ const Instrumentals = () => {
                   className="cursor-pointer"
                   onClick={() => setSelectedGenre(null)}
                 >
-                  Tous
+                  {t("instrumentals.all")}
                 </Badge>
                 {genres.map((genre) => (
                   <Badge
@@ -219,12 +220,12 @@ const Instrumentals = () => {
             <div className="text-center py-20">
               <Music className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-2">
-                Aucun instrumental trouvé
+                {t("instrumentals.no_results_title")}
               </h3>
               <p className="text-muted-foreground">
                 {searchQuery || selectedGenre 
-                  ? "Essayez d'autres filtres de recherche." 
-                  : "Revenez bientôt pour découvrir nos nouvelles productions."}
+                  ? t("instrumentals.no_results_filter")
+                  : t("instrumentals.no_results_empty")}
               </p>
             </div>
           ) : (
