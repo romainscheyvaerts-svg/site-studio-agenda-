@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones, Music, CalendarDays, AudioLines } from "lucide-react";
+import { Mic, Headphones, Music, CalendarDays, AudioLines, Euro } from "lucide-react";
 import { usePricing } from "@/hooks/usePricing";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
@@ -20,6 +20,10 @@ const Hero = () => {
 
   const goToGear = () => {
     navigate('/arsenal');
+  };
+
+  const goToOffers = () => {
+    navigate('/offres');
   };
 
   const goToInstrumentals = () => {
@@ -103,8 +107,20 @@ const Hero = () => {
             <Button 
               variant="neon" 
               size={isMobileView ? "lg" : "xl"} 
-              onClick={goToGear}
+              onClick={goToOffers}
               className={cn(isMobileView && "w-full")}
+            >
+              <Euro className="w-5 h-5" />
+              NOS OFFRES
+            </Button>
+            <Button 
+              variant="outline" 
+              size={isMobileView ? "lg" : "xl"} 
+              onClick={goToGear}
+              className={cn(
+                "border-primary/50 hover:bg-primary/10 hover:border-primary",
+                isMobileView && "w-full"
+              )}
             >
               <Headphones className="w-5 h-5" />
               {t("hero.cta_discover").toUpperCase()}

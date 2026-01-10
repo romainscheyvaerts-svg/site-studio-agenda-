@@ -1,6 +1,5 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import StudioGallery from "@/components/StudioGallery";
 import InstrumentalsSection from "@/components/InstrumentalsSection";
 import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
@@ -17,7 +16,6 @@ const Index = () => {
         <Hero />
       </div>
       <InstrumentalsSection />
-      <StudioGallery />
       <Footer />
       <ChatBot />
       {isAdmin && <AdminPanel />}
