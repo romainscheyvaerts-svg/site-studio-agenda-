@@ -143,7 +143,7 @@ const Navbar = () => {
         {/* Mobile menu - shown when mobile menu is open AND (mobile view forced OR small screen) */}
         {isMobileMenuOpen && (
           <div className={cn(
-            "py-4 border-t border-border animate-fade-in",
+            "py-4 border-t border-border animate-fade-in bg-background",
             isMobileView ? "block" : "md:hidden block"
           )}>
             <div className="flex flex-col gap-3">
