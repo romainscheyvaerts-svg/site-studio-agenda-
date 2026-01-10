@@ -589,6 +589,13 @@ async function sendAdminNotification(
             </td>
           </tr>
         </table>
+
+        <!-- Fallback links (some email clients hide button styles) -->
+        <div style="margin-top: 14px; font-size: 14px; color: #475569; line-height: 1.5;">
+          <div style="margin-bottom: 6px;">Si les boutons ne s’affichent pas, utilisez ces liens :</div>
+          <div><a href="${confirmUrl}" target="_blank" style="color: #0ea5e9;">Confirmer la session</a></div>
+          <div><a href="${rejectUrl}" target="_blank" style="color: #0ea5e9;">Refuser / Remboursement</a></div>
+        </div>
       </div>
       
       <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
