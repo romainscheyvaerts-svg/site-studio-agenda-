@@ -475,7 +475,8 @@ async function sendAdminNotification(
   resend: Resend,
   booking: any,
   hasConflict: boolean,
-  appUrl: string
+  appUrl: string,
+  isLessThan24Hours: boolean = false
 ): Promise<void> {
   const confirmUrl = `${appUrl}/booking-action?token=${booking.validation_token}&action=confirm`;
   const rejectUrl = `${appUrl}/booking-action?token=${booking.validation_token}&action=reject`;
@@ -486,13 +487,32 @@ async function sendAdminNotification(
     month: 'long',
     day: 'numeric'
   });
+
+  // Calculate hours until session for display
+  const bookingStart = new Date(`${booking.session_date}T${booking.start_time}:00`);
+  const now = new Date();
+  const hoursUntilSession = Math.round((bookingStart.getTime() - now.getTime()) / (1000 * 60 * 60));
   
-  const conflictWarning = hasConflict ? `
-    <div style="background-color: #FEE2E2; border: 1px solid #EF4444; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-      <h3 style="color: #DC2626; margin: 0 0 8px 0;">⚠️ CONFLIT DÉTECTÉ</h3>
-      <p style="color: #7F1D1D; margin: 0;">Ce créneau chevauche un événement sur le calendrier Claridge. Validation prioritaire requise.</p>
-    </div>
-  ` : '';
+  // Build warning section based on reason
+  let warningSection = '';
+  if (isLessThan24Hours) {
+    warningSection = `
+      <div style="background-color: #FEF3C7; border: 2px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <h3 style="color: #92400E; margin: 0 0 8px 0;">⏰ RÉSERVATION À MOINS DE 24H</h3>
+        <p style="color: #78350F; margin: 0;">
+          Cette session est prévue dans <strong>${hoursUntilSession} heures</strong>. Validation urgente requise.
+        </p>
+      </div>
+    `;
+  }
+  if (hasConflict) {
+    warningSection += `
+      <div style="background-color: #FEE2E2; border: 1px solid #EF4444; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <h3 style="color: #DC2626; margin: 0 0 8px 0;">⚠️ CONFLIT DÉTECTÉ</h3>
+        <p style="color: #7F1D1D; margin: 0;">Ce créneau chevauche un événement sur un autre calendrier. Validation prioritaire requise.</p>
+      </div>
+    `;
+  }
   
   const html = `
     <!DOCTYPE html>
@@ -506,7 +526,7 @@ async function sendAdminNotification(
         <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9);">Nouvelle réservation reçue</p>
       </div>
       
-      ${conflictWarning}
+      ${warningSection}
       
       <div style="background-color: #F8FAFC; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
         <h2 style="margin: 0 0 16px 0; color: #1E293B;">Détails de la réservation</h2>
@@ -576,9 +596,11 @@ async function sendAdminNotification(
     return await resend.emails.send({
       from,
       to: [adminEmail],
-      subject: hasConflict
-        ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}`
-        : `🎵 Nouvelle réservation - ${booking.client_name}`,
+      subject: isLessThan24Hours
+        ? `⏰ URGENT -24H - Réservation de ${booking.client_name}`
+        : hasConflict
+          ? `⚠️ CONFLIT - Nouvelle réservation de ${booking.client_name}`
+          : `🎵 Nouvelle réservation - ${booking.client_name}`,
       html,
     });
   };
@@ -1082,8 +1104,17 @@ serve(async (req) => {
       logStep("No tertiary calendar configured, skipping tertiary conflict check");
     }
     
-    // Claridge, secondary or tertiary calendar conflict triggers pending validation
-    const needsValidation = conflictDetected || secondaryCalendarConflict || tertiaryCalendarConflict;
+    // Check if booking is less than 24 hours in advance
+    const now = new Date();
+    const hoursUntilSession = (bookingStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const isLessThan24Hours = hoursUntilSession < 24 && hoursUntilSession > 0;
+    
+    if (isLessThan24Hours) {
+      logStep("Booking is less than 24 hours in advance", { hoursUntilSession: Math.round(hoursUntilSession * 10) / 10 });
+    }
+    
+    // Claridge, secondary or tertiary calendar conflict, OR less than 24h booking triggers pending validation
+    const needsValidation = conflictDetected || secondaryCalendarConflict || tertiaryCalendarConflict || isLessThan24Hours;
     
     // Insert booking into database
     const { data: booking, error: insertError } = await supabaseClient
@@ -1110,7 +1141,7 @@ serve(async (req) => {
       throw new Error(`Failed to create booking: ${insertError.message}`);
     }
 
-    logStep("Booking created", { id: booking.id, needsValidation, secondaryCalendarConflict, tertiaryCalendarConflict, claridgeConflict: conflictDetected });
+    logStep("Booking created", { id: booking.id, needsValidation, isLessThan24Hours, secondaryCalendarConflict, tertiaryCalendarConflict, claridgeConflict: conflictDetected });
 
     // Create Drive folder link (best effort) - only if confirmed immediately
     let driveLink: string | null = null;
@@ -1127,7 +1158,7 @@ serve(async (req) => {
     const appUrl = req.headers.get("origin") || "https://makemusicstudio.be";
     
     // Send emails - admin always gets notification, client gets different email based on validation status
-    await sendAdminNotification(resend, booking, needsValidation, appUrl);
+    await sendAdminNotification(resend, booking, conflictDetected || secondaryCalendarConflict || tertiaryCalendarConflict, appUrl, isLessThan24Hours);
     
     if (needsValidation) {
       // Send pending confirmation email to client
