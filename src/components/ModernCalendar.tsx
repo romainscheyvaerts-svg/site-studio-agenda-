@@ -10,7 +10,9 @@ import {
   Plus, 
   Calendar as CalendarIcon,
   Trash2,
-  FolderOpen
+  FolderOpen,
+  Pencil,
+  Check
 } from "lucide-react";
 import { 
   format, 
@@ -67,6 +69,21 @@ interface CalendarEvent {
 
 type ViewMode = "month" | "week";
 
+// Google Calendar color IDs mapping
+const CALENDAR_COLORS = [
+  { id: "1", name: "Lavande", color: "bg-purple-400", hex: "#7986cb" },
+  { id: "2", name: "Sauge", color: "bg-green-400", hex: "#33b679" },
+  { id: "3", name: "Raisin", color: "bg-violet-500", hex: "#8e24aa" },
+  { id: "4", name: "Flamingo", color: "bg-pink-400", hex: "#e67c73" },
+  { id: "5", name: "Banane", color: "bg-yellow-400", hex: "#f6bf26" },
+  { id: "6", name: "Mandarine", color: "bg-orange-500", hex: "#f4511e" },
+  { id: "7", name: "Paon", color: "bg-cyan-500", hex: "#039be5" },
+  { id: "8", name: "Graphite", color: "bg-gray-500", hex: "#616161" },
+  { id: "9", name: "Myrtille", color: "bg-blue-600", hex: "#3f51b5" },
+  { id: "10", name: "Basilic", color: "bg-emerald-600", hex: "#0b8043" },
+  { id: "11", name: "Tomate", color: "bg-red-500", hex: "#d50000" },
+];
+
 const ModernCalendar = () => {
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
@@ -82,8 +99,17 @@ const ModernCalendar = () => {
   const [eventName, setEventName] = useState("");
   const [eventStartHour, setEventStartHour] = useState(10);
   const [eventDuration, setEventDuration] = useState(2);
+  const [eventColorId, setEventColorId] = useState("7"); // Default: Paon (cyan)
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
+  
+  // Event editing state
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editEventName, setEditEventName] = useState("");
+  const [editEventStartHour, setEditEventStartHour] = useState(10);
+  const [editEventEndHour, setEditEventEndHour] = useState(12);
+  const [editEventColorId, setEditEventColorId] = useState("7");
+  const [updatingEvent, setUpdatingEvent] = useState(false);
 
   // Fetch availability for a date range
   const fetchAvailability = useCallback(async () => {
@@ -206,6 +232,74 @@ const ModernCalendar = () => {
     setShowCreateForm(false);
   };
 
+  // Open edit mode for an event
+  const openEditEvent = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setEditEventName(event.title);
+    setEditEventStartHour(event.startHour);
+    setEditEventEndHour(event.endHour);
+    // Try to match color
+    const matchedColor = CALENDAR_COLORS.find(c => event.color.includes(c.color.split('-')[1]));
+    setEditEventColorId(matchedColor?.id || "7");
+  };
+
+  // Close edit mode
+  const closeEditEvent = () => {
+    setEditingEvent(null);
+    setEditEventName("");
+    setEditEventStartHour(10);
+    setEditEventEndHour(12);
+    setEditEventColorId("7");
+  };
+
+  // Update event
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !selectedDay || !editEventName.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpdatingEvent(true);
+    try {
+      const startTimeStr = `${editEventStartHour.toString().padStart(2, "0")}:00`;
+      const endTimeStr = `${editEventEndHour.toString().padStart(2, "0")}:00`;
+      
+      const { error } = await supabase.functions.invoke("update-admin-event", {
+        body: {
+          eventId: editingEvent.id,
+          title: editEventName.trim(),
+          date: format(selectedDay, "yyyy-MM-dd"),
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          colorId: editEventColorId,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Événement modifié ! ✅",
+        description: `${editEventName} mis à jour`,
+      });
+
+      closeEditEvent();
+      await fetchAvailability();
+    } catch (err) {
+      console.error("Failed to update event:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier l'événement",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingEvent(false);
+    }
+  };
+
   // Create event
   const handleCreateEvent = async () => {
     if (!selectedDay || !eventName.trim()) {
@@ -225,10 +319,11 @@ const ModernCalendar = () => {
           title: eventName.trim(),
           date: format(selectedDay, "yyyy-MM-dd"),
           time: timeStr,
-          duration: eventDuration,
+          hours: eventDuration,
           clientName: eventName.trim(),
           clientEmail: "admin@makemusicstudio.be",
           sessionType: "with-engineer",
+          colorId: eventColorId,
         },
       });
 
@@ -556,44 +651,151 @@ const ModernCalendar = () => {
                 ) : (
                   <div className="space-y-2">
                     {getEventsForDay(selectedDay).map((event) => (
-                      <div
-                        key={event.id}
-                        className={cn(
-                          "p-3 rounded-lg text-white",
-                          event.color
-                        )}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="font-medium">{event.title}</div>
-                            <div className="text-sm opacity-80">
-                              {formatHour(event.startHour)} - {formatHour(event.endHour)}
-                              {" • "}
-                              {event.endHour - event.startHour}h
+                      <div key={event.id}>
+                        {/* Edit mode for this event */}
+                        {editingEvent?.id === event.id ? (
+                          <div className="border border-primary rounded-lg p-4 space-y-4 bg-primary/10">
+                            <h4 className="font-medium text-foreground">Modifier l'événement</h4>
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <Label htmlFor="editEventName">Nom de l'événement</Label>
+                                <Input
+                                  id="editEventName"
+                                  value={editEventName}
+                                  onChange={(e) => setEditEventName(e.target.value)}
+                                  placeholder="Ex: Session John Doe"
+                                  className="mt-1"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label htmlFor="editStartHour">Heure de début</Label>
+                                  <select
+                                    id="editStartHour"
+                                    value={editEventStartHour}
+                                    onChange={(e) => setEditEventStartHour(Number(e.target.value))}
+                                    className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    {hours.map((h) => (
+                                      <option key={h} value={h}>
+                                        {formatHour(h)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="editEndHour">Heure de fin</Label>
+                                  <select
+                                    id="editEndHour"
+                                    value={editEventEndHour}
+                                    onChange={(e) => setEditEventEndHour(Number(e.target.value))}
+                                    className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    {hours.filter(h => h > editEventStartHour).map((h) => (
+                                      <option key={h} value={h}>
+                                        {formatHour(h)}
+                                      </option>
+                                    ))}
+                                    <option value={24}>00:00 (minuit)</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Color picker */}
+                              <div>
+                                <Label>Couleur</Label>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {CALENDAR_COLORS.map((color) => (
+                                    <button
+                                      key={color.id}
+                                      type="button"
+                                      onClick={() => setEditEventColorId(color.id)}
+                                      className={cn(
+                                        "w-8 h-8 rounded-full transition-all border-2",
+                                        color.color,
+                                        editEventColorId === color.id 
+                                          ? "border-white ring-2 ring-primary scale-110" 
+                                          : "border-transparent hover:scale-105"
+                                      )}
+                                      title={color.name}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={handleUpdateEvent}
+                                  disabled={updatingEvent || !editEventName.trim()}
+                                  className="flex-1"
+                                >
+                                  {updatingEvent ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : (
+                                    <Check className="w-4 h-4 mr-2" />
+                                  )}
+                                  Enregistrer
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={closeEditEvent}
+                                >
+                                  Annuler
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            {event.driveFolderLink && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
-                                onClick={() => window.open(event.driveFolderLink, "_blank")}
-                              >
-                                <FolderOpen className="w-4 h-4" />
-                              </Button>
+                        ) : (
+                          /* Display mode */
+                          <div
+                            className={cn(
+                              "p-3 rounded-lg text-white",
+                              event.color
                             )}
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
-                              onClick={() => handleDeleteEvent(event.id)}
-                              disabled={deletingEvent}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="font-medium">{event.title}</div>
+                                <div className="text-sm opacity-80">
+                                  {formatHour(event.startHour)} - {formatHour(event.endHour)}
+                                  {" • "}
+                                  {event.endHour - event.startHour}h
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {event.driveFolderLink && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                                    onClick={() => window.open(event.driveFolderLink, "_blank")}
+                                  >
+                                    <FolderOpen className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                                  onClick={() => openEditEvent(event)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                                  onClick={() => handleDeleteEvent(event.id)}
+                                  disabled={deletingEvent}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -647,6 +849,28 @@ const ModernCalendar = () => {
                             </option>
                           ))}
                         </select>
+                      </div>
+                    </div>
+
+                    {/* Color picker for create form */}
+                    <div>
+                      <Label>Couleur</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {CALENDAR_COLORS.map((color) => (
+                          <button
+                            key={color.id}
+                            type="button"
+                            onClick={() => setEventColorId(color.id)}
+                            className={cn(
+                              "w-8 h-8 rounded-full transition-all border-2",
+                              color.color,
+                              eventColorId === color.id 
+                                ? "border-white ring-2 ring-primary scale-110" 
+                                : "border-transparent hover:scale-105"
+                            )}
+                            title={color.name}
+                          />
+                        ))}
                       </div>
                     </div>
 
