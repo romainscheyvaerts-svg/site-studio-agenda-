@@ -19,6 +19,8 @@ interface TimeSlot {
   driveSessionFolderLink?: string;
   secondaryCalendarEventName?: string;
   hasSecondaryCalendarConflict?: boolean;
+  tertiaryCalendarEventName?: string;
+  hasTertiaryCalendarConflict?: boolean;
 }
 
 interface DayAvailability {
@@ -281,6 +283,10 @@ const AdminCalendar = ({
           <div className={cn("rounded bg-purple-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
           <span className="text-muted-foreground">2e Agenda</span>
         </div>
+        <div className="flex items-center gap-1">
+          <div className={cn("rounded bg-pink-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
+          <span className="text-muted-foreground">3e Agenda</span>
+        </div>
       </div>
 
       {/* Instructions - hidden on mobile for space */}
@@ -339,6 +345,8 @@ const AdminCalendar = ({
                       const eventName = slot?.eventName;
                       const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
                       const secondaryEventName = slot?.secondaryCalendarEventName;
+                      const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
+                      const tertiaryEventName = slot?.tertiaryCalendarEventName;
                       
                       const inRange = isInSelectedRange(day.date, hour);
                       const inPreview = isInPreviewRange(day.date, hour);
@@ -347,8 +355,19 @@ const AdminCalendar = ({
                       // Build title for hover
                       let hoverTitle = eventName || formatHour(hour);
                       if (hasSecondaryConflict && secondaryEventName) {
-                        hoverTitle += ` | 📅 ${secondaryEventName}`;
+                        hoverTitle += ` | 📅2: ${secondaryEventName}`;
                       }
+                      if (hasTertiaryConflict && tertiaryEventName) {
+                        hoverTitle += ` | 📅3: ${tertiaryEventName}`;
+                      }
+                      
+                      // Determine special calendar conflict styling
+                      const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
+                      const specialConflictColor = hasTertiaryConflict 
+                        ? "bg-pink-500/30 text-pink-400 hover:bg-pink-500/50 ring-1 ring-pink-500/50"
+                        : hasSecondaryConflict
+                          ? "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50"
+                          : "";
                       
                       return (
                         <button
@@ -365,12 +384,12 @@ const AdminCalendar = ({
                                 : inPreview
                                   ? "bg-primary/50 text-primary-foreground"
                                   : status === "available"
-                                    ? hasSecondaryConflict 
-                                      ? "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50"
+                                    ? hasAnySpecialConflict 
+                                      ? specialConflictColor
                                       : "bg-green-500/20 text-green-500 hover:bg-green-500/40"
                                     : status === "on-request"
-                                      ? hasSecondaryConflict
-                                        ? "bg-purple-500/30 text-purple-400 hover:bg-purple-500/50 ring-1 ring-purple-500/50"
+                                      ? hasAnySpecialConflict
+                                        ? specialConflictColor
                                         : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40"
                                       : "bg-destructive/20 text-destructive hover:bg-destructive/40"
                           )}
@@ -380,13 +399,19 @@ const AdminCalendar = ({
                           {hasSecondaryConflict && status !== "unavailable" && (
                             <span className="absolute top-0 right-0 w-2 h-2 bg-purple-500 rounded-full" />
                           )}
+                          {/* Tertiary calendar indicator */}
+                          {hasTertiaryConflict && status !== "unavailable" && (
+                            <span className={cn("absolute w-2 h-2 bg-pink-500 rounded-full", hasSecondaryConflict ? "top-0 right-2.5" : "top-0 right-0")} />
+                          )}
                           <span className="font-medium">{isMobileView ? hour.toString().padStart(2, "0") : formatHour(hour)}</span>
                           {forDeletion ? (
                             <span className={isMobileView ? "text-[6px]" : "text-[8px]"}>✓</span>
                           ) : status === "unavailable" && eventName && !isMobileView ? (
                             <span className="truncate w-full text-[8px] opacity-80 px-0.5">{eventName}</span>
+                          ) : hasTertiaryConflict && !isMobileView ? (
+                            <span className="truncate w-full text-[8px] text-pink-400 px-0.5">📅3</span>
                           ) : hasSecondaryConflict && !isMobileView ? (
-                            <span className="truncate w-full text-[8px] text-purple-400 px-0.5">📅</span>
+                            <span className="truncate w-full text-[8px] text-purple-400 px-0.5">📅2</span>
                           ) : status === "available" ? (
                             <span className="opacity-50">✓</span>
                           ) : status === "on-request" ? (

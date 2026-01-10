@@ -47,6 +47,8 @@ interface TimeSlot {
   driveSessionFolderLink?: string;
   secondaryCalendarEventName?: string; // For secondary calendar events (visible to admin only)
   hasSecondaryCalendarConflict?: boolean;
+  tertiaryCalendarEventName?: string; // For tertiary calendar events (visible to admin only)
+  hasTertiaryCalendarConflict?: boolean;
 }
 
 interface DayAvailability {
@@ -335,6 +337,7 @@ serve(async (req) => {
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
     const claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL");
     const secondaryCalendarId = Deno.env.get("GOOGLE_SECONDARY_CALENDAR_ID");
+    const tertiaryCalendarId = Deno.env.get("GOOGLE_TERTIARY_CALENDAR_ID");
 
     if (!serviceAccountKey || !patronCalendarId || !studioCalendarId) {
       throw new Error("Missing calendar configuration");
@@ -346,21 +349,23 @@ serve(async (req) => {
 
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch events from all calendars (including secondary if configured)
-    const [patronEvents, studioEvents, claridgeEvents, secondaryEvents] = await Promise.all([
+    // Fetch events from all calendars (including secondary and tertiary if configured)
+    const [patronEvents, studioEvents, claridgeEvents, secondaryEvents, tertiaryEvents] = await Promise.all([
       getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString()),
       getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString()),
       claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
       secondaryCalendarId ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString()) : Promise.resolve([]),
+      tertiaryCalendarId ? getCalendarEvents(accessToken, tertiaryCalendarId, start.toISOString(), end.toISOString()) : Promise.resolve([]),
     ]);
 
     // Only studio calendar determines main availability (unavailable)
     // Patron calendar + Claridge calendar trigger "on-request"
-    // Secondary calendar events are marked for admin visibility
+    // Secondary and tertiary calendar events are marked for admin visibility
     console.log(`Studio events found: ${studioEvents.length}`);
     console.log(`Patron (personal) events found: ${patronEvents.length}`);
     console.log(`Claridge events found: ${claridgeEvents.length}`);
     console.log(`Secondary calendar events found: ${secondaryEvents.length}`);
+    console.log(`Tertiary calendar events found: ${tertiaryEvents.length}`);
 
     // Generate availability for each day
     const availability: DayAvailability[] = [];
@@ -465,9 +470,12 @@ serve(async (req) => {
           const patronResult = isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);
           const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
           
-        // For available or on-request slots, check if there's a secondary calendar event
+        // For available or on-request slots, check if there's a secondary or tertiary calendar event
         const secondaryResult = isSlotAvailableInGoogle(secondaryEvents, slotStart, slotEnd);
         const hasSecondaryConflict = !secondaryResult.available;
+        
+        const tertiaryResult = isSlotAvailableInGoogle(tertiaryEvents, slotStart, slotEnd);
+        const hasTertiaryConflict = !tertiaryResult.available;
 
         if (!patronResult.available || isPatronBusyInClaridge) {
             // Patron busy (personal or Claridge) but studio is free - show "on request"
@@ -476,7 +484,9 @@ serve(async (req) => {
               available: true, 
               status: "on-request",
               hasSecondaryCalendarConflict: hasSecondaryConflict,
-              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined
+              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined,
+              hasTertiaryCalendarConflict: hasTertiaryConflict,
+              tertiaryCalendarEventName: hasTertiaryConflict ? tertiaryResult.eventName : undefined
             });
           } else {
             // Fully available
@@ -485,7 +495,9 @@ serve(async (req) => {
               available: true, 
               status: "available",
               hasSecondaryCalendarConflict: hasSecondaryConflict,
-              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined
+              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined,
+              hasTertiaryCalendarConflict: hasTertiaryConflict,
+              tertiaryCalendarEventName: hasTertiaryConflict ? tertiaryResult.eventName : undefined
             });
           }
         }
