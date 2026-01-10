@@ -1,26 +1,15 @@
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import PricingSection from "@/components/PricingSection";
 import Footer from "@/components/Footer";
+import QuickNavigation from "@/components/QuickNavigation";
 
 const Offres = () => {
-  const navigate = useNavigate();
-
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-20">
-        <div className="container mx-auto px-4 py-6">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à l'accueil
-          </Button>
+        <div className="container mx-auto px-4 py-4">
+          <QuickNavigation />
         </div>
         <PricingSection />
       </div>
