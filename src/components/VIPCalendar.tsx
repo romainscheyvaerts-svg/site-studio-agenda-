@@ -423,12 +423,21 @@ const VIPCalendar = ({
     window.open(`https://wa.me/${phoneNumber.replace("+", "")}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
-  // Get the days to display - 3 days on mobile, 7 on desktop
-  const daysToShow = isMobileView ? 3 : 7;
+  // Get the days to display - 3 days on mobile, 8 on desktop (removed hour column = space for 1 more day)
+  const daysToShow = isMobileView ? 3 : 8;
   const displayDays = availability.slice(0, daysToShow);
   
   // Mobile: get single day for mobile navigation
   const mobileDays = availability.slice(mobileSelectedDayIndex, mobileSelectedDayIndex + 1);
+  
+  // Auto-scroll to 8am on mount
+  useEffect(() => {
+    const scrollContainer = document.getElementById('calendar-scroll-container');
+    if (scrollContainer && !loading) {
+      // Each row is approximately 37px (36px + 1px gap), scroll to 8th row (8am)
+      scrollContainer.scrollTop = 8 * 37;
+    }
+  }, [loading]);
 
   // Check if selected slot is on-request
   const selectedSlotOnRequest = selectedDay && selectedHour !== null 
@@ -635,12 +644,11 @@ const VIPCalendar = ({
               </div>
             </div>
           ) : (
-            /* DESKTOP VIEW - Week grid */
+            /* DESKTOP VIEW - Week grid - No hour column, 8 days */
             <div className="overflow-x-auto">
               <div className="min-w-[700px]">
-                {/* Days header */}
+                {/* Days header - 8 columns */}
                 <div className="grid grid-cols-8 gap-1 mb-2">
-                  <div className="text-xs text-muted-foreground p-2">Heure</div>
                   {displayDays.map((day) => {
                     const date = new Date(day.date);
                     const isSelected = selectedDay === day.date;
@@ -660,13 +668,10 @@ const VIPCalendar = ({
                   })}
                 </div>
 
-                {/* Time slots grid */}
-                <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {/* Time slots grid - scroll starts at 8am */}
+                <div id="calendar-scroll-container" className="space-y-1 max-h-[400px] overflow-y-auto">
                   {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => (
                     <div key={hour} className="grid grid-cols-8 gap-1">
-                      <div className="text-xs text-muted-foreground p-2 flex items-center">
-                        {formatHour(hour)}
-                      </div>
                       {displayDays.map((day) => {
                         const displayStatus = getSlotDisplayStatus(day.slots, hour);
                         const eventName = getSlotEventName(day.slots, hour);
