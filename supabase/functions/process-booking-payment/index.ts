@@ -618,6 +618,28 @@ async function sendAdminNotification(
   }
 }
 
+// Generate Google Calendar link for client to add to their personal calendar
+function generateClientCalendarLink(booking: any): string {
+  const sessionDate = booking.session_date; // YYYY-MM-DD
+  const startTime = booking.start_time.replace(':', '').padEnd(4, '0') + '00';
+  const endTime = booking.end_time.replace(':', '').padEnd(4, '0') + '00';
+  
+  // Format: YYYYMMDDTHHMMSS
+  const startDateTime = sessionDate.replace(/-/g, '') + 'T' + startTime;
+  const endDateTime = sessionDate.replace(/-/g, '') + 'T' + endTime;
+  
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Session Make Music Studio - ${booking.session_type}`,
+    dates: `${startDateTime}/${endDateTime}`,
+    details: `Session de ${booking.session_type}\nMontant: ${booking.amount_paid}€\n\nContact studio:\nTél: +32 476 09 41 72\nEmail: prod.makemusic@gmail.com`,
+    location: 'Rue du Sceptre 22, 1050 Ixelles, Bruxelles, Belgique',
+    ctz: 'Europe/Brussels'
+  });
+  
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 // Send client confirmation email
 async function sendClientConfirmation(
   resend: Resend,
@@ -630,6 +652,8 @@ async function sendClientConfirmation(
     month: 'long',
     day: 'numeric'
   });
+
+  const calendarLink = generateClientCalendarLink(booking);
 
   const driveSection = driveLink
     ? `
@@ -645,20 +669,28 @@ async function sendClientConfirmation(
     `
     : '';
 
+  const calendarSection = `
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${calendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
+        📅 Ajouter à mon calendrier
+      </a>
+    </div>
+  `;
+
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
     </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
       <div style="background-color: #ECFDF5; border: 1px solid #10B981; border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: center;">
         <h2 style="color: #059669; margin: 0;">✓ Paiement reçu</h2>
         <p style="color: #047857; margin: 8px 0 0 0;">Votre réservation est confirmée</p>
       </div>
       
-      <div style="background-color: #F8FAFC; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="margin: 0 0 16px 0; color: #1E293B;">Récapitulatif</h3>
+      <div style="background-color: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3 style="margin: 0 0 16px 0; color: #1E293B;">📋 Récapitulatif</h3>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 8px 0; color: #64748B;">Type de session</td>
@@ -677,20 +709,41 @@ async function sendClientConfirmation(
             <td style="padding: 8px 0; color: #1E293B; text-align: right;">${booking.duration_hours}h</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #64748B;">Montant</td>
+            <td style="padding: 8px 0; color: #64748B;">Montant payé</td>
             <td style="padding: 8px 0; color: #10B981; text-align: right; font-weight: 600;">${booking.amount_paid}€</td>
           </tr>
         </table>
       </div>
 
+      ${calendarSection}
+
       ${driveSection}
       
-      <p style="color: #475569; line-height: 1.6;">
-        Bonjour ${booking.client_name},<br><br>
-        À très bientôt au studio !
+      <div style="background-color: #ffffff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3 style="margin: 0 0 12px 0; color: #1E293B;">📍 Adresse du studio</h3>
+        <p style="margin: 0; color: #475569;">
+          <strong>Rue du Sceptre 22</strong><br>
+          1050 Ixelles, Bruxelles
+        </p>
+        <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" style="display: inline-block; margin-top: 10px; color: #0ea5e9; text-decoration: underline;">
+          Voir sur Google Maps →
+        </a>
+      </div>
+      
+      <div style="background-color: #ffffff; border-radius: 8px; padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h4 style="margin: 0 0 8px 0; color: #1E293B;">📞 Contact</h4>
+        <p style="margin: 0; color: #64748B; font-size: 14px;">
+          Téléphone : <a href="tel:+32476094172" style="color: #0ea5e9;">+32 476 09 41 72</a><br>
+          Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #0ea5e9;">prod.makemusic@gmail.com</a>
+        </p>
+      </div>
+      
+      <p style="color: #475569; line-height: 1.6; text-align: center;">
+        Bonjour ${booking.client_name},<br>
+        À très bientôt au studio ! 🎵
       </p>
       
-      <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
+      <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 30px;">
         Make Music Studio - Bruxelles
       </p>
     </body>
