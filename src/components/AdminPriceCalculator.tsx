@@ -24,7 +24,7 @@ import {
   FolderOpen,
   CreditCard,
 } from "lucide-react";
-import AdminCalendar from "./AdminCalendar";
+import VIPCalendar from "./VIPCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
@@ -277,10 +277,11 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
               />
             </div>
           ) : (
-            <AdminCalendar
+            <VIPCalendar
               onSelectSlot={handleSlotSelect}
               selectedDate={selectedDate || undefined}
               selectedTime={selectedTime || undefined}
+              isAdminMode={true}
             />
           )}
         </div>
