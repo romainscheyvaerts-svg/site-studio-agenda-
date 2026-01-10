@@ -81,15 +81,12 @@ const Hero = () => {
             <span className="text-glow-cyan text-primary">{t("hero.title2")} {t("hero.title3")}</span>
           </h1>
           
-          {/* Subtitle - shorter on mobile */}
+          {/* Subtitle */}
           <p className={cn(
             "text-muted-foreground max-w-2xl mx-auto leading-relaxed",
             isMobileView ? "text-sm mb-6" : "text-lg md:text-xl mb-10"
           )}>
-            {isMobileView 
-              ? "Studio professionnel pour vos projets musicaux."
-              : t("hero.description")
-            }
+            {t("hero.description")}
           </p>
           
           {/* Mobile: Primary CTA buttons only (2 buttons) */}
