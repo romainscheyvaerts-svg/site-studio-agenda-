@@ -9,6 +9,7 @@ import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useAdmin } from "@/hooks/useAdmin";
 
 interface TimeSlot {
   hour: number;
@@ -64,6 +65,7 @@ const VIPCalendar = ({
   const hasAdminFeatures = isAdminMode || isVIPMode;
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
+  const { isSuperAdmin } = useAdmin();
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +94,7 @@ const VIPCalendar = ({
           body: {
             startDate: weekStart.toISOString().split("T")[0],
             days: 14,
+            includeSuperadminCalendars: isSuperAdmin, // Only superadmins see 2nd/3rd calendars
           },
         });
 
@@ -105,7 +108,7 @@ const VIPCalendar = ({
     };
 
     fetchAvailability();
-  }, [weekStart]);
+  }, [weekStart, isSuperAdmin]);
 
   const handlePreviousWeek = () => {
     const newStart = addDays(weekStart, -7);
@@ -514,7 +517,7 @@ const VIPCalendar = ({
           <span className="text-muted-foreground">{isMobileView ? "Sélec." : "Sélectionné"}</span>
         </div>
 
-        {hasAdminFeatures && (
+        {isSuperAdmin && (
           <div className="flex items-center gap-1">
             <div className={cn("rounded bg-orange-500", isMobileView ? "w-2 h-2" : "w-3 h-3")} />
             <span className="text-muted-foreground">2e/3e agenda</span>
