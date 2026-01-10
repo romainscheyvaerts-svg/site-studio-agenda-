@@ -144,6 +144,17 @@ const ModernCalendar = () => {
     fetchAvailability();
   }, [fetchAvailability]);
 
+  // Auto-scroll to 8am on mount (week view)
+  useEffect(() => {
+    if (viewMode === "week" && !loading) {
+      const scrollContainer = document.getElementById('modern-calendar-scroll-container');
+      if (scrollContainer) {
+        // Each row is approximately 48px, scroll to 8th row (8am)
+        scrollContainer.scrollTop = 8 * 48;
+      }
+    }
+  }, [loading, viewMode]);
+
   // Get events for a specific day
   const getEventsForDay = (date: Date): CalendarEvent[] => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -622,8 +633,8 @@ const ModernCalendar = () => {
                   ))}
                 </div>
 
-                {/* Time grid */}
-                <div className="max-h-[500px] overflow-y-auto">
+                {/* Time grid - scroll starts at 8am */}
+                <div id="modern-calendar-scroll-container" className="max-h-[500px] overflow-y-auto">
                   {hours.map((hour) => (
                     <div key={hour} className="grid grid-cols-8 border-b border-border/50">
                       <div className="p-2 text-xs text-muted-foreground border-r border-border text-right pr-3">

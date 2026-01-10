@@ -91,6 +91,15 @@ const AdminCalendar = ({
     fetchAvailability();
   }, [fetchAvailability]);
 
+  // Auto-scroll to 8am on mount
+  useEffect(() => {
+    const scrollContainer = document.getElementById('admin-calendar-scroll-container');
+    if (scrollContainer && !loading) {
+      // Each row is approximately 37px (36px + 1px gap), scroll to 8th row (8am)
+      scrollContainer.scrollTop = 8 * 37;
+    }
+  }, [loading]);
+
   const handlePreviousWeek = () => {
     const newStart = addDays(weekStart, -7);
     if (newStart >= startOfDay(new Date())) {
@@ -333,8 +342,8 @@ const AdminCalendar = ({
                 })}
               </div>
 
-              {/* Time slots grid */}
-              <div className={cn("space-y-1 overflow-y-auto", isMobileView ? "max-h-[300px]" : "max-h-[400px]")}>
+              {/* Time slots grid - scroll starts at 8am */}
+              <div id="admin-calendar-scroll-container" className={cn("space-y-1 overflow-y-auto", isMobileView ? "max-h-[300px]" : "max-h-[400px]")}>
                 {Array.from({ length: 24 }, (_, i) => i).map((hour) => (
                   <div key={hour} className={cn("grid gap-1", isMobileView ? "grid-cols-4" : "grid-cols-8")}>
                     <div className={cn("text-muted-foreground flex items-center", isMobileView ? "text-[10px] p-0.5" : "text-xs p-2")}>
