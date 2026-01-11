@@ -41,6 +41,7 @@ type PromoEffects = {
 };
 
 const BookingSection = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
@@ -710,14 +711,13 @@ const BookingSection = () => {
         {/* Header */}
         <div className="text-center mb-16">
           <span className="inline-block px-4 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-sm font-medium mb-4">
-            RÉSERVATION
+            {t("booking.title")}
           </span>
           <h2 className="font-display text-5xl md:text-7xl text-foreground mb-4">
-            BOOKEZ VOTRE <span className="text-primary text-glow-cyan">SESSION</span>
+            {t("booking.book_your")} <span className="text-primary text-glow-cyan">{t("booking.session")}</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Sélectionnez votre type de session et vos créneaux. 
-            Notre système vous indiquera les disponibilités en temps réel.
+            {t("booking.subtitle")}
           </p>
         </div>
 
@@ -730,10 +730,10 @@ const BookingSection = () => {
                   <Lock className="w-8 h-8 text-primary" />
                 </div>
                 <h3 className="font-display text-2xl text-foreground mb-4">
-                  CONNEXION REQUISE
+                  {t("booking.login_required")}
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Pour réserver une session, vous devez être connecté à votre compte Make Music.
+                  {t("booking.login_required_desc")}
                 </p>
                 <div className="flex flex-col gap-3">
                   <Button 
@@ -741,7 +741,7 @@ const BookingSection = () => {
                     onClick={() => navigate("/auth")}
                     className="w-full"
                   >
-                    Se connecter / Créer un compte
+                    {t("booking.login_signup")}
                   </Button>
                 </div>
               </div>
@@ -828,15 +828,15 @@ const BookingSection = () => {
           <div className="mb-10">
             <div className="mb-6">
               <h3 className="font-display text-2xl text-foreground mb-2">
-                1. SÉLECTIONNEZ VOTRE SERVICE
+                1. {t("booking.select_service")}
               </h3>
               <p className="text-muted-foreground text-sm">
-                Choisissez le type de prestation qui correspond à votre projet
+                {t("booking.select_service_desc")}
               </p>
             </div>
             
             {/* Sessions studio */}
-            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Sessions Studio</p>
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{t("booking.studio_sessions")}</p>
             <div className="grid md:grid-cols-2 gap-4 mb-6" id="booking-form">
               <button
                 type="button"
@@ -859,15 +859,15 @@ const BookingSection = () => {
                     <Mic className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-display text-xl text-foreground">AVEC INGÉNIEUR</h4>
-                    <p className="text-primary font-semibold">{pricing["with-engineer"]}€/heure</p>
+                    <h4 className="font-display text-xl text-foreground">{t("booking.with_engineer")}</h4>
+                    <p className="text-primary font-semibold">{pricing["with-engineer"]}€/{t("booking.hour")}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Session accompagnée avec un ingénieur son professionnel
+                  {t("booking.with_engineer_desc")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">💳 50% acompte • 🪪 Vérification d'identité requise</p>
-                <p className="text-xs text-accent mt-1">⭐ Dès 5h : {Math.round(pricing["with-engineer"] * 0.89)}€/h (déduit du solde le jour de la session)</p>
+                <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.deposit_50")} • 🪪 {t("booking.id_required")}</p>
+                <p className="text-xs text-accent mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["with-engineer"] * 0.89)}€/h ({t("booking.deducted_session")})</p>
               </button>
 
               <button
@@ -891,20 +891,20 @@ const BookingSection = () => {
                     <Building2 className="w-5 h-5 text-accent" />
                   </div>
                   <div>
-                    <h4 className="font-display text-xl text-foreground">LOCATION SÈCHE</h4>
-                    <p className="text-accent font-semibold">{pricing["without-engineer"]}€/heure</p>
+                    <h4 className="font-display text-xl text-foreground">{t("booking.without_engineer")}</h4>
+                    <p className="text-accent font-semibold">{pricing["without-engineer"]}€/{t("booking.hour")}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Accès au studio en autonomie
+                  {t("booking.without_engineer_desc")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">💳 Paiement complet • 🪪 Vérification d'identité requise</p>
-                <p className="text-xs text-primary mt-1">⭐ Dès 5h : {Math.round(pricing["without-engineer"] * 0.91)}€/h (déduit du solde le jour de la session)</p>
+                <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.full_payment")} • 🪪 {t("booking.id_required")}</p>
+                <p className="text-xs text-primary mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["without-engineer"] * 0.91)}€/h ({t("booking.deducted_session")})</p>
               </button>
             </div>
 
             {/* Services post-production */}
-            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Post-Production (délai ~2 semaines)</p>
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{t("booking.post_production")} ({t("booking.delay_2_weeks")})</p>
             <div className="grid md:grid-cols-3 gap-4">
               <button
                 type="button"
@@ -924,11 +924,11 @@ const BookingSection = () => {
                     <Music className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-display text-lg text-foreground">MIXAGE</h4>
-                    <p className="text-primary font-semibold text-sm">{pricing["mixing"]}€/projet</p>
+                    <h4 className="font-display text-lg text-foreground">{t("booking.mixing")}</h4>
+                    <p className="text-primary font-semibold text-sm">{pricing["mixing"]}€/{t("booking.per_project")}</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">50% acompte</p>
+                <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
               </button>
 
               <button
@@ -949,11 +949,11 @@ const BookingSection = () => {
                     <Headphones className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-display text-lg text-foreground">MASTERING</h4>
-                    <p className="text-primary font-semibold text-sm">{pricing["mastering"]}€/titre</p>
+                    <h4 className="font-display text-lg text-foreground">{t("booking.mastering")}</h4>
+                    <p className="text-primary font-semibold text-sm">{pricing["mastering"]}€/{t("booking.per_track")}</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">50% acompte</p>
+                <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
               </button>
 
               <button
@@ -974,11 +974,11 @@ const BookingSection = () => {
                     <Disc className="w-4 h-4 text-accent" />
                   </div>
                   <div>
-                    <h4 className="font-display text-lg text-foreground">MASTERING ANALOGIQUE</h4>
-                    <p className="text-accent font-semibold text-sm">{pricing["analog-mastering"]}€/titre</p>
+                    <h4 className="font-display text-lg text-foreground">{t("booking.analog_mastering")}</h4>
+                    <p className="text-accent font-semibold text-sm">{pricing["analog-mastering"]}€/{t("booking.per_track")}</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Acompte 80€</p>
+                <p className="text-xs text-muted-foreground">{t("booking.deposit_80")}</p>
               </button>
 
               <button
@@ -999,11 +999,11 @@ const BookingSection = () => {
                     <Radio className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-display text-lg text-foreground">MIXAGE PODCAST</h4>
+                    <h4 className="font-display text-lg text-foreground">{t("booking.podcast_mixing")}</h4>
                     <p className="text-primary font-semibold text-sm">{pricing["podcast"]}€/min</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">50% acompte</p>
+                <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
               </button>
             </div>
           </div>
@@ -1016,10 +1016,10 @@ const BookingSection = () => {
                 <Mic className="w-8 h-8 text-primary/50" />
               </div>
               <h4 className="font-display text-xl text-muted-foreground mb-2">
-                SÉLECTIONNEZ UN SERVICE
+                {t("booking.select_a_service")}
               </h4>
               <p className="text-muted-foreground/70 text-sm">
-                Choisissez un service ci-dessus pour accéder au formulaire de réservation
+                {t("booking.select_service_above")}
               </p>
             </div>
           )}
@@ -1031,23 +1031,22 @@ const BookingSection = () => {
               <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-foreground">Délai de traitement : ~2 semaines</span>
+                  <span className="font-semibold text-foreground">{t("booking.processing_delay")}</span>
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Dès que l'ingénieur aura terminé le travail, nous vous contacterons par email ou WhatsApp 
-                  pour vous proposer des dates pour la session d'écoute au studio.
+                  {t("booking.processing_desc")}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  💬 Si vous souhaitez être présent pendant le mix,{" "}
+                  💬 {t("booking.be_present_mixing")}{" "}
                   <a 
                     href="https://wa.me/33612345678?text=Bonjour%2C%20je%20souhaite%20%C3%AAtre%20pr%C3%A9sent%20pendant%20le%20mix%20de%20mon%20projet."
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary underline hover:text-primary/80 transition-colors"
                   >
-                    contactez-nous sur WhatsApp
+                    {t("booking.contact_whatsapp")}
                   </a>
-                  {" "}pour définir une date avec l'ingénieur son.
+                  {" "}{t("booking.define_date_engineer")}
                 </p>
               </div>
             )}
@@ -1058,11 +1057,11 @@ const BookingSection = () => {
                 <div className="space-y-4">
                   <h4 className="font-display text-lg text-foreground flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">2</span>
-                    REMPLISSEZ LE FORMULAIRE
+                    {t("booking.fill_form")}
                   </h4>
                   <div>
                     <Label htmlFor="name" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <User className="w-4 h-4" /> Nom complet <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
+                      <User className="w-4 h-4" /> {t("booking.full_name")} <span className="text-xs text-muted-foreground/70">({t("booking.required")})</span>
                     </Label>
                     <Input
                       id="name"
@@ -1071,7 +1070,7 @@ const BookingSection = () => {
                         setFormData({ ...formData, name: e.target.value });
                         setShowPayment(false);
                       }}
-                      placeholder="Votre nom"
+                      placeholder={t("booking.your_name")}
                       className="bg-secondary/50 border-border"
                       required
                     />
@@ -1079,7 +1078,7 @@ const BookingSection = () => {
 
                   <div>
                     <Label htmlFor="email" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Mail className="w-4 h-4" /> Email <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
+                      <Mail className="w-4 h-4" /> {t("booking.email")} <span className="text-xs text-muted-foreground/70">({t("booking.required")})</span>
                     </Label>
                     <Input
                       id="email"
@@ -1097,7 +1096,7 @@ const BookingSection = () => {
 
                   <div>
                     <Label htmlFor="phone" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Phone className="w-4 h-4" /> Téléphone <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
+                      <Phone className="w-4 h-4" /> {t("booking.phone")} <span className="text-xs text-muted-foreground/70">({t("booking.required")})</span>
                     </Label>
                     <Input
                       id="phone"
@@ -1120,7 +1119,7 @@ const BookingSection = () => {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="date" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4" /> Date souhaitée <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
+                      <Calendar className="w-4 h-4" /> {t("booking.desired_date")} <span className="text-xs text-muted-foreground/70">({t("booking.required")})</span>
                     </Label>
                     <Input
                       id="date"
@@ -1137,7 +1136,7 @@ const BookingSection = () => {
 
                   <div>
                     <Label htmlFor="time" className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                      <Clock className="w-4 h-4" /> Heure de début <span className="text-xs text-muted-foreground/70">(obligatoire)</span>
+                      <Clock className="w-4 h-4" /> {t("booking.start_time")} <span className="text-xs text-muted-foreground/70">({t("booking.required")})</span>
                     </Label>
                     <Input
                       id="time"
@@ -1153,7 +1152,7 @@ const BookingSection = () => {
                   </div>
 
                   <div>
-                    <Label className="text-sm text-muted-foreground mb-2 block">Durée (heures)</Label>
+                    <Label className="text-sm text-muted-foreground mb-2 block">{t("booking.duration_hours")}</Label>
                     <div className="flex items-center gap-4">
                       <Button
                         type="button"
@@ -1188,7 +1187,7 @@ const BookingSection = () => {
                 <div className="space-y-4">
                   <div>
                     <Label className="text-sm text-muted-foreground mb-2 block">
-                      Durée de l'audio (en minutes)
+                      {t("booking.audio_duration")}
                     </Label>
                     <div className="flex items-center gap-4">
                       <Button
