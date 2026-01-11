@@ -64,58 +64,6 @@ const DawNova = () => {
 
   return (
     <div className="fixed inset-0 w-full h-full bg-background">
-      {/* Floating navigation */}
-      <div 
-        className={`fixed top-2 left-2 z-50 flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-lg p-1.5 border border-border shadow-lg transition-opacity duration-300 ${showNav ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
-        onMouseEnter={() => setShowNav(true)}
-      >
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => navigate('/')}
-          className="h-7 px-2 text-xs gap-1"
-        >
-          <ArrowLeft className="w-3 h-3" />
-        </Button>
-        <div className="h-4 w-px bg-border" />
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => navigate('/reservation')}
-          className="h-7 px-2 text-xs gap-1 text-primary border-primary/50"
-        >
-          <Mic className="w-3 h-3" />
-          {t("quick_nav.book")}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => navigate('/offres')}
-          className="h-7 px-2 text-xs gap-1"
-        >
-          <Euro className="w-3 h-3" />
-          {t("quick_nav.offers")}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => navigate('/arsenal')}
-          className="h-7 px-2 text-xs gap-1"
-        >
-          <Headphones className="w-3 h-3" />
-          {t("quick_nav.studio")}
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => navigate('/instrumentals')}
-          className="h-7 px-2 text-xs gap-1 text-accent border-accent/50"
-        >
-          <Music className="w-3 h-3" />
-          {t("quick_nav.beats")}
-        </Button>
-      </div>
-
       <iframe
         src={dawUrl}
         className="w-full h-full border-0"
