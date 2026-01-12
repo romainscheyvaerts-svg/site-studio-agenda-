@@ -137,7 +137,7 @@ const BookingSection = () => {
     
     // Check if already applied
     if (activePromos.some(p => p.code.toLowerCase() === normalizedCode.toLowerCase())) {
-      setPromoError("Ce code est déjà appliqué");
+      setPromoError(t("booking.code_already_applied"));
       return;
     }
     
@@ -152,7 +152,7 @@ const BookingSection = () => {
       if (error) throw error;
       
       if (!data.valid) {
-        setPromoError(data.error || "Code promo invalide");
+        setPromoError(data.error || t("booking.invalid_promo_code"));
         return;
       }
       
@@ -178,18 +178,18 @@ const BookingSection = () => {
       }
       
       toast({
-        title: "Code promo appliqué !",
+        title: t("booking.promo_applied"),
         description: validatedPromo.skipFormFields
-          ? "Accès VIP complet - réservation simplifiée activée."
+          ? t("booking.promo_vip_full")
           : validatedPromo.fullCalendarVisibility 
-          ? "Vous avez accès à la visibilité complète de l'agenda."
+          ? t("booking.promo_calendar_visibility")
           : validatedPromo.skipPayment
-          ? "Paiement en espèces activé - pas d'acompte requis."
-          : "Réductions appliquées à votre réservation.",
+          ? t("booking.promo_cash_payment")
+          : t("booking.promo_discounts"),
       });
     } catch (err) {
       console.error("Promo code validation error:", err);
-      setPromoError("Erreur de validation. Réessayez.");
+      setPromoError(t("booking.promo_validation_error"));
     } finally {
       setPromoLoading(false);
     }
@@ -310,8 +310,8 @@ const BookingSection = () => {
       } catch (err) {
         console.error("Failed to fetch PayPal client ID:", err);
         toast({
-          title: "Erreur de configuration",
-          description: "Impossible de charger le système de paiement.",
+          title: t("booking.config_error"),
+          description: t("booking.payment_system_error"),
           variant: "destructive",
         });
       } finally {
@@ -361,8 +361,8 @@ const BookingSection = () => {
       const verifyAndCreateBooking = async () => {
         try {
           toast({
-            title: "Vérification du paiement...",
-            description: "Veuillez patienter pendant que nous vérifions votre paiement.",
+            title: t("booking.payment_verified"),
+            description: t("booking.please_wait"),
           });
 
           const { data, error } = await supabase.functions.invoke("verify-stripe-payment", {
@@ -393,24 +393,24 @@ const BookingSection = () => {
             if (bookingError) throw bookingError;
 
             toast({
-              title: "Paiement confirmé ! 🎉",
-              description: "Votre réservation a été enregistrée. Un email de confirmation vous a été envoyé.",
+              title: t("booking.payment_confirmed"),
+              description: t("booking.payment_confirmed_desc"),
             });
 
             // Clear URL params
             window.history.replaceState({}, document.title, window.location.pathname);
           } else {
             toast({
-              title: "Erreur de paiement",
-              description: data?.error || "Le paiement n'a pas pu être vérifié.",
+              title: t("booking.payment_error"),
+              description: data?.error || t("booking.payment_not_verified"),
               variant: "destructive",
             });
           }
         } catch (err) {
           console.error("Payment verification error:", err);
           toast({
-            title: "Erreur de vérification",
-            description: "Une erreur est survenue lors de la vérification du paiement.",
+            title: t("booking.verification_error"),
+            description: t("booking.verification_error_desc"),
             variant: "destructive",
           });
         }
@@ -419,8 +419,8 @@ const BookingSection = () => {
       verifyAndCreateBooking();
     } else if (paymentStatus === "cancelled") {
       toast({
-        title: "Paiement annulé",
-        description: "Vous avez annulé le processus de paiement. Vous pouvez réessayer quand vous le souhaitez.",
+        title: t("booking.payment_cancelled"),
+        description: t("booking.payment_cancelled_desc"),
         variant: "destructive",
       });
       // Clear URL params
@@ -498,7 +498,7 @@ const BookingSection = () => {
       } catch (err) {
         console.error("Availability check failed:", err);
         setAvailabilityStatus("error");
-        setAvailabilityMessage("Impossible de vérifier la disponibilité. Veuillez réessayer.");
+        setAvailabilityMessage(t("booking.check_availability_error"));
       }
     };
 
@@ -509,8 +509,8 @@ const BookingSection = () => {
   const validateForm = (): boolean => {
     if (!sessionType) {
       toast({
-        title: "Type de service requis",
-        description: "Veuillez sélectionner un type de service",
+        title: t("booking.service_required"),
+        description: t("booking.select_service_type"),
         variant: "destructive",
       });
       return false;
@@ -521,8 +521,8 @@ const BookingSection = () => {
       // Only need date/time if not using VIP calendar
       if (!combinedPromoEffects.fullCalendarVisibility && (!formData.date || !formData.time)) {
         toast({
-          title: "Créneau requis",
-          description: "Veuillez sélectionner une date et une heure",
+          title: t("booking.slot_required"),
+          description: t("booking.select_date_time"),
           variant: "destructive",
         });
         return false;
@@ -533,8 +533,8 @@ const BookingSection = () => {
     // Validate name length (minimum 2 characters)
     if (formData.name && formData.name.trim().length < 2) {
       toast({
-        title: "Nom invalide",
-        description: "Le nom doit contenir au moins 2 caractères",
+        title: t("booking.invalid_name"),
+        description: t("booking.name_min_2"),
         variant: "destructive",
       });
       return false;
@@ -544,8 +544,8 @@ const BookingSection = () => {
     if (isImmediateService) {
       if (!formData.name || !formData.email || !formData.phone) {
         toast({
-          title: "Formulaire incomplet",
-          description: "Veuillez remplir tous les champs obligatoires",
+          title: t("booking.incomplete_form"),
+          description: t("booking.fill_required_fields"),
           variant: "destructive",
         });
         return false;
@@ -556,8 +556,8 @@ const BookingSection = () => {
     // Pour les sessions avec calendrier
     if (!formData.name || !formData.email || !formData.phone || !formData.date || !formData.time) {
       toast({
-        title: "Formulaire incomplet",
-        description: "Veuillez remplir tous les champs obligatoires",
+        title: t("booking.incomplete_form"),
+        description: t("booking.fill_required_fields"),
         variant: "destructive",
       });
       return false;
@@ -566,8 +566,8 @@ const BookingSection = () => {
     // Skip availability check for VIP777 (full calendar visibility allows any booking)
     if (!combinedPromoEffects.fullCalendarVisibility && availabilityStatus !== "available") {
       toast({
-        title: "Créneau non disponible",
-        description: "Veuillez choisir un autre créneau",
+        title: t("booking.slot_not_available"),
+        description: t("booking.choose_another_slot"),
         variant: "destructive",
       });
       return false;
@@ -576,8 +576,8 @@ const BookingSection = () => {
     // KYC is required only for session types (not immediate services) unless promo skips it
     if (!skipIdentityVerification && !identityVerified) {
       toast({
-        title: "Vérification d'identité requise",
-        description: "Veuillez vérifier votre identité avant de procéder au paiement",
+        title: t("booking.id_verification_required_msg"),
+        description: t("booking.verify_before_payment"),
         variant: "destructive",
       });
       return false;
@@ -655,8 +655,8 @@ const BookingSection = () => {
       const effectiveEmail = user?.email || formData.email;
       if (!effectiveEmail) {
         toast({
-          title: "Email requis",
-          description: "Veuillez utiliser l'email de votre compte (connexion requise).",
+          title: t("booking.email_required"),
+          description: t("booking.use_account_email"),
           variant: "destructive",
         });
         return;
@@ -684,16 +684,16 @@ const BookingSection = () => {
       if (error) throw error;
       
       toast({
-        title: "Réservation confirmée ! 🎉",
-        description: "Un email de confirmation vous a été envoyé. Le paiement sera effectué en espèces au studio.",
+        title: t("booking.booking_confirmed"),
+        description: t("booking.booking_confirmed_cash"),
       });
       
       handlePaymentSuccess();
     } catch (err) {
       console.error("Cash-only booking error:", err);
       toast({
-        title: "Erreur de réservation",
-        description: "Une erreur est survenue. Veuillez réessayer.",
+        title: t("booking.booking_error"),
+        description: t("booking.error_try_again"),
         variant: "destructive",
       });
     } finally {
@@ -754,7 +754,7 @@ const BookingSection = () => {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Shield className="w-8 h-8 text-green-500" />
-                  <h3 className="font-display text-2xl text-green-400">MODE ADMIN ACTIVÉ</h3>
+                  <h3 className="font-display text-2xl text-green-400">{t("booking.admin_mode")}</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -763,12 +763,12 @@ const BookingSection = () => {
                     className="border-green-500 text-green-500 hover:bg-green-500/10"
                   >
                     <Calendar className="w-4 h-4 mr-2" />
-                    {showVIPCalendar ? "Fermer l'agenda" : "Voir l'agenda"}
+                    {showVIPCalendar ? t("booking.close_calendar") : t("booking.view_calendar")}
                   </Button>
                 </div>
               </div>
               <p className="text-muted-foreground mb-4">
-                Accès complet à l'agenda • Réservation sans paiement • Vérification d'identité désactivée
+                {t("booking.admin_access")}
               </p>
               
               {/* Admin-only Calendar viewer - Modern Google-style */}
@@ -786,7 +786,7 @@ const BookingSection = () => {
             <div className="mb-10 p-6 rounded-2xl bg-card border border-border">
               <h3 className="font-display text-xl text-foreground mb-4 flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-primary" />
-                CALCULATEUR DE PRIX ADMIN
+                {t("booking.admin_price_calculator")}
               </h3>
               <AdminPriceCalculator
                 onPriceCalculated={(data) => {
@@ -801,8 +801,8 @@ const BookingSection = () => {
                     }));
                   }
                   toast({
-                    title: "Prix calculé",
-                    description: `${data.finalPrice}€ (remise ${data.discountPercent}% appliquée)`,
+                    title: t("booking.price_calculated"),
+                    description: `${data.finalPrice}€ (${data.discountPercent}% ${t("booking.discount_applied")})`,
                   });
                 }}
               />
@@ -814,11 +814,11 @@ const BookingSection = () => {
             <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-accent/20 via-primary/20 to-accent/20 border-2 border-accent/50 box-glow-gold">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-3xl">👑</span>
-                <h3 className="font-display text-2xl text-accent">ACCÈS VIP ACTIVÉ</h3>
+                <h3 className="font-display text-2xl text-accent">{t("booking.vip_access")}</h3>
               </div>
               <p className="text-muted-foreground">
-                Réservation simplifiée : sélectionnez directement votre créneau dans l'agenda.
-                Service : <span className="text-accent font-semibold">Location sèche (gratuit)</span>
+                {t("booking.vip_booking_simplified")}
+                {t("booking.vip_service")} <span className="text-accent font-semibold">{t("booking.vip_free")}</span>
               </p>
             </div>
           )}
@@ -1230,8 +1230,8 @@ const BookingSection = () => {
                     setFormData({ ...formData, date, time });
                     setHours(duration);
                     toast({
-                      title: "Créneau sélectionné",
-                      description: `${date} à ${time} pour ${duration}h`,
+                      title: t("booking.slot_selected"),
+                      description: t("booking.slot_format", { date, time, duration }),
                     });
                   }}
                   onConfirmBooking={async (date, time, duration) => {
@@ -1246,8 +1246,8 @@ const BookingSection = () => {
                       const effectiveEmail = user?.email || updatedFormData.email;
                       if (!effectiveEmail) {
                         toast({
-                          title: "Email requis",
-                          description: "Veuillez utiliser l'email de votre compte (connexion requise).",
+                          title: t("booking.email_required"),
+                          description: t("booking.use_account_email"),
                           variant: "destructive",
                         });
                         return;
@@ -1409,7 +1409,7 @@ const BookingSection = () => {
                 {availabilityStatus === "checking" && (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                    <span className="text-muted-foreground">Vérification de la disponibilité...</span>
+                    <span className="text-muted-foreground">{t("booking.checking_availability")}</span>
                   </>
                 )}
                 {availabilityStatus === "available" && (
@@ -1438,7 +1438,7 @@ const BookingSection = () => {
               <div className="mb-6">
                 <h4 className="font-display text-lg text-foreground flex items-center gap-2 mb-4">
                   <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">3</span>
-                  VÉRIFICATION D'IDENTITÉ
+                  {t("booking.identity_verification")}
                 </h4>
                 <IdentityVerification
                   formName={formData.name}
@@ -1454,7 +1454,7 @@ const BookingSection = () => {
               <div className="mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
                 <p className="text-sm text-green-500 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" />
-                  Vérification d'identité non requise avec votre code VIP
+                  {t("booking.id_not_required_vip")}
                 </p>
               </div>
             )}
@@ -1464,14 +1464,14 @@ const BookingSection = () => {
               <div className="mb-6">
                 <h4 className="font-display text-lg text-foreground flex items-center gap-2 mb-4">
                   <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">4</span>
-                  PAIEMENT
+                  {t("booking.payment")}
                 </h4>
                 <div className="p-4 rounded-xl bg-secondary/50 border border-primary/20">
                 {!isImmediateService && (
                   <>
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="text-sm text-muted-foreground">Total session</p>
+                        <p className="text-sm text-muted-foreground">{t("booking.total_session")}</p>
                         <p className="text-xs text-muted-foreground">
                           {hours}h × {pricing[sessionType]}€
                         </p>
@@ -1485,12 +1485,14 @@ const BookingSection = () => {
                     {hours >= 5 && (sessionType === "with-engineer" || sessionType === "without-engineer") && !promoDiscount && (
                       <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-accent/10 border border-accent/30">
                         <div>
-                          <p className="text-sm font-semibold text-accent">🎉 Offre promo appliquée</p>
+                          <p className="text-sm font-semibold text-accent">{t("booking.promo_offer_applied")}</p>
                           <p className="text-xs text-muted-foreground">
-                            {sessionType === "with-engineer" 
-                              ? `${hours}h × ${Math.round(pricing["with-engineer"] * 0.11)}€ de réduction (${Math.round(pricing["with-engineer"] * 0.89)}€/h au lieu de ${pricing["with-engineer"]}€/h)`
-                              : `${hours}h × ${Math.round(pricing["without-engineer"] * 0.09)}€ de réduction (${Math.round(pricing["without-engineer"] * 0.91)}€/h au lieu de ${pricing["without-engineer"]}€/h)`
-                            }
+                            {t("booking.discount_reduction", {
+                              hours: hours,
+                              discount: sessionType === "with-engineer" ? Math.round(pricing["with-engineer"] * 0.11) : Math.round(pricing["without-engineer"] * 0.09),
+                              price: sessionType === "with-engineer" ? Math.round(pricing["with-engineer"] * 0.89) : Math.round(pricing["without-engineer"] * 0.91),
+                              original: pricing[sessionType!]
+                            })}
                           </p>
                         </div>
                         <div className="text-right">
@@ -1505,9 +1507,9 @@ const BookingSection = () => {
                     {promoDiscount > 0 && (
                       <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                         <div>
-                          <p className="text-sm font-semibold text-green-500">🎁 Réduction code promo</p>
+                          <p className="text-sm font-semibold text-green-500">{t("booking.promo_code_discount")}</p>
                           <p className="text-xs text-muted-foreground">
-                            {combinedPromoEffects.discounts[sessionType!]}% de réduction
+                            {t("booking.discount_percent", { percent: combinedPromoEffects.discounts[sessionType!] })}
                           </p>
                         </div>
                         <div className="text-right">
@@ -1522,10 +1524,10 @@ const BookingSection = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <p className="text-sm text-muted-foreground">
-                          {sessionType === "mixing" && "Mixage projet"}
-                          {sessionType === "mastering" && "Mastering"}
-                          {sessionType === "analog-mastering" && "Mastering analogique"}
-                          {sessionType === "podcast" && `Mixage Podcast (${podcastMinutes} min)`}
+                          {sessionType === "mixing" && t("booking.mixing_project")}
+                          {sessionType === "mastering" && t("booking.mastering")}
+                          {sessionType === "analog-mastering" && t("booking.analog_mastering")}
+                          {sessionType === "podcast" && `${t("booking.podcast_mixing")} (${podcastMinutes} min)`}
                         </p>
                       </div>
                       <div className="text-right">
@@ -1542,9 +1544,9 @@ const BookingSection = () => {
                     {promoDiscount > 0 && (
                       <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
                         <div>
-                          <p className="text-sm font-semibold text-green-500">🎁 Réduction code promo</p>
+                          <p className="text-sm font-semibold text-green-500">{t("booking.promo_code_discount")}</p>
                           <p className="text-xs text-muted-foreground">
-                            {combinedPromoEffects.discounts[sessionType!]}% de réduction
+                            {t("booking.discount_percent", { percent: combinedPromoEffects.discounts[sessionType!] })}
                           </p>
                         </div>
                         <div className="text-right">
@@ -1557,29 +1559,29 @@ const BookingSection = () => {
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      {skipPayment ? "Réservation VIP" : isDeposit ? "Acompte à payer (50%)" : "Montant à payer"}
+                      {skipPayment ? t("booking.vip_booking") : isDeposit ? t("booking.deposit_to_pay") : t("booking.amount_due")}
                     </p>
                     {skipPayment && (
-                      <p className="text-xs text-green-500">Réservation gratuite avec votre code VIP</p>
+                      <p className="text-xs text-green-500">{t("booking.vip_free_booking")}</p>
                     )}
                     {!skipPayment && isDeposit && !isImmediateService && sessionType === "with-engineer" && (
                       <p className="text-xs text-accent">
                         {hours >= 5
-                          ? `Solde au studio: ${finalPrice - paymentAmount - hours * 5}€ (après réduction)`
-                          : "Le reste sera payé au studio"
+                          ? t("booking.balance_at_studio", { amount: finalPrice - paymentAmount - hours * 5 })
+                          : t("booking.rest_paid_at_studio")
                         }
                       </p>
                     )}
                     {!skipPayment && !isImmediateService && sessionType === "without-engineer" && hours >= 5 && !promoDiscount && (
                       <p className="text-xs text-accent">
-                        Réduction de {hours * 2}€ déduite sur place
+                        {t("booking.discount_deducted_on_site", { amount: hours * 2 })}
                       </p>
                     )}
                     {!skipPayment && !isImmediateService && sessionType === "without-engineer" && hours < 5 && !promoDiscount && (
-                      <p className="text-xs text-muted-foreground">Paiement complet requis</p>
+                      <p className="text-xs text-muted-foreground">{t("booking.full_payment_required")}</p>
                     )}
                     {!skipPayment && isDeposit && isImmediateService && (
-                      <p className="text-xs text-accent">Le reste après la session d'écoute</p>
+                      <p className="text-xs text-accent">{t("booking.rest_after_listening")}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -1588,7 +1590,7 @@ const BookingSection = () => {
                       "font-display text-4xl text-glow-cyan",
                       skipPayment ? "text-green-500" : "text-primary"
                     )}>
-                      {skipPayment ? "GRATUIT" : `${paymentAmount}€`}
+                      {skipPayment ? t("pricing.free") : `${paymentAmount}€`}
                     </span>
                   </div>
                 </div>
@@ -1599,7 +1601,7 @@ const BookingSection = () => {
             {/* Last-minute booking disclaimer - only for studio sessions, hidden for admin */}
             {sessionType && !isImmediateService && !isAdmin && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm">
-                ⚠️ Pour les réservations moins de 24h à l'avance, le studio se réserve le droit d'annuler et de rembourser intégralement.
+                {t("booking.last_minute_disclaimer")}
               </div>
             )}
 
@@ -1609,12 +1611,12 @@ const BookingSection = () => {
                 <p className="text-muted-foreground flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                   <span>
-                    Pour continuer, veuillez compléter :
-                    {!formData.name && <span className="block text-primary">• Votre nom complet</span>}
-                    {!formData.email && <span className="block text-primary">• Votre adresse email</span>}
-                    {!formData.phone && <span className="block text-primary">• Votre numéro de téléphone</span>}
+                    {t("booking.to_continue_complete")}
+                    {!formData.name && <span className="block text-primary">• {t("booking.your_full_name")}</span>}
+                    {!formData.email && <span className="block text-primary">• {t("booking.your_email")}</span>}
+                    {!formData.phone && <span className="block text-primary">• {t("booking.your_phone")}</span>}
                     {!isImmediateService && !skipIdentityVerification && !identityVerified && (
-                      <span className="block text-primary">• La vérification d'identité (carte d'identité)</span>
+                      <span className="block text-primary">• {t("booking.id_verification_card")}</span>
                     )}
                   </span>
                 </p>
@@ -1637,7 +1639,7 @@ const BookingSection = () => {
                   disabled={!sessionType || (!combinedPromoEffects.skipFormFields && (!formData.name || !formData.email || !formData.phone))}
                 >
                   <Calendar className="w-5 h-5 mr-2" />
-                  RÉSERVER (Ouvrir l'agenda VIP)
+                  {t("booking.reserve_open_vip")}
                 </Button>
               ) : isCashOnly ? (
                 /* CashOnly777 - Show "Validate booking" button that creates event and sends email without payment */
@@ -1664,27 +1666,27 @@ const BookingSection = () => {
                   {cashOnlyLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Validation en cours...
+                      {t("booking.validating")}
                     </>
                   ) : !isImmediateService && availabilityStatus === "checking" ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Vérification...
+                      {t("booking.verification")}
                     </>
                   ) : !isImmediateService && availabilityStatus === "unavailable" ? (
                     <>
                       <XCircle className="w-5 h-5 mr-2" />
-                      CRÉNEAU NON DISPONIBLE
+                      {t("booking.slot_unavailable")}
                     </>
                   ) : !isImmediateService && !skipIdentityVerification && !identityVerified ? (
                     <>
                       <AlertCircle className="w-5 h-5 mr-2" />
-                      VÉRIFICATION D'IDENTITÉ REQUISE
+                      {t("booking.id_verification_required_btn")}
                     </>
                   ) : (
                     <>
                       <CheckCircle className="w-5 h-5 mr-2" />
-                      VALIDER LA RÉSERVATION
+                      {t("booking.validate_booking")}
                     </>
                   )}
                 </Button>
@@ -1706,27 +1708,27 @@ const BookingSection = () => {
                   {loadingClientId ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Chargement...
+                      {t("booking.loading")}
                     </>
                   ) : !isImmediateService && availabilityStatus === "checking" ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Vérification...
+                      {t("booking.verification")}
                     </>
                   ) : !isImmediateService && availabilityStatus === "unavailable" ? (
                     <>
                       <XCircle className="w-5 h-5 mr-2" />
-                      CRÉNEAU NON DISPONIBLE
+                      {t("booking.slot_unavailable")}
                     </>
                   ) : !isImmediateService && !skipIdentityVerification && !identityVerified ? (
                     <>
                       <AlertCircle className="w-5 h-5 mr-2" />
-                      VÉRIFICATION D'IDENTITÉ REQUISE
+                      {t("booking.id_verification_required_btn")}
                     </>
                   ) : (
                     <>
                       <CreditCard className="w-5 h-5 mr-2" />
-                      PROCÉDER AU PAIEMENT
+                      {t("booking.proceed_to_payment")}
                     </>
                   )}
                 </Button>
@@ -1736,25 +1738,17 @@ const BookingSection = () => {
                 <div className="p-4 rounded-xl bg-accent/10 border border-accent/30">
                   <div className="flex items-center gap-2 mb-2">
                     <CreditCard className="w-5 h-5 text-accent" />
-                    <span className="font-semibold text-foreground">Paiement sécurisé</span>
+                    <span className="font-semibold text-foreground">{t("booking.payment")}</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {isImmediateService ? (
-                      isDeposit 
-                        ? `Acompte de ${paymentAmount}€ pour votre ${sessionType === "mixing" ? "mixage" : "mastering"} (total: ${finalPrice}€)`
-                        : `Paiement de ${paymentAmount}€ pour votre mastering analogique`
-                    ) : (
-                      isDeposit 
-                        ? `Acompte de ${paymentAmount}€ pour réserver votre session de ${hours}h (total: ${finalPrice}€)`
-                        : `Paiement complet de ${paymentAmount}€ pour votre location de ${hours}h`
-                    )}
-                    {promoDiscount > 0 && ` (réduction de ${promoDiscount}€ appliquée)`}
+                    {t("booking.deposit_info")} - {paymentAmount}€
+                    {promoDiscount > 0 && ` (${t("booking.discount_percent", { percent: combinedPromoEffects.discounts[sessionType!] })})`}
                   </p>
                   
                   <div className="space-y-4">
                     {/* Stripe Checkout Option (Card, Apple Pay, Google Pay) - Now Option 1 */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 1 : Carte bancaire (Apple Pay / Google Pay disponible)</p>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">{t("booking.pay_by_card")}</p>
                       <StripeCheckoutButton
                         amount={paymentAmount}
                         sessionType={sessionType!}
@@ -1769,13 +1763,13 @@ const BookingSection = () => {
                     {/* Divider */}
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-muted-foreground">ou</span>
+                      <span className="text-xs text-muted-foreground">{t("booking.or")}</span>
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
                     {/* PayPal Option - Now Option 2 */}
                     <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">Option 2 : PayPal</p>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">{t("booking.pay_with_paypal")}</p>
                       {paypalClientId ? (
                         <PayPalCheckout
                           amount={paymentAmount}
@@ -1803,7 +1797,7 @@ const BookingSection = () => {
                   className="w-full"
                   onClick={() => setShowPayment(false)}
                 >
-                  ← Modifier ma commande
+                  ← {t("booking.proceed_payment")}
                 </Button>
               </div>
             )}
@@ -1811,12 +1805,12 @@ const BookingSection = () => {
             {!isAdmin && (
             <p className="text-xs text-muted-foreground text-center mt-4">
               {skipPayment 
-                ? "Réservation VIP sans paiement requis"
+                ? t("booking.vip_free_booking")
                 : sessionType === "without-engineer" || sessionType === "analog-mastering"
-                  ? "Paiement complet requis à la réservation"
+                  ? t("booking.full_payment_required")
                   : isImmediateService 
-                    ? "Acompte de 50%, le reste après la session d'écoute"
-                    : "Acompte de 50% à la réservation, le reste au studio"
+                    ? t("booking.rest_after_listening")
+                    : t("booking.rest_paid_at_studio")
               }
             </p>
             )}

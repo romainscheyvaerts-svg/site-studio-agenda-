@@ -44,7 +44,7 @@
     "per_project": "/project",
     "per_min": "/min",
     "book": "Book",
-    "deposit_50": "50% deposit",
+    "free": "FREE",
     "deposit_80": "80€ deposit",
     "full_payment": "100% payment required",
     "with_engineer": {
