@@ -5,7 +5,9 @@
     "gear": "Équipement",
     "pricing": "Tarifs",
     "booking": "Réservation",
-    "contact": "Contact"
+    "contact": "Contact",
+    "instrumentals": "Instrumentaux",
+    "daw": "DAW NOVA STUDIO"
   },
   "hero": {
     "badge": "STUDIO D'ENREGISTREMENT PROFESSIONNEL",
@@ -47,6 +49,11 @@
     "deposit_50": "50% d'acompte",
     "deposit_80": "Acompte 80€",
     "full_payment": "Paiement 100% requis",
+    "sale_description": "Profitez de nos réductions exceptionnelles sur tous nos services !",
+    "payment_terms": "MODALITÉS DE PAIEMENT",
+    "rest_at_studio": "Le reste au studio",
+    "pay_at_booking": "À régler à la réservation",
+    "packages_available": "Forfaits et tarifs dégressifs disponibles pour les projets longs",
     "with_engineer": {
       "title": "Session Rec + Ingénieur",
       "feature1": "Ingénieur son dédié",
@@ -275,7 +282,11 @@
     "description": "Studio d'enregistrement professionnel à Bruxelles",
     "quick_links": "Liens rapides",
     "contact": "Contact",
-    "rights": "Tous droits réservés"
+    "rights": "Tous droits réservés",
+    "call": "Appeler",
+    "legal": "Mentions légales",
+    "privacy": "Confidentialité",
+    "terms": "CGV"
   },
   "instrumentals": {
     "badge": "Catalogue",
@@ -315,6 +326,7 @@
   },
   "auth": {
     "login": "Connexion",
+    "logout": "Déconnexion",
     "signup": "Inscription",
     "email": "Email",
     "password": "Mot de passe",

@@ -153,7 +153,7 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
         size={isMobileView ? "sm" : "lg"}
         onClick={handleClick}
       >
-        {isMobileView ? "RÉSERVER" : buttonText}
+        {buttonText}
       </Button>
     </div>
   );
@@ -255,7 +255,7 @@ const PricingSection = () => {
               🔥 {salesConfig.sale_name} 🔥
             </span>
             <p className={cn("text-muted-foreground mt-1", isMobileView ? "text-xs" : "text-sm")}>
-              Profitez de nos réductions exceptionnelles sur tous nos services !
+              {t("pricing.sale_description")}
             </p>
           </div>
         )}
@@ -390,7 +390,7 @@ const PricingSection = () => {
         {/* Payment info */}
         <div className={cn("max-w-3xl mx-auto", isMobileView ? "mt-8" : "mt-12")}>
           <h3 className={cn("font-display text-center text-foreground", isMobileView ? "text-lg mb-4" : "text-xl mb-6")}>
-            MODALITÉS DE PAIEMENT
+            {t("pricing.payment_terms")}
           </h3>
           <div className={cn("gap-4 mb-8", isMobileView ? "space-y-3" : "grid md:grid-cols-2")}>
             <div className={cn("rounded-xl bg-primary/5 border border-primary/20", isMobileView ? "p-3" : "p-4")}>
@@ -412,7 +412,7 @@ const PricingSection = () => {
                 </li>
               </ul>
               <p className={cn("text-muted-foreground mt-2 text-center italic", isMobileView ? "text-[10px]" : "text-xs")}>
-                Le reste au studio
+                {t("pricing.rest_at_studio")}
               </p>
             </div>
             <div className={cn("rounded-xl bg-accent/5 border border-accent/20", isMobileView ? "p-3" : "p-4")}>
@@ -426,13 +426,13 @@ const PricingSection = () => {
                 </li>
               </ul>
               <p className={cn("text-muted-foreground mt-2 text-center italic", isMobileView ? "text-[10px]" : "text-xs")}>
-                À régler à la réservation
+                {t("pricing.pay_at_booking")}
               </p>
             </div>
           </div>
           
           <p className={cn("text-muted-foreground text-center mb-4", isMobileView ? "text-xs" : "text-base")}>
-            Forfaits et tarifs dégressifs disponibles pour les projets longs
+            {t("pricing.packages_available")}
           </p>
           <div className="text-center">
             <QuoteRequestDialog />

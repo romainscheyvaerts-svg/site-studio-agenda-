@@ -5,7 +5,9 @@
     "gear": "Apparatuur",
     "pricing": "Tarieven",
     "booking": "Reserveren",
-    "contact": "Contact"
+    "contact": "Contact",
+    "instrumentals": "Instrumentals",
+    "daw": "DAW NOVA STUDIO"
   },
   "hero": {
     "badge": "PROFESSIONELE OPNAMESTUDIO",
@@ -47,6 +49,11 @@
     "free": "GRATIS",
     "deposit_80": "80€ aanbetaling",
     "full_payment": "100% betaling vereist",
+    "sale_description": "Profiteer van onze uitzonderlijke kortingen op al onze diensten!",
+    "payment_terms": "BETALINGSVOORWAARDEN",
+    "rest_at_studio": "De rest in de studio",
+    "pay_at_booking": "Te betalen bij reservering",
+    "packages_available": "Pakketten en volumekortingen beschikbaar voor lange projecten",
     "with_engineer": {
       "title": "Sessie + Ingenieur",
       "feature1": "Toegewijde geluidsingenieur",
@@ -256,7 +263,11 @@
     "description": "Professionele opnamestudio in Brussel",
     "quick_links": "Snelle links",
     "contact": "Contact",
-    "rights": "Alle rechten voorbehouden"
+    "rights": "Alle rechten voorbehouden",
+    "call": "Bellen",
+    "legal": "Juridische kennisgeving",
+    "privacy": "Privacy",
+    "terms": "Voorwaarden"
   },
   "instrumentals": {
     "badge": "Catalogus",
@@ -296,6 +307,7 @@
   },
   "auth": {
     "login": "Inloggen",
+    "logout": "Uitloggen",
     "signup": "Registreren",
     "email": "E-mail",
     "password": "Wachtwoord",
