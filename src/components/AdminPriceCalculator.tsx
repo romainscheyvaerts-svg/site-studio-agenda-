@@ -287,8 +287,8 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
         </div>
       )}
 
-      {/* Price calculation summary */}
-      {selectedService && (selectedDate || !isHourlyService) && (
+      {/* Price calculation summary - always show for hourly services when selected, for others always */}
+      {selectedService && (
         <div className="p-6 rounded-xl bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-green-500/10 border border-green-500/30">
           <h4 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
             <Euro className="w-5 h-5 text-green-500" />
