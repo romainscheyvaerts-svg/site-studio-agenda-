@@ -5,7 +5,9 @@
     "gear": "Gear",
     "pricing": "Pricing",
     "booking": "Booking",
-    "contact": "Contact"
+    "contact": "Contact",
+    "instrumentals": "Instrumentals",
+    "daw": "DAW NOVA STUDIO"
   },
   "hero": {
     "badge": "PROFESSIONAL RECORDING STUDIO",
@@ -47,6 +49,11 @@
     "free": "FREE",
     "deposit_80": "80€ deposit",
     "full_payment": "100% payment required",
+    "sale_description": "Take advantage of our exceptional discounts on all services!",
+    "payment_terms": "PAYMENT TERMS",
+    "rest_at_studio": "The rest at the studio",
+    "pay_at_booking": "To be paid at booking",
+    "packages_available": "Packages and volume discounts available for long projects",
     "with_engineer": {
       "title": "Session + Engineer",
       "feature1": "Dedicated sound engineer",
@@ -275,7 +282,11 @@
     "description": "Professional recording studio in Brussels",
     "quick_links": "Quick links",
     "contact": "Contact",
-    "rights": "All rights reserved"
+    "rights": "All rights reserved",
+    "call": "Call",
+    "legal": "Legal notice",
+    "privacy": "Privacy",
+    "terms": "Terms"
   },
   "instrumentals": {
     "badge": "Catalog",
@@ -315,6 +326,7 @@
   },
   "auth": {
     "login": "Login",
+    "logout": "Logout",
     "signup": "Sign up",
     "email": "Email",
     "password": "Password",

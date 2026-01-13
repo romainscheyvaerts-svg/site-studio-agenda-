@@ -109,7 +109,7 @@ const Hero = () => {
                   className="h-12"
                 >
                   <Euro className="w-4 h-4" />
-                  OFFRES
+                  {t("quick_nav.offers").toUpperCase()}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -118,7 +118,7 @@ const Hero = () => {
                   className="h-12 border-primary/50"
                 >
                   <Headphones className="w-4 h-4" />
-                  STUDIO
+                  {t("quick_nav.studio").toUpperCase()}
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -129,7 +129,7 @@ const Hero = () => {
                   className="h-12 border-accent/50 text-accent"
                 >
                   <Music className="w-4 h-4" />
-                  BEATS
+                  {t("quick_nav.beats").toUpperCase()}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -138,7 +138,7 @@ const Hero = () => {
                   className="h-12 border-purple-500/50 text-purple-400"
                 >
                   <AudioLines className="w-4 h-4" />
-                  DAW
+                  {t("quick_nav.daw").toUpperCase()}
                 </Button>
               </div>
             </div>
@@ -159,7 +159,7 @@ const Hero = () => {
                 onClick={goToOffers}
               >
                 <Euro className="w-5 h-5" />
-                NOS OFFRES
+                {t("quick_nav.offers").toUpperCase()}
               </Button>
               <Button 
                 variant="outline" 
@@ -177,7 +177,7 @@ const Hero = () => {
                 className="border-accent/50 hover:bg-accent/10 hover:border-accent"
               >
                 <Music className="w-5 h-5" />
-                INSTRUMENTAUX
+                {t("nav.instrumentals").toUpperCase()}
               </Button>
               <Button 
                 variant="outline" 
@@ -186,7 +186,7 @@ const Hero = () => {
                 className="border-purple-500/50 hover:bg-purple-500/10 hover:border-purple-500 text-purple-300"
               >
                 <AudioLines className="w-5 h-5" />
-                DAW NOVA STUDIO
+                {t("nav.daw")}
               </Button>
             </div>
           )}
@@ -207,7 +207,7 @@ const Hero = () => {
                 )}
               >
                 <CalendarDays className="w-5 h-5" />
-                Voir l'agenda
+                {t("booking.view_calendar")}
               </Button>
             </div>
           )}

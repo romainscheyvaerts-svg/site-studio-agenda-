@@ -81,7 +81,7 @@ const Navbar = () => {
               className="text-sm text-muted-foreground hover:text-foreground transition-colors relative group flex items-center gap-1"
             >
               <Music className="h-4 w-4" />
-              Instrumentaux
+              {t("nav.instrumentals")}
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-neon-gold transition-all duration-300 group-hover:w-full" />
             </button>
           </div>
@@ -102,7 +102,7 @@ const Navbar = () => {
                   variant="outline" 
                   size="icon"
                   onClick={signOut}
-                  title="Déconnexion"
+                  title={t("auth.logout")}
                 >
                   <LogOut className="w-4 h-4" />
                 </Button>
@@ -115,7 +115,7 @@ const Navbar = () => {
                   className="flex items-center gap-2"
                 >
                   <User className="w-4 h-4" />
-                  Connexion
+                  {t("auth.login")}
                 </Button>
                 <Button variant="neon" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
@@ -166,7 +166,7 @@ const Navbar = () => {
                   className="text-left text-foreground hover:text-primary transition-colors py-4 flex items-center gap-3 text-xl font-display border-b border-border/50"
                 >
                   <Music className="h-5 w-5 text-accent" />
-                  INSTRUMENTAUX
+                  {t("nav.instrumentals").toUpperCase()}
                 </button>
               </div>
               
@@ -187,7 +187,7 @@ const Navbar = () => {
                     onClick={signOut}
                   >
                     <LogOut className="w-5 h-5 mr-2" />
-                    Déconnexion
+                    {t("auth.logout")}
                   </Button>
                 ) : (
                   <Button 
@@ -200,7 +200,7 @@ const Navbar = () => {
                     }}
                   >
                     <User className="w-5 h-5 mr-2" />
-                    Connexion / Inscription
+                    {t("auth.login")} / {t("auth.signup")}
                   </Button>
                 )}
               </div>

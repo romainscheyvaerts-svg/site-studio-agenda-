@@ -24,7 +24,7 @@ const Footer = () => {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Studio d'enregistrement professionnel
+                {t("footer.description")}
               </p>
             </div>
             
@@ -32,7 +32,7 @@ const Footer = () => {
             <div className="flex justify-center gap-6 text-xs text-muted-foreground">
               <a href="tel:+32476094172" className="flex items-center gap-1.5 hover:text-primary transition-colors">
                 <Phone className="w-3.5 h-3.5" />
-                Appeler
+                {t("footer.call")}
               </a>
               <a href="mailto:prod.makemusic@gmail.com" className="flex items-center gap-1.5 hover:text-primary transition-colors">
                 <Mail className="w-3.5 h-3.5" />
@@ -47,7 +47,7 @@ const Footer = () => {
             {/* Copyright */}
             <div className="border-t border-border pt-4 text-center">
               <p className="text-[10px] text-muted-foreground">
-                © 2024 Make Music. Tous droits réservés.
+                © 2024 Make Music. {t("footer.rights")}.
               </p>
             </div>
           </div>
@@ -101,9 +101,9 @@ const Footer = () => {
                 © 2024 Make Music. {t("footer.rights")}.
               </p>
               <div className="flex gap-6 text-xs text-muted-foreground">
-                <a href="#" className="hover:text-foreground transition-colors">Mentions légales</a>
-                <a href="#" className="hover:text-foreground transition-colors">Confidentialité</a>
-                <a href="#" className="hover:text-foreground transition-colors">CGV</a>
+                <a href="#" className="hover:text-foreground transition-colors">{t("footer.legal")}</a>
+                <a href="#" className="hover:text-foreground transition-colors">{t("footer.privacy")}</a>
+                <a href="#" className="hover:text-foreground transition-colors">{t("footer.terms")}</a>
               </div>
             </div>
           </>
