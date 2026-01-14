@@ -464,10 +464,32 @@ serve(async (req) => {
         const slotEnd = new Date(slotStart);
         slotEnd.setHours(hour + 1, 0, 0, 0);
 
-        // Check if slot is in the past
+        // Check if slot is in the past - still show event info for history
         const now = new Date();
-        if (slotStart < now) {
-          slots.push({ hour, available: false, status: "unavailable" });
+        const isInPast = slotStart < now;
+
+        // Check ONLY studio calendar for event info (even in past)
+        const studioResultForHistory = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
+        
+        if (isInPast) {
+          // Show past events with their info for historical purposes
+          if (!studioResultForHistory.available) {
+            const clientEmail = studioResultForHistory.clientEmail;
+            const driveInfo = clientEmail ? driveLinkMap.get(clientEmail.toLowerCase()) : undefined;
+            
+            slots.push({
+              hour,
+              available: false,
+              status: "unavailable",
+              eventName: studioResultForHistory.eventName,
+              eventId: studioResultForHistory.eventId,
+              clientEmail,
+              driveFolderLink: driveInfo?.link,
+            });
+          } else {
+            // No event in the past - just mark as unavailable (empty past slot)
+            slots.push({ hour, available: false, status: "unavailable" });
+          }
           continue;
         }
 
