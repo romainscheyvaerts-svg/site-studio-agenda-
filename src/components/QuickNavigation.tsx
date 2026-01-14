@@ -1,9 +1,14 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Mic, Euro, Headphones, Music, AudioLines } from "lucide-react";
+import { ArrowLeft, Mic, Euro, Headphones, Music, AudioLines, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useTranslation } from "react-i18next";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NavItem {
   path: string;
@@ -11,6 +16,7 @@ interface NavItem {
   shortLabelKey: string;
   icon: React.ReactNode;
   color: string;
+  isPrototype?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -47,7 +53,8 @@ const navItems: NavItem[] = [
     labelKey: "quick_nav.daw", 
     shortLabelKey: "quick_nav.daw",
     icon: <AudioLines className="w-3 h-3" />,
-    color: "text-purple-400 border-purple-500/50 hover:bg-purple-500/10"
+    color: "text-purple-400 border-purple-500/50 hover:bg-purple-500/10",
+    isPrototype: true
   },
 ];
 
@@ -82,19 +89,44 @@ const QuickNavigation = () => {
       {/* Quick nav buttons */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {filteredNavItems.map((item) => (
-          <Button
-            key={item.path}
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(item.path)}
-            className={cn(
-              "h-7 px-2 text-xs gap-1 border",
-              item.color
-            )}
-          >
-            {item.icon}
-            {t(item.shortLabelKey)}
-          </Button>
+          item.isPrototype ? (
+            <Tooltip key={item.path}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(item.path)}
+                  className={cn(
+                    "h-7 px-2 text-xs gap-1 border relative",
+                    item.color
+                  )}
+                >
+                  {item.icon}
+                  {t(item.shortLabelKey)}
+                  <span className="ml-1 px-1 py-0.5 text-[9px] font-bold bg-amber-500/20 text-amber-400 rounded">
+                    {t("daw.prototype_badge")}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[250px] text-center">
+                <p className="text-xs">{t("daw.prototype_tooltip")}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              key={item.path}
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(item.path)}
+              className={cn(
+                "h-7 px-2 text-xs gap-1 border",
+                item.color
+              )}
+            >
+              {item.icon}
+              {t(item.shortLabelKey)}
+            </Button>
+          )
         ))}
       </div>
     </div>

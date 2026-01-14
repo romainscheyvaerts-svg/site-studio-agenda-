@@ -303,7 +303,9 @@
   "daw": {
     "not_available": "DAW niet beschikbaar",
     "not_configured": "De DAW is momenteel niet geconfigureerd.",
-    "back_home": "Terug naar home"
+    "back_home": "Terug naar home",
+    "prototype_badge": "BETA",
+    "prototype_tooltip": "Nova DAW is in ontwikkeling. U kunt enkele bugs tegenkomen omdat het nog een prototype is."
   },
   "auth": {
     "login": "Inloggen",

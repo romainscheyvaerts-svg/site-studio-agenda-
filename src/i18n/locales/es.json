@@ -303,7 +303,9 @@
   "daw": {
     "not_available": "DAW no disponible",
     "not_configured": "El DAW no está configurado por el momento.",
-    "back_home": "Volver al inicio"
+    "back_home": "Volver al inicio",
+    "prototype_badge": "BETA",
+    "prototype_tooltip": "Nova DAW está en desarrollo. Puede encontrar algunos errores ya que todavía es un prototipo."
   },
   "auth": {
     "login": "Iniciar sesión",
