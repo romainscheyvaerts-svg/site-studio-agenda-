@@ -336,13 +336,22 @@ const BookingSection = () => {
     };
   }, []);
 
-  // Listen for open-admin-calendar event from Hero
+  // Listen for open-admin-calendar event from Hero (legacy) or URL param
   useEffect(() => {
     const handleOpenAdminCalendar = () => {
       if (isAdmin) {
         setShowVIPCalendar(true);
       }
     };
+
+    // Check URL param for direct calendar opening (using window.location to avoid circular dependency)
+    const urlParams = new URLSearchParams(window.location.search);
+    const openCalendarParam = urlParams.get('openCalendar');
+    if (openCalendarParam === 'true' && isAdmin) {
+      setShowVIPCalendar(true);
+      // Clear the URL param after reading it
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     window.addEventListener("open-admin-calendar", handleOpenAdminCalendar);
     return () => {

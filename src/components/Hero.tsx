@@ -40,8 +40,7 @@ const Hero = () => {
   };
 
   const openAdminCalendar = () => {
-    window.dispatchEvent(new CustomEvent('open-admin-calendar'));
-    navigate('/reservation');
+    navigate('/reservation?openCalendar=true');
   };
 
   const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
