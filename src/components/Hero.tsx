@@ -6,6 +6,11 @@ import { usePricing } from "@/hooks/usePricing";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Hero = () => {
   const { t } = useTranslation();
@@ -131,15 +136,25 @@ const Hero = () => {
                   <Music className="w-4 h-4" />
                   {t("quick_nav.beats").toUpperCase()}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="default"
-                  onClick={goToDaw}
-                  className="h-12 border-purple-500/50 text-purple-400"
-                >
-                  <AudioLines className="w-4 h-4" />
-                  {t("quick_nav.daw").toUpperCase()}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="default"
+                      onClick={goToDaw}
+                      className="h-12 border-purple-500/50 text-purple-400"
+                    >
+                      <AudioLines className="w-4 h-4" />
+                      {t("quick_nav.daw").toUpperCase()}
+                      <span className="ml-1 px-1 py-0.5 text-[8px] font-bold bg-amber-500/20 text-amber-400 rounded">
+                        {t("daw.prototype_badge")}
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-center">
+                    <p className="text-xs">{t("daw.prototype_tooltip")}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           ) : (
@@ -179,15 +194,25 @@ const Hero = () => {
                 <Music className="w-5 h-5" />
                 {t("nav.instrumentals").toUpperCase()}
               </Button>
-              <Button 
-                variant="outline" 
-                size="xl" 
-                onClick={goToDaw} 
-                className="border-purple-500/50 hover:bg-purple-500/10 hover:border-purple-500 text-purple-300"
-              >
-                <AudioLines className="w-5 h-5" />
-                {t("nav.daw")}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="xl" 
+                    onClick={goToDaw} 
+                    className="border-purple-500/50 hover:bg-purple-500/10 hover:border-purple-500 text-purple-300"
+                  >
+                    <AudioLines className="w-5 h-5" />
+                    {t("nav.daw")}
+                    <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-400 rounded">
+                      {t("daw.prototype_badge")}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[250px] text-center">
+                  <p className="text-xs">{t("daw.prototype_tooltip")}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           )}
 

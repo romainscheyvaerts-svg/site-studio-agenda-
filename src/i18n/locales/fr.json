@@ -322,7 +322,9 @@
   "daw": {
     "not_available": "DAW non disponible",
     "not_configured": "Le DAW n'est pas configuré pour le moment.",
-    "back_home": "Retour à l'accueil"
+    "back_home": "Retour à l'accueil",
+    "prototype_badge": "BETA",
+    "prototype_tooltip": "Nova DAW est en cours de développement. Vous pouvez rencontrer certains bugs car c'est encore un prototype."
   },
   "auth": {
     "login": "Connexion",
