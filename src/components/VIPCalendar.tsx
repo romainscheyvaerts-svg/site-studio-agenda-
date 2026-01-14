@@ -111,8 +111,9 @@ const VIPCalendar = ({
   }, [weekStart, isSuperAdmin]);
 
   const handlePreviousWeek = () => {
+    // Allow navigating to past weeks for history viewing (admin mode only)
     const newStart = addDays(weekStart, -7);
-    if (newStart >= startOfDay(new Date())) {
+    if (isAdminMode || newStart >= startOfDay(new Date())) {
       setWeekStart(newStart);
     }
   };
@@ -479,7 +480,7 @@ const VIPCalendar = ({
             size="icon"
             className={cn(isMobileView && "h-8 w-8")}
             onClick={handlePreviousWeek}
-            disabled={isSameDay(weekStart, startOfDay(new Date()))}
+            disabled={!isAdminMode && isSameDay(weekStart, startOfDay(new Date()))}
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
