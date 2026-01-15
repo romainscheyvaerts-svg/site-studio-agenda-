@@ -57,6 +57,13 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface PromoCodeUsage {
+  id: string;
+  promo_code_id: string;
+  user_email: string;
+  used_at: string;
+}
+
 interface PromoCode {
   id: string;
   code: string;
@@ -73,6 +80,8 @@ interface PromoCode {
   custom_price_with_engineer: number | null;
   custom_price_without_engineer: number | null;
   require_full_payment: boolean | null;
+  max_uses_per_user: number | null;
+  usage_count?: number;
 }
 
 const DEFAULT_PROMO: Omit<PromoCode, "id"> = {
@@ -90,6 +99,7 @@ const DEFAULT_PROMO: Omit<PromoCode, "id"> = {
   custom_price_with_engineer: null,
   custom_price_without_engineer: null,
   require_full_payment: false,
+  max_uses_per_user: null,
 };
 
 const SERVICE_OPTIONS = [
@@ -244,6 +254,8 @@ const AdminPromoCodeManager = () => {
     if (promo.skip_form_fields) features.push("Form simplifié");
     if (promo.full_calendar_visibility) features.push("VIP Calendar");
     if (promo.require_full_payment) features.push("Paiement complet");
+    if (promo.max_uses_per_user)
+      features.push(`Max ${promo.max_uses_per_user}x/user`);
     if (promo.discount_recording && promo.discount_recording > 0)
       features.push(`-${promo.discount_recording}% rec`);
     if (promo.discount_rental && promo.discount_rental > 0)
@@ -528,6 +540,33 @@ const AdminPromoCodeManager = () => {
               className="mt-1"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Usage Limit */}
+      <div>
+        <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+          <Settings2 className="w-4 h-4" />
+          Limite d'utilisation par utilisateur
+        </Label>
+        <div className="flex items-center gap-3">
+          <Input
+            type="number"
+            min="0"
+            value={promo.max_uses_per_user ?? ""}
+            onChange={(e) =>
+              onChange({
+                max_uses_per_user: e.target.value
+                  ? Number(e.target.value)
+                  : null,
+              })
+            }
+            placeholder="Illimité"
+            className="w-32"
+          />
+          <span className="text-xs text-muted-foreground">
+            (vide = illimité)
+          </span>
         </div>
       </div>
     </div>
