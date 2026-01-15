@@ -447,12 +447,19 @@ const BookingSection = () => {
       setShowPayment(false);
       // Clear the URL param after reading it
       setSearchParams({}, { replace: true });
-      // Scroll to details form after a short delay to let DOM update
-      setTimeout(() => {
-        document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 150);
+      // Only scroll to details form if user is logged in (otherwise login overlay blocks the view)
+      if (user) {
+        setTimeout(() => {
+          document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      } else {
+        // Scroll to the top of the booking section instead so login overlay is visible
+        setTimeout(() => {
+          document.getElementById('booking-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      }
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, user]);
 
   // Listen for select-service event from pricing cards (for same-page navigation)
   useEffect(() => {
@@ -461,10 +468,17 @@ const BookingSection = () => {
       if (serviceType) {
         setSessionType(serviceType);
         setShowPayment(false);
-        // Scroll to details form after a short delay to let DOM update
-        setTimeout(() => {
-          document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
+        // Only scroll to details form if user is logged in
+        if (user) {
+          setTimeout(() => {
+            document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 150);
+        } else {
+          // Scroll to booking section top so login overlay is visible
+          setTimeout(() => {
+            document.getElementById('booking-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 150);
+        }
       }
     };
 
@@ -472,7 +486,7 @@ const BookingSection = () => {
     return () => {
       window.removeEventListener("select-service", handleSelectService as EventListener);
     };
-  }, []);
+  }, [user]);
 
   // Check availability when date, time, duration or session type changes
   useEffect(() => {
@@ -780,41 +794,54 @@ const BookingSection = () => {
                 {t("booking.admin_access")}
               </p>
               
-              {/* Admin-only Calendar viewer - Modern Google-style */}
+              {/* Admin-only Calendar viewer with integrated price calculator */}
               {showVIPCalendar && (
-                <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500">
-                  <ModernCalendar />
+                <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500 space-y-6">
+                  <VIPCalendar
+                    onSelectSlot={(date, time, duration) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        date,
+                        time,
+                      }));
+                      setHours(duration);
+                    }}
+                    selectedDate={formData.date}
+                    selectedTime={formData.time}
+                    isAdminMode={true}
+                    showPriceCalculator={true}
+                  />
+                  
+                  {/* Integrated Price Calculator below calendar */}
+                  <div className="p-6 rounded-2xl bg-card border border-border">
+                    <h4 className="font-display text-xl text-foreground mb-4 flex items-center gap-2">
+                      <Calculator className="w-5 h-5 text-primary" />
+                      {t("booking.admin_price_calculator")}
+                    </h4>
+                    <AdminPriceCalculator
+                      selectedDate={formData.date}
+                      selectedTime={formData.time}
+                      selectedDuration={hours}
+                      onPriceCalculated={(data) => {
+                        setSessionType(data.sessionType);
+                        setHours(data.hours);
+                        if (data.date && data.time) {
+                          setFormData(prev => ({
+                            ...prev,
+                            date: data.date!,
+                            time: data.time!,
+                          }));
+                        }
+                        toast({
+                          title: t("booking.price_calculated"),
+                          description: `${data.finalPrice}€ (${data.discountPercent}% ${t("booking.discount_applied")})`,
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
               )}
               
-            </div>
-          )}
-
-          {/* Admin Price Calculator - shown only for admin */}
-          {isAdmin && (
-            <div className="mb-10 p-6 rounded-2xl bg-card border border-border">
-              <h3 className="font-display text-xl text-foreground mb-4 flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-primary" />
-                {t("booking.admin_price_calculator")}
-              </h3>
-              <AdminPriceCalculator
-                onPriceCalculated={(data) => {
-                  // Set the session type and form data based on admin selection
-                  setSessionType(data.sessionType);
-                  setHours(data.hours);
-                  if (data.date && data.time) {
-                    setFormData(prev => ({
-                      ...prev,
-                      date: data.date!,
-                      time: data.time!,
-                    }));
-                  }
-                  toast({
-                    title: t("booking.price_calculated"),
-                    description: `${data.finalPrice}€ (${data.discountPercent}% ${t("booking.discount_applied")})`,
-                  });
-                }}
-              />
             </div>
           )}
 

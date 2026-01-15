@@ -452,6 +452,35 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_code_usage: {
+        Row: {
+          id: string
+          promo_code_id: string
+          used_at: string
+          user_email: string
+        }
+        Insert: {
+          id?: string
+          promo_code_id: string
+          used_at?: string
+          user_email: string
+        }
+        Update: {
+          id?: string
+          promo_code_id?: string
+          used_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_usage_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promo_codes: {
         Row: {
           auto_select_service: string | null
@@ -466,6 +495,7 @@ export type Database = {
           full_calendar_visibility: boolean
           id: string
           is_active: boolean
+          max_uses_per_user: number | null
           require_full_payment: boolean | null
           skip_form_fields: boolean
           skip_identity_verification: boolean
@@ -485,6 +515,7 @@ export type Database = {
           full_calendar_visibility?: boolean
           id?: string
           is_active?: boolean
+          max_uses_per_user?: number | null
           require_full_payment?: boolean | null
           skip_form_fields?: boolean
           skip_identity_verification?: boolean
@@ -504,6 +535,7 @@ export type Database = {
           full_calendar_visibility?: boolean
           id?: string
           is_active?: boolean
+          max_uses_per_user?: number | null
           require_full_payment?: boolean | null
           skip_form_fields?: boolean
           skip_identity_verification?: boolean

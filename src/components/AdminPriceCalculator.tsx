@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,9 @@ import { usePricing } from "@/hooks/usePricing";
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 
 interface AdminPriceCalculatorProps {
+  selectedDate?: string;
+  selectedTime?: string;
+  selectedDuration?: number;
   onPriceCalculated?: (data: {
     sessionType: SessionType;
     hours: number;
@@ -45,17 +48,21 @@ interface AdminPriceCalculatorProps {
   }) => void;
 }
 
-const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) => {
+const AdminPriceCalculator = ({ 
+  selectedDate: externalDate,
+  selectedTime: externalTime,
+  selectedDuration: externalDuration,
+  onPriceCalculated 
+}: AdminPriceCalculatorProps) => {
   const { toast } = useToast();
   const { getPrice } = usePricing();
 
   const [selectedService, setSelectedService] = useState<SessionType>(null);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [hours, setHours] = useState(2);
+  const [hours, setHours] = useState(externalDuration || 2);
   const [podcastMinutes, setPodcastMinutes] = useState(1);
   const [discountPercent, setDiscountPercent] = useState(0);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(externalDate || null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(externalTime || null);
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [customTitle, setCustomTitle] = useState("");
@@ -64,6 +71,14 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
   const [sendingEmail, setSendingEmail] = useState(false);
   const [includeStripeLink, setIncludeStripeLink] = useState(false);
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
+  const [sendConfirmationEmail, setSendConfirmationEmail] = useState(true);
+
+  // Sync with external date/time/duration from calendar
+  useEffect(() => {
+    if (externalDate) setSelectedDate(externalDate);
+    if (externalTime) setSelectedTime(externalTime);
+    if (externalDuration) setHours(externalDuration);
+  }, [externalDate, externalTime, externalDuration]);
 
   const unitPrice = useMemo(() => {
     if (!selectedService) return 0;
@@ -112,9 +127,26 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
 
   const handleServiceClick = (service: SessionType) => {
     setSelectedService(service);
-    setShowCalendar(true);
-    setSelectedDate(null);
-    setSelectedTime(null);
+    // Notify parent of price calculation when service is selected
+    if (onPriceCalculated) {
+      const price = getPrice(service);
+      const isHourly = service === "with-engineer" || service === "without-engineer";
+      const calculatedTotal = isHourly ? hours * price : price;
+      const calculatedFinal =
+        discountPercent > 0
+          ? Math.round(calculatedTotal * (1 - discountPercent / 100))
+          : calculatedTotal;
+
+      onPriceCalculated({
+        sessionType: service,
+        hours,
+        totalPrice: calculatedTotal,
+        discountPercent,
+        finalPrice: calculatedFinal,
+        date: selectedDate || undefined,
+        time: selectedTime || undefined,
+      });
+    }
   };
 
   const handleSlotSelect = (date: string, time: string, duration: number) => {
@@ -139,10 +171,6 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
         time,
       });
     }
-  };
-
-  const handleCloseCalendar = () => {
-    setShowCalendar(false);
   };
 
   const handleSendEmail = async () => {
@@ -248,42 +276,28 @@ const AdminPriceCalculator = ({ onPriceCalculated }: AdminPriceCalculatorProps) 
         </div>
       </div>
 
-      {/* VIP Calendar Modal */}
-      {showCalendar && selectedService && (
-        <div className="relative">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-display text-lg text-foreground flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              {serviceLabels[selectedService]} - Sélectionnez un créneau
-            </h4>
-            <Button variant="ghost" size="icon" onClick={handleCloseCalendar}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          
-          {/* For podcast, show minutes input instead of calendar */}
-          {isPodcast ? (
-            <div className="p-4 rounded-xl bg-secondary/50 border border-border">
-              <Label className="text-sm text-muted-foreground mb-2 block">
-                Durée du podcast (minutes)
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                max={180}
-                value={podcastMinutes}
-                onChange={(e) => setPodcastMinutes(parseInt(e.target.value) || 1)}
-                className="w-32"
-              />
-            </div>
-          ) : (
-            <ModernCalendar
-              onSelectSlot={handleSlotSelect}
-              selectedDate={selectedDate || undefined}
-              selectedTime={selectedTime || undefined}
-              selectionMode={true}
-            />
-          )}
+      {/* Podcast duration input - only for podcast service */}
+      {isPodcast && (
+        <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+          <Label className="text-sm text-muted-foreground mb-2 block">
+            Durée du podcast (minutes)
+          </Label>
+          <Input
+            type="number"
+            min={1}
+            max={180}
+            value={podcastMinutes}
+            onChange={(e) => setPodcastMinutes(parseInt(e.target.value) || 1)}
+            className="w-32"
+          />
+        </div>
+      )}
+
+      {/* Selected slot info from external calendar */}
+      {selectedDate && selectedTime && (
+        <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+          <p className="text-sm text-muted-foreground">Créneau sélectionné depuis l'agenda:</p>
+          <p className="font-medium text-foreground">{selectedDate} à {selectedTime} ({hours}h)</p>
         </div>
       )}
 

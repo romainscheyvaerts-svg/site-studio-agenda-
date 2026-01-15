@@ -42,6 +42,7 @@ interface VIPCalendarProps {
   isAdminMode?: boolean;
   isVIPMode?: boolean;
   currentUserEmail?: string;
+  showPriceCalculator?: boolean;
 }
 
 interface SelectedSlot {
@@ -59,7 +60,8 @@ const VIPCalendar = ({
   confirmLoading = false,
   isAdminMode = false,
   isVIPMode = false,
-  currentUserEmail = ""
+  currentUserEmail = "",
+  showPriceCalculator = false
 }: VIPCalendarProps) => {
   // VIP mode has similar features to admin mode but with restrictions
   const hasAdminFeatures = isAdminMode || isVIPMode;

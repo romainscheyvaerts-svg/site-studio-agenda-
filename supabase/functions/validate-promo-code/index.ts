@@ -18,6 +18,8 @@ type PromoEffects = {
   discounts: Record<string, number>;
   customPrices: Record<string, number>;
   requireFullPayment: boolean;
+  maxUsesPerUser: number | null;
+  currentUserUsageCount: number;
 };
 
 serve(async (req) => {
@@ -27,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    const { code } = await req.json();
+    const { code, userEmail } = await req.json();
     
     if (!code || typeof code !== 'string') {
       return new Response(
@@ -67,6 +69,34 @@ serve(async (req) => {
       );
     }
 
+    // Check usage limit if userEmail provided and limit is set
+    let currentUserUsageCount = 0;
+    if (userEmail && promoData.max_uses_per_user) {
+      const { count, error: usageError } = await supabase
+        .from('promo_code_usage')
+        .select('*', { count: 'exact', head: true })
+        .eq('promo_code_id', promoData.id)
+        .ilike('user_email', userEmail.trim().toLowerCase());
+
+      if (usageError) {
+        console.error('Error checking usage:', usageError);
+      } else {
+        currentUserUsageCount = count || 0;
+      }
+
+      // If user has reached the limit, reject the code
+      if (currentUserUsageCount >= promoData.max_uses_per_user) {
+        console.log(`User ${userEmail} has exceeded usage limit for code ${promoData.code}`);
+        return new Response(
+          JSON.stringify({ 
+            valid: false, 
+            error: `Vous avez déjà utilisé ce code ${currentUserUsageCount} fois (limite: ${promoData.max_uses_per_user})` 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Build discounts object
     const discounts: Record<string, number> = {};
     if (promoData.discount_recording > 0) {
@@ -103,6 +133,8 @@ serve(async (req) => {
       discounts,
       customPrices,
       requireFullPayment: promoData.require_full_payment || false,
+      maxUsesPerUser: promoData.max_uses_per_user,
+      currentUserUsageCount,
     };
 
     console.log(`Valid promo code applied: ${promoData.code}`);
