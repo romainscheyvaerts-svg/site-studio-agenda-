@@ -99,7 +99,7 @@ serve(async (req) => {
       }
     }
 
-    // Create Drive folder if requested
+    // Create Drive folder if requested OR use existing folder link passed in request
     let driveFolderLink = null;
     if (includeDriveLink && clientEmail) {
       try {
@@ -114,9 +114,10 @@ serve(async (req) => {
           }
         );
 
-        if (!folderError && folderData?.folderLink) {
-          driveFolderLink = folderData.folderLink;
-          logStep("Drive folder created", { link: driveFolderLink });
+        // create-client-subfolder returns subfolderLink (session-specific) and clientFolderLink (main client folder)
+        if (!folderError && (folderData?.subfolderLink || folderData?.clientFolderLink)) {
+          driveFolderLink = folderData.subfolderLink || folderData.clientFolderLink;
+          logStep("Drive folder created/retrieved", { link: driveFolderLink });
         }
       } catch (driveError) {
         console.error("Drive folder error:", driveError);
