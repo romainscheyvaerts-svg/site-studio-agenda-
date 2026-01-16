@@ -1,7 +1,7 @@
 # =============================================================================
-# SUPABASE CONFIG - Remplacez par votre Project ID
+# SUPABASE CONFIG - MAKE MUSIC BOOKING
 # =============================================================================
-project_id = "VOTRE_PROJECT_ID"
+project_id = "mxdrxpzxbgybchzzvpkf"
 
 [functions.scan-drive-instrumentals]
 verify_jwt = true
