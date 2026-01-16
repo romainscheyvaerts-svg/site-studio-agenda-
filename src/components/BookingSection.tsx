@@ -13,6 +13,7 @@ import PayPalCheckout from "./PayPalCheckout";
 import IdentityVerification from "./IdentityVerification";
 import VIPCalendar from "./VIPCalendar";
 import ModernCalendar from "./ModernCalendar";
+import AdminCalendarModern from "./AdminCalendarModern";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
@@ -797,7 +798,7 @@ const BookingSection = () => {
               {/* Admin-only Calendar viewer with integrated price calculator */}
               {showVIPCalendar && (
                 <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500 space-y-6">
-                  <VIPCalendar
+                  <AdminCalendarModern
                     onSelectSlot={(date, time, duration) => {
                       setFormData(prev => ({
                         ...prev,

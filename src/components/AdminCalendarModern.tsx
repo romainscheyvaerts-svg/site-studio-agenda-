@@ -57,7 +57,21 @@ interface CalendarEvent {
   status: "available" | "unavailable" | "on-request";
 }
 
-const AdminCalendarModern = () => {
+interface AdminCalendarModernProps {
+  onSelectSlot?: (date: string, time: string, duration: number) => void;
+  selectedDate?: string;
+  selectedTime?: string;
+  isAdminMode?: boolean;
+  showPriceCalculator?: boolean;
+}
+
+const AdminCalendarModern = ({ 
+  onSelectSlot,
+  selectedDate: externalSelectedDate,
+  selectedTime: externalSelectedTime,
+  isAdminMode = false,
+  showPriceCalculator = false
+}: AdminCalendarModernProps) => {
   const { toast } = useToast();
   const { isSuperAdmin } = useAdmin();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
@@ -67,6 +81,8 @@ const AdminCalendarModern = () => {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showEventCreator, setShowEventCreator] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; hour: number } | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{ date: string; hour: number } | null>(null);
+  const [selectedRange, setSelectedRange] = useState<{ date: string; startHour: number; endHour: number } | null>(null);
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
@@ -283,21 +299,60 @@ const AdminCalendarModern = () => {
                   const slot = dayData?.slots.find(s => s.hour === hour);
                   const status = slot?.status || "unavailable";
                   const isBooked = status === "unavailable" && slot?.eventName;
+                  
+                  // Check if this slot is part of a selected range
+                  const isInSelectedRange = selectedRange && 
+                    selectedRange.date === dateStr && 
+                    hour >= selectedRange.startHour && 
+                    hour < selectedRange.endHour;
+                  
+                  // Check if this is the selection start point
+                  const isSelectionStart = selectionStart && 
+                    selectionStart.date === dateStr && 
+                    selectionStart.hour === hour;
+
+                  const handleSlotClick = () => {
+                    if (status === "available" || status === "on-request") {
+                      if (!selectionStart) {
+                        // First click: set start
+                        setSelectionStart({ date: dateStr, hour });
+                        setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+                      } else if (selectionStart.date === dateStr && hour >= selectionStart.hour) {
+                        // Second click on same day: set end and confirm
+                        const duration = hour - selectionStart.hour + 1;
+                        const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
+                        
+                        setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
+                        
+                        if (onSelectSlot) {
+                          onSelectSlot(dateStr, timeStr, duration);
+                          toast({
+                            title: "Créneau sélectionné",
+                            description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
+                          });
+                        }
+                        
+                        // Reset selection for next selection
+                        setSelectionStart(null);
+                      } else {
+                        // Different day or earlier hour: restart selection
+                        setSelectionStart({ date: dateStr, hour });
+                        setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+                      }
+                    }
+                  };
 
                   return (
                     <div
                       key={`${dateStr}-${hour}`}
-                      onClick={() => {
-                        if (status === "available" || status === "on-request") {
-                          setSelectedSlot({ date: dateStr, hour });
-                          setShowEventCreator(true);
-                        }
-                      }}
+                      onClick={handleSlotClick}
                       className={cn(
                         "rounded cursor-pointer transition-all relative",
-                        status === "available" && "bg-green-500/10 hover:bg-green-500/30",
-                        status === "on-request" && "bg-amber-500/10 hover:bg-amber-500/30",
-                        isBooked && "bg-destructive/20"
+                        status === "available" && !isInSelectedRange && "bg-green-500/10 hover:bg-green-500/30",
+                        status === "on-request" && !isInSelectedRange && "bg-amber-500/10 hover:bg-amber-500/30",
+                        isBooked && "bg-destructive/20",
+                        isInSelectedRange && "bg-primary/40 ring-2 ring-primary",
+                        isSelectionStart && "ring-2 ring-primary ring-offset-1"
                       )}
                     >
                       {isBooked && (
@@ -305,6 +360,11 @@ const AdminCalendarModern = () => {
                           <span className="text-[10px] text-destructive font-medium truncate px-1">
                             {slot.eventName}
                           </span>
+                        </div>
+                      )}
+                      {isSelectionStart && !isInSelectedRange && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-[10px] text-primary font-medium">Début</span>
                         </div>
                       )}
                     </div>
@@ -330,21 +390,59 @@ const AdminCalendarModern = () => {
           const slot = dayData?.slots.find(s => s.hour === hour);
           const status = slot?.status || "unavailable";
           const isBooked = status === "unavailable" && slot?.eventName;
+          
+          // Check if this slot is part of a selected range
+          const isInSelectedRange = selectedRange && 
+            selectedRange.date === dateStr && 
+            hour >= selectedRange.startHour && 
+            hour < selectedRange.endHour;
+          
+          // Check if this is the selection start point
+          const isSelectionStart = selectionStart && 
+            selectionStart.date === dateStr && 
+            selectionStart.hour === hour;
+
+          const handleSlotClick = () => {
+            if (status === "available" || status === "on-request") {
+              if (!selectionStart) {
+                // First click: set start
+                setSelectionStart({ date: dateStr, hour });
+                setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+              } else if (selectionStart.date === dateStr && hour >= selectionStart.hour) {
+                // Second click: set end and confirm
+                const duration = hour - selectionStart.hour + 1;
+                const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
+                
+                setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
+                
+                if (onSelectSlot) {
+                  onSelectSlot(dateStr, timeStr, duration);
+                  toast({
+                    title: "Créneau sélectionné",
+                    description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
+                  });
+                }
+                
+                setSelectionStart(null);
+              } else {
+                // Restart selection
+                setSelectionStart({ date: dateStr, hour });
+                setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+              }
+            }
+          };
 
           return (
             <div
               key={hour}
-              onClick={() => {
-                if (status === "available" || status === "on-request") {
-                  setSelectedSlot({ date: dateStr, hour });
-                  setShowEventCreator(true);
-                }
-              }}
+              onClick={handleSlotClick}
               className={cn(
                 "flex items-center gap-4 p-3 rounded-lg cursor-pointer transition-all",
-                status === "available" && "bg-green-500/10 hover:bg-green-500/20",
-                status === "on-request" && "bg-amber-500/10 hover:bg-amber-500/20",
-                isBooked && "bg-destructive/10"
+                status === "available" && !isInSelectedRange && "bg-green-500/10 hover:bg-green-500/20",
+                status === "on-request" && !isInSelectedRange && "bg-amber-500/10 hover:bg-amber-500/20",
+                isBooked && "bg-destructive/10",
+                isInSelectedRange && "bg-primary/40 ring-2 ring-primary",
+                isSelectionStart && "ring-2 ring-primary"
               )}
             >
               <div className="w-20 text-sm font-medium text-muted-foreground">
