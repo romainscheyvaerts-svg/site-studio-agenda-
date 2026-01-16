@@ -37,24 +37,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Check if there's a hash with access_token (OAuth callback)
-    const hash = window.location.hash;
-    if (hash && hash.includes('access_token')) {
-      console.log("[Auth] Detected OAuth callback with tokens in URL");
-    }
+    const handleOAuthCallback = async () => {
+      // Check if there's a hash with access_token (OAuth callback)
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        console.log("[Auth] Detected OAuth callback with tokens in URL");
+        
+        // Parse the hash to extract tokens
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        
+        if (accessToken && refreshToken) {
+          console.log("[Auth] Setting session from URL tokens...");
+          try {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (error) {
+              console.error("[Auth] Error setting session:", error.message);
+            } else {
+              console.log("[Auth] Session set successfully:", data.user?.email);
+              // Clear the hash from URL
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          } catch (err) {
+            console.error("[Auth] Exception setting session:", err);
+          }
+        }
+      }
+    };
 
-    // Set up auth state listener FIRST
+    // Handle OAuth callback first
+    handleOAuthCallback();
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("[Auth] Event:", event, "Session:", session ? "exists" : "null", "User:", session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        // Clear the hash from URL after successful auth
-        if (event === "SIGNED_IN" && session?.user && window.location.hash) {
-          window.history.replaceState(null, '', window.location.pathname);
-        }
         
         // Log auth events
         if (event === "SIGNED_IN" && session?.user) {
@@ -65,11 +90,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       console.log("[Auth] getSession result:", session ? "exists" : "null", "Error:", error?.message || "none");
-      setSession(session);
-      setUser(session?.user ?? null);
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+      }
       setLoading(false);
     });
 
