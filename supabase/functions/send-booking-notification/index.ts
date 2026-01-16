@@ -530,7 +530,8 @@ serve(async (req) => {
     // Build confirmation buttons for 24h bookings
     let confirmationButtonsHtml = "";
     if (requiresConfirmation && booking.validationToken) {
-      const baseUrl = "https://aafjeezfrmxssehnpwct.supabase.co/functions/v1/handle-booking-action";
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "https://your-project.supabase.co";
+      const baseUrl = `${supabaseUrl}/functions/v1/handle-booking-action`;
       const confirmUrl = `${baseUrl}?token=${booking.validationToken}&action=confirm`;
       const rejectUrl = `${baseUrl}?token=${booking.validationToken}&action=reject`;
       

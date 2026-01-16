@@ -1,4 +1,7 @@
-project_id = "aafjeezfrmxssehnpwct"
+# =============================================================================
+# SUPABASE CONFIG - Remplacez par votre Project ID
+# =============================================================================
+project_id = "VOTRE_PROJECT_ID"
 
 [functions.scan-drive-instrumentals]
 verify_jwt = true

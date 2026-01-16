@@ -36,7 +36,8 @@ interface Instrumental {
 
 // Helper to get audio URL from Google Drive file ID via streaming proxy
 const getDriveAudioUrl = (fileId: string) => {
-  return `https://aafjeezfrmxssehnpwct.supabase.co/functions/v1/stream-instrumental?fileId=${fileId}`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/stream-instrumental?fileId=${fileId}`;
 };
 
 const Instrumentals = () => {
