@@ -245,6 +245,9 @@ const AdminCalendarModern = ({
     return format(currentDate, "EEEE d MMMM yyyy", { locale: fr });
   };
 
+  // Calendar container height - compact to fit on screen
+  const calendarHeight = isMobileView ? "h-[400px]" : "h-[450px]";
+
   // Render Month View
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
@@ -619,9 +622,6 @@ const AdminCalendarModern = ({
       </div>
     );
   };
-
-  // Calendar container height - compact to fit on screen
-  const calendarHeight = isMobileView ? "h-[400px]" : "h-[450px]";
 
   return (
     <div className={cn(
