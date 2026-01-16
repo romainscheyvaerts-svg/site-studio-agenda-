@@ -48,17 +48,21 @@ const AdminRoleManager = () => {
         return;
       }
 
-      // Get all users via edge function
-      const { data: usersData, error: usersError } = await supabase.functions.invoke(
-        "list-users",
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
+      // Get all users via edge function using fetch directly
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/list-users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
 
-      if (usersError) throw usersError;
+      const usersData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(usersData?.error || "Erreur lors du chargement");
+      }
 
       // Get all admin roles
       const { data: rolesData, error: rolesError } = await supabase
@@ -96,7 +100,7 @@ const AdminRoleManager = () => {
 
   const toggleAdminRole = async (userId: string, currentIsAdmin: boolean) => {
     setUpdatingUsers(prev => new Set(prev).add(userId));
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -104,17 +108,25 @@ const AdminRoleManager = () => {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("manage-admin-role", {
+      // Use fetch directly for better header control
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/manage-admin-role`, {
+        method: "POST",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
-        body: {
+        body: JSON.stringify({
           targetUserId: userId,
           action: currentIsAdmin ? "remove" : "add",
-        },
+        }),
       });
 
-      if (error) throw error;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Erreur inconnue");
+      }
 
       if (data?.success) {
         setUsers(prev =>
@@ -123,8 +135,6 @@ const AdminRoleManager = () => {
           )
         );
         toast.success(currentIsAdmin ? "Rôle admin retiré" : "Rôle admin ajouté");
-      } else {
-        throw new Error(data?.error || "Erreur inconnue");
       }
     } catch (error) {
       console.error("Error toggling admin role:", error);
