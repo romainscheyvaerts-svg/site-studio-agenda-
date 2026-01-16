@@ -211,15 +211,36 @@ const AdminCalendarModern = ({
     setDeletingEventId(eventId);
     
     try {
-      console.log("[DELETE] Calling delete-admin-event function...");
+      // Get current session to verify auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log("[DELETE] Current session:", sessionData?.session ? "Active" : "None");
+      console.log("[DELETE] User ID:", sessionData?.session?.user?.id);
+      console.log("[DELETE] User email:", sessionData?.session?.user?.email);
+      
+      console.log("[DELETE] Calling delete-admin-event function with eventId:", eventId);
+      
       const { data, error } = await supabase.functions.invoke("delete-admin-event", {
         body: { eventId },
       });
 
-      console.log("[DELETE] Response:", { data, error });
+      console.log("[DELETE] Response data:", data);
+      console.log("[DELETE] Response error:", error);
 
       if (error) {
-        console.error("[DELETE] Function error:", error);
+        console.error("[DELETE] Function error details:", {
+          message: error.message,
+          name: error.name,
+          context: error.context,
+        });
+        
+        // Check if it's an auth error
+        if (error.message?.includes("401") || error.message?.includes("Unauthorized")) {
+          throw new Error("Non autorisé - Vérifiez que vous êtes connecté et avez le rôle admin");
+        }
+        if (error.message?.includes("403") || error.message?.includes("Forbidden")) {
+          throw new Error("Accès refusé - Vous n'avez pas les droits admin");
+        }
+        
         throw new Error(error.message || "Erreur de la fonction");
       }
 
