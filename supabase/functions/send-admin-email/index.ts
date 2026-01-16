@@ -142,6 +142,25 @@ serve(async (req) => {
       "podcast": "Mixage podcast",
     };
 
+    // Generate Google Calendar link
+    let googleCalendarLink = "";
+    if (sessionDate && sessionTime) {
+      const [year, month, day] = sessionDate.split("-");
+      const [hour, minute] = sessionTime.split(":");
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute || "0"));
+      const endDate = new Date(startDate.getTime() + (hours || 1) * 60 * 60 * 1000);
+
+      const formatDate = (d: Date) => {
+        return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+      };
+
+      const calendarTitle = encodeURIComponent(`Session Make Music - ${serviceLabels[sessionType] || sessionType}`);
+      const calendarDetails = encodeURIComponent(`Session de ${hours || 1}h au studio Make Music.\n\nMontant: ${totalPrice}€\n\nAdresse: Rue du Sceptre 22, 1050 Ixelles, Bruxelles`);
+      const calendarLocation = encodeURIComponent("Rue du Sceptre 22, 1050 Ixelles, Bruxelles");
+
+      googleCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${calendarDetails}&location=${calendarLocation}`;
+    }
+
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -151,88 +170,103 @@ serve(async (req) => {
 </head>
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0a0a0a; margin: 0; padding: 40px 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
-    
+
     <!-- Header -->
     <div style="background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); padding: 30px; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">🎵 Make Music</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">Détails de votre session</p>
     </div>
-    
+
     <!-- Content -->
     <div style="padding: 40px 30px;">
-      <p style="color: #e0e0e0; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+      <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
         Bonjour ${clientName || 'Artiste'},
       </p>
-      
+
       ${customMessage ? `
-      <p style="color: #e0e0e0; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-        ${customMessage}
-      </p>
+      <!-- Message personnalisé -->
+      <div style="background: rgba(124, 58, 237, 0.2); border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 0 0 30px 0;">
+        <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0; white-space: pre-wrap;">
+          ${customMessage}
+        </p>
+      </div>
       ` : ''}
-      
+
       <!-- Session Info Box -->
       <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 25px; margin: 0 0 30px 0;">
         <h2 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 20px;">📅 Détails de la session</h2>
         <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #e0e0e0;">Service :</strong> ${serviceLabels[sessionType] || sessionType}
+          <strong style="color: #ffffff;">Service :</strong> ${serviceLabels[sessionType] || sessionType}
         </p>
         ${sessionDate ? `
         <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #e0e0e0;">Date :</strong> ${sessionDate}
+          <strong style="color: #ffffff;">Date :</strong> ${sessionDate}
         </p>
         ` : ''}
         ${sessionTime ? `
         <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #e0e0e0;">Heure :</strong> ${sessionTime}
+          <strong style="color: #ffffff;">Heure :</strong> ${sessionTime}
         </p>
         ` : ''}
         ${hours ? `
         <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #e0e0e0;">Durée :</strong> ${hours}h
+          <strong style="color: #ffffff;">Durée :</strong> ${hours}h
         </p>
         ` : ''}
         <p style="color: #ffd700; margin: 15px 0 0 0; font-size: 18px; font-weight: bold;">
           💰 Montant : ${totalPrice}€
         </p>
       </div>
-      
-      ${stripePaymentUrl ? `
-      <!-- Payment Button -->
+
+      <!-- Action Buttons -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${stripePaymentUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 18px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4);">
-          💳 Payer maintenant
+        ${stripePaymentUrl ? `
+        <!-- Payment Button -->
+        <a href="${stripePaymentUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4); margin-bottom: 15px;">
+          💳 Payer maintenant (${totalPrice}€)
         </a>
+        <br><br>
+        ` : ''}
+
+        ${googleCalendarLink ? `
+        <!-- Add to Calendar Button -->
+        <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 2px solid #00d4ff; color: #00d4ff; text-decoration: none; padding: 14px 30px; border-radius: 50px; font-size: 14px; font-weight: bold;">
+          📆 Ajouter à mon agenda
+        </a>
+        ` : ''}
       </div>
-      ` : ''}
-      
+
       ${driveFolderLink ? `
       <!-- Drive Link -->
-      <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 20px; margin: 30px 0;">
+      <div style="background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; padding: 20px; margin: 30px 0;">
         <h3 style="color: #ffc107; margin: 0 0 15px 0; font-size: 16px;">📁 Votre dossier Google Drive</h3>
-        <p style="color: #a0a0a0; margin: 0 0 15px 0; font-size: 14px;">
+        <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 14px;">
           Vous pouvez déposer vos fichiers audio ici :
         </p>
         <a href="${driveFolderLink}" style="display: inline-block; background: #ffc107; color: #1a1a1a; text-decoration: none; padding: 12px 25px; border-radius: 8px; font-size: 14px; font-weight: bold;">
-          📂 Ouvrir le dossier
+          📂 Ouvrir le dossier Drive
         </a>
       </div>
       ` : ''}
-      
+
       <!-- Studio Address -->
       <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 20px; margin: 30px 0 0 0;">
-        <h3 style="color: #e0e0e0; margin: 0 0 10px 0; font-size: 16px;">📍 Adresse du studio</h3>
-        <p style="color: #a0a0a0; margin: 0; font-size: 14px;">
+        <h3 style="color: #ffffff; margin: 0 0 10px 0; font-size: 16px;">📍 Adresse du studio</h3>
+        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
           Rue du Sceptre 22, 1050 Ixelles, Bruxelles
         </p>
+        <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" style="color: #00d4ff; font-size: 14px; text-decoration: none;">
+          🗺️ Voir sur Google Maps
+        </a>
       </div>
     </div>
-    
+
     <!-- Footer -->
     <div style="background: rgba(0,0,0,0.3); padding: 25px 30px; text-align: center;">
-      <p style="color: #666; margin: 0; font-size: 12px;">
+      <p style="color: #888; margin: 0; font-size: 12px;">
         Make Music Studio • Rue du Sceptre 22, 1050 Ixelles, Bruxelles
       </p>
-      <p style="color: #666; margin: 10px 0 0 0; font-size: 12px;">
+      <p style="color: #888; margin: 10px 0 0 0; font-size: 12px;">
         📧 prod.makemusic@gmail.com • 📞 +32 476 09 41 72
       </p>
     </div>
