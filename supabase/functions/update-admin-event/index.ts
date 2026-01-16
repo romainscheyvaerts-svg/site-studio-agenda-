@@ -187,23 +187,38 @@ serve(async (req) => {
 
   try {
     // Verify user is admin
-    const authHeader = req.headers.get("Authorization");
+    // Try both lowercase and uppercase Authorization header
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    console.log("[UPDATE-ADMIN-EVENT] Auth header present:", !!authHeader);
+
     if (!authHeader) {
+      console.log("[UPDATE-ADMIN-EVENT] No auth header found");
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Missing authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const token = authHeader.replace("Bearer ", "");
+    console.log("[UPDATE-ADMIN-EVENT] Token length:", token.length);
+
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
+    console.log("[UPDATE-ADMIN-EVENT] Auth result - user:", user?.email, "error:", authError?.message);
+
     if (authError || !user) {
+      console.log("[UPDATE-ADMIN-EVENT] Auth failed:", authError?.message || "No user");
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({
+          error: "Unauthorized",
+          details: authError?.message || "User not found",
+          hint: "Make sure you are logged in with a valid session"
+        }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log("[UPDATE-ADMIN-EVENT] User authenticated:", user.email, user.id);
 
     // Check if user is admin via database role check
     const hasAdminRole = await isUserAdmin(user.id);
