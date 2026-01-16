@@ -64,6 +64,8 @@ const BookingSection = () => {
   const [promoLoading, setPromoLoading] = useState(false);
   const [showVIPCalendar, setShowVIPCalendar] = useState(false);
   const [cashOnlyLoading, setCashOnlyLoading] = useState(false);
+  const [stripeEnabled, setStripeEnabled] = useState(true);
+  const [paypalEnabled, setPaypalEnabled] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -321,6 +323,36 @@ const BookingSection = () => {
     };
     fetchClientId();
   }, [toast]);
+
+  // Fetch payment settings (Stripe/PayPal enabled)
+  useEffect(() => {
+    const fetchPaymentSettings = async () => {
+      try {
+        const { data: stripeData } = await supabase
+          .from("site_config")
+          .select("config_value")
+          .eq("config_key", "stripe_enabled")
+          .single();
+
+        const { data: paypalData } = await supabase
+          .from("site_config")
+          .select("config_value")
+          .eq("config_key", "paypal_enabled")
+          .single();
+
+        if (stripeData) {
+          setStripeEnabled(stripeData.config_value === "true");
+        }
+        if (paypalData) {
+          setPaypalEnabled(paypalData.config_value === "true");
+        }
+      } catch (err) {
+        // Settings not found, keep defaults (both enabled)
+        console.log("Payment settings not configured, using defaults");
+      }
+    };
+    fetchPaymentSettings();
+  }, []);
 
   // Listen for chatbot summary event
   useEffect(() => {
@@ -1783,48 +1815,54 @@ const BookingSection = () => {
                   </p>
                   
                   <div className="space-y-4">
-                    {/* Stripe Checkout Option (Card, Apple Pay, Google Pay) - Now Option 1 */}
-                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">{t("booking.pay_by_card")}</p>
-                      <StripeCheckoutButton
-                        amount={paymentAmount}
-                        sessionType={sessionType!}
-                        hours={hours}
-                        formData={formData}
-                        isDeposit={isDeposit}
-                        totalPrice={finalPrice}
-                        podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
-                      />
-                    </div>
-
-                    {/* Divider */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-muted-foreground">{t("booking.or")}</span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-
-                    {/* PayPal Option - Now Option 2 */}
-                    <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-                      <p className="text-xs text-muted-foreground mb-2 font-medium">{t("booking.pay_with_paypal")}</p>
-                      {paypalClientId ? (
-                        <PayPalCheckout
+                    {/* Stripe Checkout Option (Card, Apple Pay, Google Pay) */}
+                    {stripeEnabled && (
+                      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                        <p className="text-xs text-muted-foreground mb-2 font-medium">{t("booking.pay_by_card")}</p>
+                        <StripeCheckoutButton
                           amount={paymentAmount}
                           sessionType={sessionType!}
                           hours={hours}
                           formData={formData}
-                          clientId={paypalClientId}
-                          onSuccess={handlePaymentSuccess}
                           isDeposit={isDeposit}
                           totalPrice={finalPrice}
                           podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
                         />
-                      ) : (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {/* Divider - only show if both payment methods are enabled */}
+                    {stripeEnabled && paypalEnabled && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-xs text-muted-foreground">{t("booking.or")}</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+
+                    {/* PayPal Option */}
+                    {paypalEnabled && (
+                      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                        <p className="text-xs text-muted-foreground mb-2 font-medium">{t("booking.pay_with_paypal")}</p>
+                        {paypalClientId ? (
+                          <PayPalCheckout
+                            amount={paymentAmount}
+                            sessionType={sessionType!}
+                            hours={hours}
+                            formData={formData}
+                            clientId={paypalClientId}
+                            onSuccess={handlePaymentSuccess}
+                            isDeposit={isDeposit}
+                            totalPrice={finalPrice}
+                            podcastMinutes={sessionType === "podcast" ? podcastMinutes : undefined}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

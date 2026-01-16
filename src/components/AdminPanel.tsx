@@ -21,6 +21,7 @@ import AdminGallery from "./AdminGallery";
 import AdminPromoCodeManager from "./AdminPromoCodeManager";
 import AdminRoleManager from "./AdminRoleManager";
 import AdminDawConfig from "./AdminDawConfig";
+import AdminPaymentConfig from "./AdminPaymentConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
@@ -197,9 +198,10 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                   <h3 className="font-semibold">Configuration</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Configurez le chatbot et autres paramètres.
+                  Configurez les paiements, le chatbot et autres paramètres.
                 </p>
               </div>
+              <AdminPaymentConfig />
               <AdminChatbotConfig />
             </TabsContent>
 
