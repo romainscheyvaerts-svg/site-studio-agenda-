@@ -12,8 +12,7 @@ import {
   Trash2,
   FolderOpen,
   Pencil,
-  Check,
-  Mail
+  Check
 } from "lucide-react";
 import { 
   format, 
@@ -42,7 +41,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import AdminEventEditPanel from "./AdminEventEditPanel";
 
 interface TimeSlot {
   hour: number;
@@ -72,7 +70,6 @@ interface CalendarEvent {
   endHour: number;
   color: string;
   driveFolderLink?: string;
-  clientEmail?: string;
 }
 
 type ViewMode = "month" | "week";
@@ -200,7 +197,6 @@ const ModernCalendar = ({
             endHour: slot.hour + 1,
             color: getEventColor(slot.eventName),
             driveFolderLink: slot.driveSessionFolderLink || slot.driveFolderLink,
-            clientEmail: slot.clientEmail,
           };
         }
       } else {
@@ -881,24 +877,101 @@ const ModernCalendar = ({
                   <div className="space-y-2">
                     {getEventsForDay(selectedDay).map((event) => (
                       <div key={event.id}>
-                        {/* Edit mode for this event - using new AdminEventEditPanel */}
+                        {/* Edit mode for this event */}
                         {editingEvent?.id === event.id ? (
-                          <AdminEventEditPanel
-                            eventId={event.id}
-                            eventTitle={event.title}
-                            date={event.date}
-                            startHour={event.startHour}
-                            endHour={event.endHour}
-                            colorId={editEventColorId}
-                            clientEmail={event.clientEmail}
-                            driveFolderLink={event.driveFolderLink}
-                            mode="edit"
-                            onSave={() => {
-                              closeEditEvent();
-                              fetchAvailability();
-                            }}
-                            onCancel={closeEditEvent}
-                          />
+                          <div className="border border-primary rounded-lg p-4 space-y-4 bg-primary/10">
+                            <h4 className="font-medium text-foreground">Modifier l'événement</h4>
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <Label htmlFor="editEventName">Nom de l'événement</Label>
+                                <Input
+                                  id="editEventName"
+                                  value={editEventName}
+                                  onChange={(e) => setEditEventName(e.target.value)}
+                                  placeholder="Ex: Session John Doe"
+                                  className="mt-1"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label htmlFor="editStartHour">Heure de début</Label>
+                                  <select
+                                    id="editStartHour"
+                                    value={editEventStartHour}
+                                    onChange={(e) => setEditEventStartHour(Number(e.target.value))}
+                                    className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    {hours.map((h) => (
+                                      <option key={h} value={h}>
+                                        {formatHour(h)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="editEndHour">Heure de fin</Label>
+                                  <select
+                                    id="editEndHour"
+                                    value={editEventEndHour}
+                                    onChange={(e) => setEditEventEndHour(Number(e.target.value))}
+                                    className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    {hours.filter(h => h > editEventStartHour).map((h) => (
+                                      <option key={h} value={h}>
+                                        {formatHour(h)}
+                                      </option>
+                                    ))}
+                                    <option value={24}>00:00 (minuit)</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Color picker */}
+                              <div>
+                                <Label>Couleur</Label>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {CALENDAR_COLORS.map((color) => (
+                                    <button
+                                      key={color.id}
+                                      type="button"
+                                      onClick={() => setEditEventColorId(color.id)}
+                                      className={cn(
+                                        "w-8 h-8 rounded-full transition-all border-2",
+                                        color.color,
+                                        editEventColorId === color.id 
+                                          ? "border-white ring-2 ring-primary scale-110" 
+                                          : "border-transparent hover:scale-105"
+                                      )}
+                                      title={color.name}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={handleUpdateEvent}
+                                  disabled={updatingEvent || !editEventName.trim()}
+                                  className="flex-1"
+                                >
+                                  {updatingEvent ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : (
+                                    <Check className="w-4 h-4 mr-2" />
+                                  )}
+                                  Enregistrer
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={closeEditEvent}
+                                >
+                                  Annuler
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           /* Display mode */
                           <div
@@ -915,12 +988,6 @@ const ModernCalendar = ({
                                   {" • "}
                                   {event.endHour - event.startHour}h
                                 </div>
-                                {event.clientEmail && (
-                                  <div className="text-xs opacity-60 mt-1 flex items-center gap-1">
-                                    <Mail className="w-3 h-3" />
-                                    {event.clientEmail}
-                                  </div>
-                                )}
                               </div>
                               <div className="flex items-center gap-1">
                                 {event.driveFolderLink && (
@@ -985,21 +1052,100 @@ const ModernCalendar = ({
                 );
               })()}
 
-              {/* Create event form - using new AdminEventEditPanel */}
-              {showCreateForm && selectedDay && (
-                <AdminEventEditPanel
-                  date={format(selectedDay, "yyyy-MM-dd")}
-                  startHour={eventStartHour}
-                  endHour={eventStartHour + eventDuration}
-                  colorId={eventColorId}
-                  mode="create"
-                  onSave={() => {
-                    setShowCreateForm(false);
-                    setEventName("");
-                    fetchAvailability();
-                  }}
-                  onCancel={() => setShowCreateForm(false)}
-                />
+              {/* Create event form */}
+              {showCreateForm && (
+                <div className="border border-border rounded-lg p-4 space-y-4 bg-muted/30">
+                  <h4 className="font-medium text-foreground">Nouvel événement</h4>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="eventName">Nom de l'événement</Label>
+                      <Input
+                        id="eventName"
+                        value={eventName}
+                        onChange={(e) => setEventName(e.target.value)}
+                        placeholder="Ex: Session John Doe"
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="startHour">Heure de début</Label>
+                        <select
+                          id="startHour"
+                          value={eventStartHour}
+                          onChange={(e) => setEventStartHour(Number(e.target.value))}
+                          className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          {hours.map((h) => (
+                            <option key={h} value={h}>
+                              {formatHour(h)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="duration">Durée</Label>
+                        <select
+                          id="duration"
+                          value={eventDuration}
+                          onChange={(e) => setEventDuration(Number(e.target.value))}
+                          className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8].map((d) => (
+                            <option key={d} value={d}>
+                              {d}h
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Color picker for create form */}
+                    <div>
+                      <Label>Couleur</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {CALENDAR_COLORS.map((color) => (
+                          <button
+                            key={color.id}
+                            type="button"
+                            onClick={() => setEventColorId(color.id)}
+                            className={cn(
+                              "w-8 h-8 rounded-full transition-all border-2",
+                              color.color,
+                              eventColorId === color.id 
+                                ? "border-white ring-2 ring-primary scale-110" 
+                                : "border-transparent hover:scale-105"
+                            )}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleCreateEvent}
+                        disabled={creatingEvent || !eventName.trim()}
+                        className="flex-1"
+                      >
+                        {creatingEvent ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Plus className="w-4 h-4 mr-2" />
+                        )}
+                        Créer
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowCreateForm(false)}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Day schedule overview */}
