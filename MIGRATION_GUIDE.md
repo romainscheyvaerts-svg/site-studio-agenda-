@@ -111,9 +111,9 @@ supabase secrets set GOOGLE_TERTIARY_CALENDAR_ID=""
 supabase secrets set CLARIDGE_ICAL_URL=""
 ```
 
-### Chatbot IA (optionnel)
+### Chatbot IA (Google Gemini)
 ```bash
-supabase secrets set LOVABLE_API_KEY="votre-cle-lovable"
+supabase secrets set GEMINI_API_KEY="AIza..."
 ```
 
 ### Vérifier les secrets
@@ -193,7 +193,7 @@ VALUES ('USER_ID', 'superadmin');
 | `GOOGLE_STUDIO_CALENDAR_ID` | ✅ Oui | Calendrier studio |
 | `GOOGLE_PATRON_CALENDAR_ID` | ⚠️ Recommandé | Calendrier perso |
 | `GOOGLE_DRIVE_PARENT_FOLDER_ID` | ✅ Oui | Dossier Drive clients |
-| `LOVABLE_API_KEY` | ❌ Optionnel | Chatbot IA |
+| `GEMINI_API_KEY` | ⚠️ Recommandé | Chatbot IA (gratuit) |
 | `CLARIDGE_ICAL_URL` | ❌ Optionnel | Calendrier externe |
 
 ---
@@ -214,5 +214,6 @@ VALUES ('USER_ID', 'superadmin');
 - Vérifiez que le dossier Drive est partagé avec l'email du service account
 
 ### Le chatbot ne fonctionne pas
-- Le chatbot utilise `LOVABLE_API_KEY` qui n'est valide que pour les projets Lovable
-- Vous devrez soit obtenir une clé, soit désactiver le chatbot
+- Vérifiez que `GEMINI_API_KEY` est configuré
+- Obtenez une clé gratuite sur [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+- Vérifiez les logs: `supabase functions logs studio-chat`

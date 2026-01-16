@@ -106,6 +106,27 @@ const SYSTEM_PROMPT = `Tu es l'assistant expert du studio d'enregistrement haut 
 - Si un projet semble complexe, propose la session avec ingénieur
 - Pour réserver, oriente vers le formulaire en bas de page`;
 
+// Convert chat messages to Gemini format
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+function convertToGeminiFormat(messages: ChatMessage[]) {
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  
+  for (const msg of messages) {
+    // Gemini uses "user" and "model" roles
+    const role = msg.role === "assistant" ? "model" : "user";
+    contents.push({
+      role,
+      parts: [{ text: msg.content }]
+    });
+  }
+  
+  return contents;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -141,56 +162,87 @@ serve(async (req) => {
     }
     
     const { messages } = parseResult.data;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    console.log("Processing chat request with", messages.length, "messages");
+    console.log("[STUDIO-CHAT] Processing chat request with", messages.length, "messages");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
+    // Prepend system prompt as first user message for context
+    const messagesWithSystem: ChatMessage[] = [
+      { role: "user", content: SYSTEM_PROMPT },
+      { role: "assistant", content: "Compris ! Je suis prêt à aider les clients du studio. 🎤" },
+      ...messages
+    ];
+
+    const geminiContents = convertToGeminiFormat(messagesWithSystem);
+
+    // Call Google Gemini API
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: geminiContents,
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+          ],
+        }),
+      }
+    );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[STUDIO-CHAT] Gemini API error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Trop de requêtes, réessaie dans quelques secondes." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Service temporairement indisponible." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      
       return new Response(JSON.stringify({ error: "Erreur du service IA" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
+    const data = await response.json();
+    
+    // Extract the response text from Gemini's response format
+    const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+      "Désolé, je n'ai pas pu traiter ta demande. Réessaie !";
+
+    console.log("[STUDIO-CHAT] Response generated successfully");
+
+    // Return in SSE format for streaming compatibility with frontend
+    const sseData = `data: ${JSON.stringify({
+      choices: [{
+        delta: { content: assistantMessage },
+        finish_reason: "stop"
+      }]
+    })}\n\ndata: [DONE]\n\n`;
+
+    return new Response(sseData, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
-    console.error("Chat error:", error);
+    console.error("[STUDIO-CHAT] Error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erreur inconnue" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

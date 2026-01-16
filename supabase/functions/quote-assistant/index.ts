@@ -35,9 +35,6 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
 // Input validation schema
 const MessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -84,6 +81,22 @@ DEVIS_FINAL:{"clientProject":"description courte","items":[{"description":"...",
 
 Sois professionnel, chaleureux et précis. Utilise les emojis avec parcimonie (🎵🎤🎧).`;
 
+// Convert chat messages to Gemini format
+function convertToGeminiFormat(messages: Message[]) {
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  
+  for (const msg of messages) {
+    // Gemini uses "user" and "model" roles
+    const role = msg.role === "assistant" ? "model" : "user";
+    contents.push({
+      role,
+      parts: [{ text: msg.content }]
+    });
+  }
+  
+  return contents;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -116,46 +129,65 @@ serve(async (req) => {
     
     console.log("[QUOTE-ASSISTANT] Processing chat with", messages.length, "messages");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    // Call Lovable AI Gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
-        ],
-      }),
-    });
+    // Prepend system prompt as first user message for context
+    const messagesWithSystem: Message[] = [
+      { role: "user", content: SYSTEM_PROMPT },
+      { role: "assistant", content: "Compris ! Je suis prêt à aider les clients avec leurs devis. 🎵" },
+      ...messages
+    ];
+
+    const geminiContents = convertToGeminiFormat(messagesWithSystem);
+
+    // Call Google Gemini API
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: geminiContents,
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048,
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+          ],
+        }),
+      }
+    );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[QUOTE-ASSISTANT] Gemini API error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Trop de requêtes, veuillez réessayer dans quelques instants." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Service temporairement indisponible." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("[QUOTE-ASSISTANT] AI error:", errorText);
+      
       throw new Error("AI service error");
     }
 
     const data = await response.json();
-    const assistantMessage = data.choices?.[0]?.message?.content || "Désolé, je n'ai pas pu traiter votre demande.";
+    const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+      "Désolé, je n'ai pas pu traiter votre demande.";
     
     console.log("[QUOTE-ASSISTANT] Response:", assistantMessage.substring(0, 100));
 
@@ -171,13 +203,16 @@ serve(async (req) => {
           const quoteData = JSON.parse(quoteMatch[1]);
           
           // Send quote to studio email
+          const adminEmail = Deno.env.get("ADMIN_EMAIL") || "prod.makemusic@gmail.com";
+          const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
+          
           await resend.emails.send({
-            from: "Make Music Studio <noreply@studiomakemusic.com>",
-            to: ["prod.makemusic@gmail.com"],
+            from: `Make Music Studio <${fromEmail}>`,
+            to: [adminEmail],
             subject: `🤖 Devis généré par assistant - ${escapeHtml(quoteData.clientProject || "Nouveau projet")}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
-                <h2 style="color: #22d3ee;">Devis généré par l'assistant IA</h2>
+                <h2 style="color: #22d3ee;">Devis généré par l'assistant IA (Gemini)</h2>
                 
                 <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                   <h3 style="color: #fafafa; margin-top: 0;">Projet : ${escapeHtml(quoteData.clientProject || "")}</h3>
