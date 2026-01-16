@@ -211,11 +211,22 @@ const AdminCalendarModern = ({
     setDeletingEventId(eventId);
     
     try {
-      const { error } = await supabase.functions.invoke("delete-admin-event", {
+      console.log("[DELETE] Calling delete-admin-event function...");
+      const { data, error } = await supabase.functions.invoke("delete-admin-event", {
         body: { eventId },
       });
 
-      if (error) throw error;
+      console.log("[DELETE] Response:", { data, error });
+
+      if (error) {
+        console.error("[DELETE] Function error:", error);
+        throw new Error(error.message || "Erreur de la fonction");
+      }
+
+      if (data?.error) {
+        console.error("[DELETE] Data error:", data.error);
+        throw new Error(data.error);
+      }
 
       toast({
         title: "Événement supprimé",
@@ -223,11 +234,12 @@ const AdminCalendarModern = ({
       });
       
       fetchAvailability();
-    } catch (err) {
-      console.error("Delete error:", err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Erreur inconnue";
+      console.error("[DELETE] Error:", errorMessage, err);
       toast({
-        title: "Erreur",
-        description: "Impossible de supprimer l'événement",
+        title: "Erreur de suppression",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
