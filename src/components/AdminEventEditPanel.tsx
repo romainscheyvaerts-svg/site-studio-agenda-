@@ -114,6 +114,8 @@ const AdminEventEditPanel = ({
   const sessionType = "with-engineer";
 
   const handleSaveAndSendEmail = async () => {
+    console.log("[EDIT-PANEL] handleSaveAndSendEmail called with:", { mode, eventId, title, date, currentStartHour, currentEndHour });
+    
     if (!title.trim()) {
       toast({
         title: "Erreur",
@@ -152,9 +154,29 @@ const AdminEventEditPanel = ({
         });
 
         if (error) throw error;
-      } else if (mode === "edit" && eventId) {
+      } else if (mode === "edit") {
         // Update the event
-        const { error } = await supabase.functions.invoke("update-admin-event", {
+        if (!eventId) {
+          console.error("[EDIT-PANEL] No eventId provided for edit mode!");
+          toast({
+            title: "Erreur",
+            description: "ID de l'événement manquant - impossible de modifier",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        console.log("[EDIT-PANEL] Updating event with data:", {
+          eventId,
+          title: title.trim(),
+          date,
+          startTime: formatHour(currentStartHour),
+          endTime: formatHour(currentEndHour),
+          colorId: currentColorId,
+        });
+        
+        const { data, error } = await supabase.functions.invoke("update-admin-event", {
           body: {
             eventId,
             title: title.trim(),
@@ -165,6 +187,8 @@ const AdminEventEditPanel = ({
           },
         });
 
+        console.log("[EDIT-PANEL] Update response:", { data, error });
+        
         if (error) throw error;
       }
 

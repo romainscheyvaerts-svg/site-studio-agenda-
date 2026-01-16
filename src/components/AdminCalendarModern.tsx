@@ -153,12 +153,17 @@ const AdminCalendarModern = ({
 
     dayData.slots.forEach((slot) => {
       if (slot.status === "unavailable" && slot.eventName) {
+        // Debug: log slot data
+        console.log("[EVENTS] Slot data:", { hour: slot.hour, eventName: slot.eventName, eventId: slot.eventId, hasEventId: !!slot.eventId });
+        
         if (currentEvent && currentEvent.title === slot.eventName && currentEvent.id === slot.eventId) {
           currentEvent.endHour = slot.hour + 1;
         } else {
           if (currentEvent) events.push(currentEvent);
+          const eventId = slot.eventId || `${date}-${slot.hour}`;
+          console.log("[EVENTS] Creating event with ID:", eventId, "from slot.eventId:", slot.eventId);
           currentEvent = {
-            id: slot.eventId || `${date}-${slot.hour}`,
+            id: eventId,
             title: slot.eventName,
             date,
             startHour: slot.hour,
@@ -185,14 +190,19 @@ const AdminCalendarModern = ({
       e.stopPropagation();
     }
     
+    console.log("[DELETE] Attempting to delete event with ID:", eventId);
+    
     // Google Calendar event IDs are alphanumeric strings
     // Only reject if truly empty or if it's a generated placeholder ID (format: date-hour)
     const isPlaceholderId = /^\d{4}-\d{2}-\d{2}-\d+$/.test(eventId);
     
+    console.log("[DELETE] Is placeholder ID:", isPlaceholderId);
+    
     if (!eventId || isPlaceholderId) {
+      console.error("[DELETE] Invalid event ID - empty or placeholder:", eventId);
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer cet événement (ID invalide)",
+        description: `Impossible de supprimer cet événement (ID: ${eventId || "vide"})`,
         variant: "destructive",
       });
       return;
@@ -230,6 +240,7 @@ const AdminCalendarModern = ({
     if (e) {
       e.stopPropagation();
     }
+    console.log("[EDIT] Opening edit panel for event:", { id: event.id, title: event.title, date: event.date, startHour: event.startHour, endHour: event.endHour });
     setEditingEvent(event);
     setShowEventEditor(true);
   };
