@@ -246,7 +246,7 @@ const AdminCalendarModern = ({
   };
 
   // Calendar container height - compact to fit on screen
-  const calendarHeight = isMobileView ? "h-[400px]" : "h-[450px]";
+  const calendarHeight = isMobileView ? "h-[450px]" : "h-[500px]";
 
   // Render Month View
   const renderMonthView = () => {
@@ -257,7 +257,10 @@ const AdminCalendarModern = ({
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
     return (
-      <div className={cn("overflow-y-auto", calendarHeight)}>
+      <div className={cn(
+        "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+        calendarHeight
+      )}>
         <div className="grid grid-cols-7 gap-0.5">
           {/* Day headers */}
           {["L", "M", "M", "J", "V", "S", "D"].map((day, i) => (
@@ -325,10 +328,13 @@ const AdminCalendarModern = ({
   const renderWeekView = () => {
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     const days = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
-    const hours = Array.from({ length: 17 }, (_, i) => i + 6); // 6h to 22h
+    const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h (24/7)
 
     return (
-      <div className={cn("overflow-x-auto overflow-y-auto", calendarHeight)}>
+      <div className={cn(
+        "overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+        calendarHeight
+      )}>
         <div className={cn("min-w-[700px]", isMobileView && "min-w-[600px]")}>
           {/* Header with days - sticky */}
           <div className="grid grid-cols-8 gap-0.5 mb-1 sticky top-0 bg-card z-10 pb-1">
@@ -467,7 +473,7 @@ const AdminCalendarModern = ({
   const renderDayView = () => {
     const dateStr = format(currentDate, "yyyy-MM-dd");
     const dayData = availability.find(d => d.date === dateStr);
-    const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6h to 23h
+    const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h (24/7)
     const events = getEventsForDay(dateStr);
 
     // Group consecutive slots into events for display
@@ -481,7 +487,10 @@ const AdminCalendarModern = ({
     };
 
     return (
-      <div className={cn("overflow-y-auto", calendarHeight)}>
+      <div className={cn(
+        "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+        calendarHeight
+      )}>
         <div className="space-y-0.5">
           {hours.map(hour => {
             const slot = dayData?.slots.find(s => s.hour === hour);
