@@ -9,7 +9,8 @@ import {
   Music, 
   Users, 
   MessageSquare,
-  Image
+  Image,
+  Calendar
 } from "lucide-react";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
@@ -21,6 +22,7 @@ import AdminGallery from "./AdminGallery";
 import AdminPromoCodeManager from "./AdminPromoCodeManager";
 import AdminRoleManager from "./AdminRoleManager";
 import AdminDawConfig from "./AdminDawConfig";
+import AdminCalendarModern from "./AdminCalendarModern";
 import { supabase } from "@/integrations/supabase/client";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
@@ -74,7 +76,7 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-2">
       <div className={cn(
         "relative w-full bg-card border border-border rounded-lg shadow-xl overflow-hidden",
-        isMobileView ? "max-w-full max-h-[95vh]" : "max-w-3xl max-h-[85vh]"
+        isMobileView ? "max-w-full max-h-[95vh]" : activeTab === "calendar" ? "max-w-6xl max-h-[90vh]" : "max-w-3xl max-h-[85vh]"
       )}>
         {/* Header */}
         <div className={cn(
@@ -121,6 +123,10 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               <TabsTrigger value="config" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
                 <MessageSquare className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
                 <span className={isMobileView ? "" : "hidden sm:inline"}>Config</span>
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
+                <Calendar className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                <span className={isMobileView ? "" : "hidden sm:inline"}>Agenda</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -201,6 +207,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                 </p>
               </div>
               <AdminChatbotConfig />
+            </TabsContent>
+
+            {/* Calendar Tab */}
+            <TabsContent value="calendar" className="mt-0">
+              <AdminCalendarModern />
             </TabsContent>
 
             <div className="pt-4 mt-4 border-t border-border">
