@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus, FolderOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus, FolderOpen, Pencil } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
-import AdminEventCreator from "./AdminEventCreator";
+import AdminEventEditPanel from "./AdminEventEditPanel";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
 interface TimeSlot {
@@ -65,6 +65,17 @@ const AdminCalendar = ({
   
   // Show event creator form
   const [showEventCreator, setShowEventCreator] = useState(false);
+  
+  // Event editing state
+  const [editingEvent, setEditingEvent] = useState<{
+    eventId: string;
+    eventName: string;
+    date: string;
+    startHour: number;
+    endHour: number;
+    clientEmail?: string;
+    driveFolderLink?: string;
+  } | null>(null);
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
@@ -493,13 +504,14 @@ const AdminCalendar = ({
             </div>
           )}
 
-          {/* Event Creator Form (inline) */}
+          {/* Event Creator/Edit Form (inline) */}
           {showEventCreator && selectedRange && (
-            <AdminEventCreator
-              selectedDate={selectedRange.date}
-              selectedTime={formatHour(selectedRange.startHour)}
-              duration={selectedRange.endHour - selectedRange.startHour + 1}
-              onEventCreated={() => {
+            <AdminEventEditPanel
+              date={selectedRange.date}
+              startHour={selectedRange.startHour}
+              endHour={selectedRange.endHour + 1}
+              mode="create"
+              onSave={() => {
                 setShowEventCreator(false);
                 clearSelection();
                 fetchAvailability();
