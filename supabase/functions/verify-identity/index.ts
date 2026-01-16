@@ -287,8 +287,12 @@ serve(async (req) => {
       : imageBase64;
 
     // Use Gemini Vision to extract name from ID card
+    // Try gemini-2.0-flash as primary, fallback available if needed
+    const modelName = "gemini-2.0-flash";
+    console.log(`Using Gemini model: ${modelName}`);
+    
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
@@ -327,18 +331,71 @@ Ne rajoute aucun texte avant ou après le JSON.`,
             temperature: 0.1,
             maxOutputTokens: 200,
           },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          ],
         }),
       }
     );
+    
+    console.log("Gemini API response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", errorText);
-      throw new Error("Failed to analyze ID document");
+      console.error("Gemini API error:", response.status, errorText);
+      
+      // Handle specific error codes
+      if (response.status === 400) {
+        return new Response(
+          JSON.stringify({
+            verified: false,
+            error: "Image invalide ou format non supporté. Veuillez réessayer avec une photo plus nette.",
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({
+            verified: false,
+            error: "Service temporairement surchargé. Veuillez réessayer dans quelques minutes.",
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const aiResult = await response.json();
+    console.log("Gemini raw response:", JSON.stringify(aiResult).substring(0, 500));
+    
     const aiMessage = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    
+    // Check for blocked content
+    if (!aiMessage && aiResult.candidates?.[0]?.finishReason === "SAFETY") {
+      console.log("Content blocked by safety filters");
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          error: "L'image n'a pas pu être analysée pour des raisons de sécurité. Veuillez utiliser une photo plus claire de votre pièce d'identité.",
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     
     console.log("AI response:", aiMessage);
 
