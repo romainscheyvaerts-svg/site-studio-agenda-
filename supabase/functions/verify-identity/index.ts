@@ -273,30 +273,33 @@ serve(async (req) => {
       );
     }
 
-    // Proceed with AI verification
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    // Proceed with AI verification using Gemini
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
-      throw new Error("API key not configured");
+      throw new Error("GEMINI_API_KEY not configured");
     }
 
     console.log("Starting identity verification for:", formName.substring(0, 20) + "...");
 
+    // Extract base64 data (remove data URL prefix if present)
+    const base64ImageData = imageBase64.includes(',') 
+      ? imageBase64.split(',')[1] 
+      : imageBase64;
+
     // Use Gemini Vision to extract name from ID card
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Tu es un système de vérification d'identité. Analyse cette image de carte d'identité (CNI, passeport, permis de conduire) et extrais UNIQUEMENT le nom et prénom de la personne.
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Tu es un système de vérification d'identité. Analyse cette image de carte d'identité (CNI, passeport, permis de conduire) et extrais UNIQUEMENT le nom et prénom de la personne.
 
 INSTRUCTIONS IMPORTANTES:
 - Extrais le NOM DE FAMILLE et le PRÉNOM visibles sur le document
@@ -310,29 +313,32 @@ ou
 {"status": "error", "reason": "ILLISIBLE" ou "INVALIDE"}
 
 Ne rajoute aucun texte avant ou après le JSON.`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
                 },
-              },
-            ],
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: base64ImageData,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 200,
           },
-        ],
-        max_tokens: 200,
-        temperature: 0.1,
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI API error:", errorText);
+      console.error("Gemini API error:", errorText);
       throw new Error("Failed to analyze ID document");
     }
 
     const aiResult = await response.json();
-    const aiMessage = aiResult.choices?.[0]?.message?.content || "";
+    const aiMessage = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
     console.log("AI response:", aiMessage);
 
