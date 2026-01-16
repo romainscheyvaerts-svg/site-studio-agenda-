@@ -11,13 +11,13 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Check if user has admin role in database
+// Check if user has admin or superadmin role in database
 async function isUserAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .eq("role", "admin")
+    .in("role", ["admin", "superadmin"])
     .maybeSingle();
   
   if (error) {
@@ -84,8 +84,8 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   return tokenData.access_token;
 }
 
-// Folder ID for instrumentals
-const INSTRUMENTALS_FOLDER_ID = "1fo_SnmEfdSM2PDv90ujDUzkDhR3KRUVu";
+// Folder ID for instrumentals (from environment variable or default)
+const INSTRUMENTALS_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_INSTRUMENTALS_FOLDER_ID") || "1fo_SnmEfdSM2PDv90ujDUzkDhR3KRUVu";
 
 // Helper to extract numeric prefix from file name (e.g., "1278" from "1278 - Beat Name.mp3")
 function extractNumericPrefix(fileName: string): string | null {
