@@ -37,13 +37,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    // Check if there's a hash with access_token (OAuth callback)
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      console.log("[Auth] Detected OAuth callback with tokens in URL");
+    }
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("[Auth] Event:", event, "Session:", session ? "exists" : "null");
+        console.log("[Auth] Event:", event, "Session:", session ? "exists" : "null", "User:", session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Clear the hash from URL after successful auth
+        if (event === "SIGNED_IN" && session?.user && window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
         
         // Log auth events
         if (event === "SIGNED_IN" && session?.user) {
@@ -55,7 +66,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log("[Auth] getSession result:", session ? "exists" : "null", "Error:", error?.message || "none");
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
