@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   Mic,
@@ -23,6 +24,9 @@ import {
   Mail,
   FolderOpen,
   CreditCard,
+  Palette,
+  Send,
+  Check,
 } from "lucide-react";
 import ModernCalendar from "./ModernCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -30,6 +34,20 @@ import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
+
+// Color options for calendar events (Google Calendar colors)
+const colorOptions = [
+  { id: "1", name: "Lavande", color: "#7986cb", bgClass: "bg-[#7986cb]" },
+  { id: "2", name: "Sauge", color: "#33b679", bgClass: "bg-[#33b679]" },
+  { id: "3", name: "Raisin", color: "#8e24aa", bgClass: "bg-[#8e24aa]" },
+  { id: "4", name: "Flamant", color: "#e67c73", bgClass: "bg-[#e67c73]" },
+  { id: "5", name: "Banane", color: "#f6bf26", bgClass: "bg-[#f6bf26]" },
+  { id: "7", name: "Paon", color: "#039be5", bgClass: "bg-[#039be5]" },
+  { id: "8", name: "Graphite", color: "#616161", bgClass: "bg-[#616161]" },
+  { id: "9", name: "Myrtille", color: "#3f51b5", bgClass: "bg-[#3f51b5]" },
+  { id: "10", name: "Basilic", color: "#0b8043", bgClass: "bg-[#0b8043]" },
+  { id: "11", name: "Tomate", color: "#d50000", bgClass: "bg-[#d50000]" },
+];
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 
@@ -71,7 +89,8 @@ const AdminPriceCalculator = ({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [includeStripeLink, setIncludeStripeLink] = useState(false);
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
-  const [sendConfirmationEmail, setSendConfirmationEmail] = useState(true);
+  const [sendConfirmationEmail, setSendConfirmationEmail] = useState(false);
+  const [selectedColorId, setSelectedColorId] = useState("7"); // Default: Paon (cyan)
 
   // Sync with external date/time/duration from calendar
   useEffect(() => {
@@ -170,51 +189,6 @@ const AdminPriceCalculator = ({
         date,
         time,
       });
-    }
-  };
-
-  const handleSendEmail = async () => {
-    if (!clientEmail) {
-      toast({
-        title: "Email requis",
-        description: "Veuillez entrer l'email du client.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSendingEmail(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-admin-email", {
-        body: {
-          clientEmail,
-          clientName,
-          sessionType: selectedService,
-          sessionDate: selectedDate,
-          sessionTime: selectedTime,
-          hours: isHourlyService ? hours : (isPodcast ? podcastMinutes : 1),
-          totalPrice: finalPrice,
-          includeStripeLink,
-          includeDriveLink,
-          customMessage,
-        },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Email envoyé !",
-        description: `Email envoyé à ${clientEmail}${data.stripePaymentUrl ? " avec lien de paiement Stripe" : ""}${data.driveFolderLink ? " et dossier Drive" : ""}.`,
-      });
-    } catch (err: any) {
-      console.error("Email error:", err);
-      toast({
-        title: "Erreur",
-        description: err.message || "Impossible d'envoyer l'email.",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingEmail(false);
     }
   };
 
@@ -418,12 +392,94 @@ const AdminPriceCalculator = ({
                 </div>
               </div>
 
+              {/* Color selection */}
+              <div className="pt-4 border-t border-border">
+                <Label className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                  <Palette className="w-4 h-4" />
+                  Couleur de l'événement
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => setSelectedColorId(color.id)}
+                      className={cn(
+                        "w-7 h-7 rounded-full transition-all",
+                        color.bgClass,
+                        selectedColorId === color.id
+                          ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110"
+                          : "opacity-70 hover:opacity-100"
+                      )}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
               {selectedDate && selectedTime && (
-                <div className="pt-4 space-y-3">
-                  <Button 
-                    variant="hero" 
+                <div className="pt-4 space-y-4">
+                  {/* Email options toggle */}
+                  <div className="p-4 rounded-lg bg-muted/30 border border-border space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-primary" />
+                        <Label className="text-foreground font-medium">Envoyer un email au client</Label>
+                      </div>
+                      <Switch
+                        checked={sendConfirmationEmail}
+                        onCheckedChange={setSendConfirmationEmail}
+                      />
+                    </div>
+
+                    {sendConfirmationEmail && (
+                      <div className="space-y-3 pt-2">
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-background border border-border">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-4 h-4 text-blue-500" />
+                              <span className="text-sm">Lien de paiement Stripe</span>
+                            </div>
+                            <Switch
+                              checked={includeStripeLink}
+                              onCheckedChange={setIncludeStripeLink}
+                              disabled={finalPrice <= 0}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-background border border-border">
+                            <div className="flex items-center gap-2">
+                              <FolderOpen className="w-4 h-4 text-amber-500" />
+                              <span className="text-sm">Créer dossier Drive</span>
+                            </div>
+                            <Switch
+                              checked={includeDriveLink}
+                              onCheckedChange={setIncludeDriveLink}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm text-muted-foreground mb-2 block">
+                            Message personnalisé (optionnel)
+                          </Label>
+                          <Textarea
+                            value={customMessage}
+                            onChange={(e) => setCustomMessage(e.target.value)}
+                            placeholder="Message à inclure dans l'email..."
+                            className="bg-background border-border"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Create event button */}
+                  <Button
+                    variant="hero"
                     className="w-full"
-                    disabled={creatingEvent}
+                    disabled={creatingEvent || (sendConfirmationEmail && !clientEmail)}
                     onClick={async () => {
                       setCreatingEvent(true);
                       try {
@@ -435,32 +491,68 @@ const AdminPriceCalculator = ({
                           "analog-mastering": "Mastering analogique",
                           "podcast": "Podcast"
                         };
-                        
-                        const title = customTitle.trim() 
+
+                        const title = customTitle.trim()
                           ? customTitle.trim()
-                          : clientName 
+                          : clientName
                             ? `SESSION ${sessionLabels[selectedService!]} - ${clientName}`
                             : `SESSION ${sessionLabels[selectedService!]}`;
-                        
+
+                        // Create the calendar event
                         const { error } = await supabase.functions.invoke("create-admin-event", {
                           body: {
                             title,
                             clientName: clientName || "",
+                            clientEmail: clientEmail || undefined,
                             description: `Prix: ${finalPrice}€${discountPercent > 0 ? ` (remise ${discountPercent}%)` : ''}\n${clientEmail ? `Email: ${clientEmail}` : ''}`,
                             date: selectedDate,
                             time: selectedTime,
                             hours: isHourlyService ? hours : (isPodcast ? Math.ceil(podcastMinutes / 60) : 1),
-                            colorId: "7",
+                            colorId: selectedColorId,
                           },
                         });
-                        
+
                         if (error) throw error;
-                        
-                        toast({
-                          title: "Événement créé !",
-                          description: `Session du ${selectedDate} à ${selectedTime} ajoutée à l'agenda.`,
-                        });
-                        
+
+                        // Send email if option is enabled
+                        if (sendConfirmationEmail && clientEmail) {
+                          setSendingEmail(true);
+                          const { data: emailData, error: emailError } = await supabase.functions.invoke("send-admin-email", {
+                            body: {
+                              clientEmail,
+                              clientName: clientName || clientEmail.split("@")[0],
+                              sessionType: selectedService,
+                              sessionDate: selectedDate,
+                              sessionTime: selectedTime,
+                              hours: isHourlyService ? hours : (isPodcast ? podcastMinutes : 1),
+                              totalPrice: finalPrice,
+                              includeStripeLink: includeStripeLink && finalPrice > 0,
+                              includeDriveLink,
+                              customMessage,
+                            },
+                          });
+                          setSendingEmail(false);
+
+                          if (emailError) {
+                            console.error("Email error:", emailError);
+                            toast({
+                              title: "Événement créé",
+                              description: `Session ajoutée mais l'email n'a pas pu être envoyé.`,
+                              variant: "destructive",
+                            });
+                          } else {
+                            toast({
+                              title: "Événement créé et email envoyé !",
+                              description: `Session du ${selectedDate} à ${selectedTime} ajoutée. Email envoyé à ${clientEmail}.${emailData?.driveFolderLink ? ' Dossier Drive créé.' : ''}`,
+                            });
+                          }
+                        } else {
+                          toast({
+                            title: "Événement créé !",
+                            description: `Session du ${selectedDate} à ${selectedTime} ajoutée à l'agenda.`,
+                          });
+                        }
+
                         if (onPriceCalculated && selectedService) {
                           onPriceCalculated({
                             sessionType: selectedService,
@@ -481,23 +573,39 @@ const AdminPriceCalculator = ({
                         });
                       } finally {
                         setCreatingEvent(false);
+                        setSendingEmail(false);
                       }
                     }}
                   >
                     {creatingEvent ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Création...
+                        {sendingEmail ? "Envoi de l'email..." : "Création..."}
                       </>
                     ) : (
                       <>
-                        <Calendar className="w-4 h-4 mr-2" />
-                        CRÉER L'ÉVÉNEMENT
+                        {sendConfirmationEmail ? (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            CRÉER ET ENVOYER
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="w-4 h-4 mr-2" />
+                            CRÉER L'ÉVÉNEMENT
+                          </>
+                        )}
                       </>
                     )}
                   </Button>
-                  
-                  <AdminInvoiceGenerator 
+
+                  {sendConfirmationEmail && !clientEmail && (
+                    <p className="text-xs text-amber-500 text-center">
+                      Entrez l'email du client pour activer l'envoi d'email
+                    </p>
+                  )}
+
+                  <AdminInvoiceGenerator
                     prefilledData={{
                       clientName,
                       clientEmail,
@@ -506,7 +614,7 @@ const AdminPriceCalculator = ({
                       totalPrice: finalPrice,
                     }}
                   />
-                  
+
                   {/* QR Code payment */}
                   <div className="pt-4 border-t border-border">
                     <AdminPaymentQRCode calculatedPrice={finalPrice} />
@@ -516,74 +624,6 @@ const AdminPriceCalculator = ({
             </div>
           </div>
 
-          {/* Email Section */}
-          {clientEmail && (
-            <div className="mt-6 pt-6 border-t border-border">
-              <h4 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
-                <Mail className="w-5 h-5 text-primary" />
-                ENVOYER UN EMAIL AU CLIENT
-              </h4>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm text-muted-foreground mb-2 block">
-                    Message personnalisé (optionnel)
-                  </Label>
-                  <Textarea
-                    value={customMessage}
-                    onChange={(e) => setCustomMessage(e.target.value)}
-                    placeholder="Ajoutez un message pour le client..."
-                    className="bg-secondary/50 border-border"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="includeStripe"
-                      checked={includeStripeLink}
-                      onCheckedChange={(checked) => setIncludeStripeLink(checked as boolean)}
-                    />
-                    <Label htmlFor="includeStripe" className="text-sm flex items-center gap-1 cursor-pointer">
-                      <CreditCard className="w-4 h-4 text-primary" />
-                      Inclure lien Stripe
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="includeDrive"
-                      checked={includeDriveLink}
-                      onCheckedChange={(checked) => setIncludeDriveLink(checked as boolean)}
-                    />
-                    <Label htmlFor="includeDrive" className="text-sm flex items-center gap-1 cursor-pointer">
-                      <FolderOpen className="w-4 h-4 text-amber-500" />
-                      Créer dossier Drive
-                    </Label>
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={handleSendEmail}
-                  disabled={sendingEmail || !clientEmail}
-                  className="w-full"
-                >
-                  {sendingEmail ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Envoi en cours...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4 mr-2" />
-                      ENVOYER L'EMAIL
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
