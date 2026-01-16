@@ -250,7 +250,10 @@ const AdminCalendarModern = ({
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
     return (
-      <div className="overflow-y-auto" style={{ maxHeight: isMobileView ? "60vh" : "55vh" }}>
+      <div className={cn(
+        "overflow-y-auto",
+        isMobileView ? "max-h-[60vh]" : "max-h-[55vh]"
+      )}>
         <div className="grid grid-cols-7 gap-0.5">
           {/* Day headers */}
           {["L", "M", "M", "J", "V", "S", "D"].map((day, i) => (
@@ -321,7 +324,10 @@ const AdminCalendarModern = ({
     const hours = Array.from({ length: 17 }, (_, i) => i + 6); // 6h to 22h
 
     return (
-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: isMobileView ? "60vh" : "55vh" }}>
+      <div className={cn(
+        "overflow-x-auto overflow-y-auto",
+        isMobileView ? "max-h-[60vh]" : "max-h-[55vh]"
+      )}>
         <div className={cn("min-w-[700px]", isMobileView && "min-w-[600px]")}>
           {/* Header with days - sticky */}
           <div className="grid grid-cols-8 gap-0.5 mb-1 sticky top-0 bg-card z-10 pb-1">
@@ -474,7 +480,10 @@ const AdminCalendarModern = ({
     };
 
     return (
-      <div className="overflow-y-auto" style={{ maxHeight: isMobileView ? "60vh" : "55vh" }}>
+      <div className={cn(
+        "overflow-y-auto",
+        isMobileView ? "max-h-[60vh]" : "max-h-[55vh]"
+      )}>
         <div className="space-y-0.5">
           {hours.map(hour => {
             const slot = dayData?.slots.find(s => s.hour === hour);
