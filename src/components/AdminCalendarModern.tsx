@@ -105,7 +105,9 @@ const AdminCalendarModern = ({
       let days: number;
 
       if (viewMode === "month") {
-        startDate = startOfMonth(currentDate);
+        // For month view, start from the Monday before the 1st of the month
+        // to match what's displayed in the calendar grid
+        startDate = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
         days = 42; // 6 weeks
       } else if (viewMode === "week") {
         startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -114,6 +116,8 @@ const AdminCalendarModern = ({
         startDate = currentDate;
         days = 1;
       }
+
+      console.log("[CALENDAR FETCH]", { viewMode, startDate: format(startDate, "yyyy-MM-dd"), days, isSuperAdmin });
 
       const { data, error } = await supabase.functions.invoke("get-weekly-availability", {
         body: {
@@ -124,6 +128,21 @@ const AdminCalendarModern = ({
       });
 
       if (error) throw error;
+
+      // Debug: check if Jan 25 has secondary calendar data
+      const jan25Data = (data.availability || []).find((d: DayAvailability) => d.date === "2026-01-25");
+      if (jan25Data) {
+        const slotsWithSecondary = jan25Data.slots.filter((s: TimeSlot) => s.hasSecondaryCalendarConflict);
+        console.log("[CALENDAR DEBUG] Jan 25 data found:", {
+          totalSlots: jan25Data.slots.length,
+          slotsWithSecondary: slotsWithSecondary.length,
+          firstSecondary: slotsWithSecondary[0]
+        });
+      } else {
+        console.log("[CALENDAR DEBUG] Jan 25 NOT found in response. Available dates:",
+          (data.availability || []).map((d: DayAvailability) => d.date).slice(0, 5), "...");
+      }
+
       setAvailability(data.availability || []);
     } catch (err) {
       console.error("Failed to fetch availability:", err);
@@ -303,7 +322,13 @@ const AdminCalendarModern = ({
   // Get secondary/tertiary calendar events for a day (superadmin only)
   const getSecondaryTertiaryEventsForDay = (date: string) => {
     const dayData = availability.find(d => d.date === date);
-    if (!dayData) return { secondary: [], tertiary: [] };
+    if (!dayData) {
+      // Debug: log when no data found for a date
+      if (date === "2026-01-25") {
+        console.log("[CALENDAR DEBUG] No availability data for", date, "- available dates:", availability.map(d => d.date).slice(0, 5), "...");
+      }
+      return { secondary: [], tertiary: [] };
+    }
 
     const secondaryEvents: { hour: number; name: string }[] = [];
     const tertiaryEvents: { hour: number; name: string }[] = [];
@@ -323,6 +348,11 @@ const AdminCalendarModern = ({
         }
       }
     });
+
+    // Debug: log secondary events found
+    if (date === "2026-01-25" && (secondaryEvents.length > 0 || tertiaryEvents.length > 0)) {
+      console.log("[CALENDAR DEBUG] Found secondary/tertiary events for", date, ":", { secondary: secondaryEvents, tertiary: tertiaryEvents });
+    }
 
     return { secondary: secondaryEvents, tertiary: tertiaryEvents };
   };
