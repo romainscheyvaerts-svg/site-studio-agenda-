@@ -86,3 +86,9 @@ verify_jwt = false
 
 [functions.handle-booking-action]
 verify_jwt = false
+
+[functions.generate-cover]
+verify_jwt = false
+
+[functions.generate-title]
+verify_jwt = false
