@@ -6,11 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Loader2, 
-  Send, 
-  CreditCard, 
-  FolderPlus, 
+import {
+  Loader2,
+  Send,
+  CreditCard,
+  FolderPlus,
   Mail,
   Clock,
   Check,
@@ -20,38 +20,23 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-// Color options for calendar events
-const colorOptions = [
-  { id: "1", name: "Lavande", color: "#7986cb", bgClass: "bg-[#7986cb]" },
-  { id: "2", name: "Sauge", color: "#33b679", bgClass: "bg-[#33b679]" },
-  { id: "3", name: "Raisin", color: "#8e24aa", bgClass: "bg-[#8e24aa]" },
-  { id: "4", name: "Flamant", color: "#e67c73", bgClass: "bg-[#e67c73]" },
-  { id: "5", name: "Banane", color: "#f6bf26", bgClass: "bg-[#f6bf26]" },
-  { id: "7", name: "Paon", color: "#039be5", bgClass: "bg-[#039be5]" },
-  { id: "8", name: "Graphite", color: "#616161", bgClass: "bg-[#616161]" },
-  { id: "9", name: "Myrtille", color: "#3f51b5", bgClass: "bg-[#3f51b5]" },
-  { id: "10", name: "Basilic", color: "#0b8043", bgClass: "bg-[#0b8043]" },
-  { id: "11", name: "Tomate", color: "#d50000", bgClass: "bg-[#d50000]" },
-];
-
 interface AdminEventEditPanelProps {
   // For editing existing events
   eventId?: string;
   eventTitle?: string;
-  
+
   // Date and time
   date: string;
   startHour: number;
   endHour: number;
-  
+
   // Optional existing data
-  colorId?: string;
   clientEmail?: string;
   driveFolderLink?: string;
-  
+
   // Mode: "create" or "edit"
   mode: "create" | "edit";
-  
+
   // Callbacks
   onSave: () => void;
   onCancel: () => void;
@@ -65,7 +50,6 @@ const AdminEventEditPanel = ({
   date,
   startHour,
   endHour,
-  colorId = "7",
   clientEmail: existingClientEmail = "",
   driveFolderLink: existingDriveFolderLink,
   mode,
@@ -75,25 +59,23 @@ const AdminEventEditPanel = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
-  
+
   // Form state
   const [title, setTitle] = useState(eventTitle);
   const [currentStartHour, setCurrentStartHour] = useState(startHour);
   const [currentEndHour, setCurrentEndHour] = useState(endHour);
-  const [currentColorId, setCurrentColorId] = useState(colorId);
-  
+
   // Client and email options
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState(existingClientEmail);
   const [notes, setNotes] = useState("");
   const [totalPrice, setTotalPrice] = useState<number>(0);
-  
+
   // Email options
   const [sendEmail, setSendEmail] = useState(false);
   const [includeStripeLink, setIncludeStripeLink] = useState(false);
-  const [includePaypalLink, setIncludePaypalLink] = useState(false);
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
-  
+
   // Results
   const [createdDriveLink, setCreatedDriveLink] = useState<string | null>(existingDriveFolderLink || null);
   const [createdStripeLink, setCreatedStripeLink] = useState<string | null>(null);
@@ -102,10 +84,9 @@ const AdminEventEditPanel = ({
     setTitle(eventTitle);
     setCurrentStartHour(startHour);
     setCurrentEndHour(endHour);
-    setCurrentColorId(colorId);
     setClientEmail(existingClientEmail);
     setCreatedDriveLink(existingDriveFolderLink || null);
-  }, [eventTitle, startHour, endHour, colorId, existingClientEmail, existingDriveFolderLink]);
+  }, [eventTitle, startHour, endHour, existingClientEmail, existingDriveFolderLink]);
 
   const formatHour = (hour: number) => `${hour.toString().padStart(2, "0")}:00`;
   const duration = currentEndHour - currentStartHour;
@@ -149,7 +130,6 @@ const AdminEventEditPanel = ({
             date,
             time: formatHour(currentStartHour),
             hours: duration,
-            colorId: currentColorId,
           },
         });
 
@@ -173,9 +153,8 @@ const AdminEventEditPanel = ({
           date,
           startTime: formatHour(currentStartHour),
           endTime: formatHour(currentEndHour),
-          colorId: currentColorId,
         });
-        
+
         const { data, error } = await supabase.functions.invoke("update-admin-event", {
           body: {
             eventId,
@@ -183,7 +162,6 @@ const AdminEventEditPanel = ({
             date,
             startTime: formatHour(currentStartHour),
             endTime: formatHour(currentEndHour),
-            colorId: currentColorId,
           },
         });
 
@@ -382,27 +360,6 @@ const AdminEventEditPanel = ({
           <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted text-sm font-medium">
             {duration}h
           </div>
-        </div>
-      </div>
-
-      {/* Color selection */}
-      <div className="space-y-2">
-        <Label>Couleur de l'événement</Label>
-        <div className="flex flex-wrap gap-2">
-          {colorOptions.map((color) => (
-            <button
-              key={color.id}
-              onClick={() => setCurrentColorId(color.id)}
-              className={cn(
-                "w-7 h-7 rounded-full transition-all",
-                color.bgClass,
-                currentColorId === color.id
-                  ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110"
-                  : "opacity-70 hover:opacity-100"
-              )}
-              title={color.name}
-            />
-          ))}
         </div>
       </div>
 
