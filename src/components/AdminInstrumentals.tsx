@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2, Layers, Save } from "lucide-react";
+import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2, Layers, Save, Sparkles, Image, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,6 +73,9 @@ const AdminInstrumentals = () => {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playingDriveId, setPlayingDriveId] = useState<string | null>(null);
   const [savingPrices, setSavingPrices] = useState<Record<string, boolean>>({});
+  const [generatingCover, setGeneratingCover] = useState(false);
+  const [generatingTitle, setGeneratingTitle] = useState(false);
+  const [suggestedTitles, setSuggestedTitles] = useState<string[]>([]);
 
   const fetchInstrumentals = async () => {
     const { data, error } = await supabase
@@ -324,6 +327,89 @@ const AdminInstrumentals = () => {
     setSavingPrices(prev => ({ ...prev, [id]: false }));
   };
 
+  // Generate cover image with AI
+  const generateCover = async () => {
+    if (!formData.title && !formData.genre) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez entrer un titre ou un genre pour générer la cover",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingCover(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-cover", {
+        body: {
+          title: formData.title,
+          genre: formData.genre,
+          bpm: formData.bpm,
+          key: formData.key,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.coverUrl) {
+        setFormData({ ...formData, cover_image_url: data.coverUrl });
+        toast({
+          title: "Cover générée !",
+          description: "L'image a été sauvegardée dans Supabase Storage",
+        });
+      }
+    } catch (err: any) {
+      console.error("Cover generation error:", err);
+      toast({
+        title: "Erreur",
+        description: err.message || "Impossible de générer la cover",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingCover(false);
+    }
+  };
+
+  // Generate title suggestions with AI
+  const generateTitles = async () => {
+    setGeneratingTitle(true);
+    setSuggestedTitles([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-title", {
+        body: {
+          genre: formData.genre || "Hip-Hop",
+          bpm: formData.bpm,
+          key: formData.key,
+          language: "en",
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.titles && data.titles.length > 0) {
+        setSuggestedTitles(data.titles);
+        toast({
+          title: "Titres générés !",
+          description: `${data.titles.length} suggestions disponibles`,
+        });
+      }
+    } catch (err: any) {
+      console.error("Title generation error:", err);
+      toast({
+        title: "Erreur",
+        description: err.message || "Impossible de générer les titres",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
+
+  const selectTitle = (title: string) => {
+    setFormData({ ...formData, title });
+    setSuggestedTitles([]);
+  };
+
   const newDriveFiles = driveFiles.filter(f => !f.isInDatabase);
 
   return (
@@ -375,13 +461,59 @@ const AdminInstrumentals = () => {
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Titre avec génération IA */}
                   <div className="col-span-2">
-                    <Label>Titre *</Label>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Titre *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={generateTitles}
+                        disabled={generatingTitle}
+                        className="h-7 text-xs"
+                      >
+                        {generatingTitle ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Génération...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="h-3 w-3 mr-1" />
+                            Générer avec IA
+                          </>
+                        )}
+                      </Button>
+                    </div>
                     <Input
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       required
                     />
+                    {/* Suggested titles */}
+                    {suggestedTitles.length > 0 && (
+                      <div className="mt-2 p-2 bg-primary/10 rounded-lg border border-primary/30">
+                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-primary" />
+                          Cliquez pour sélectionner :
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {suggestedTitles.map((title, idx) => (
+                            <Button
+                              key={idx}
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => selectTitle(title)}
+                              className="h-7 text-xs"
+                            >
+                              {title}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="col-span-2">
@@ -478,13 +610,52 @@ const AdminInstrumentals = () => {
                     )}
                   </div>
                   
+                  {/* Cover image avec génération IA */}
                   <div className="col-span-2">
-                    <Label>URL Image de couverture</Label>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Image de couverture</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={generateCover}
+                        disabled={generatingCover}
+                        className="h-7 text-xs"
+                      >
+                        {generatingCover ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Génération...
+                          </>
+                        ) : (
+                          <>
+                            <Image className="h-3 w-3 mr-1" />
+                            Générer cover IA
+                          </>
+                        )}
+                      </Button>
+                    </div>
                     <Input
                       value={formData.cover_image_url}
                       onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
-                      placeholder="https://..."
+                      placeholder="https://... ou générez avec l'IA"
                     />
+                    {/* Preview de la cover */}
+                    {formData.cover_image_url && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img
+                          src={formData.cover_image_url}
+                          alt="Cover preview"
+                          className="w-20 h-20 rounded-lg object-cover border border-border"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Aperçu de la cover
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="col-span-2 flex items-center gap-2">
