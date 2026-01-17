@@ -41,6 +41,14 @@ interface TimeSlot {
   eventName?: string;
   eventId?: string;
   clientEmail?: string;
+  driveFolderLink?: string;
+  driveSessionFolderLink?: string;
+  // Secondary calendar (superadmin only)
+  hasSecondaryCalendarConflict?: boolean;
+  secondaryCalendarEventName?: string;
+  // Tertiary calendar (superadmin only)
+  hasTertiaryCalendarConflict?: boolean;
+  tertiaryCalendarEventName?: string;
 }
 
 interface DayAvailability {
@@ -424,6 +432,10 @@ const AdminCalendarModern = ({
                   const slot = dayData?.slots.find(s => s.hour === hour);
                   const status = slot?.status || "unavailable";
                   const isBooked = status === "unavailable" && slot?.eventName;
+
+                  // Secondary/Tertiary calendar conflicts (superadmin only)
+                  const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
+                  const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
                   
                   // Check if this slot is part of a selected range
                   const isInSelectedRange = selectedRange && 
@@ -487,13 +499,39 @@ const AdminCalendarModern = ({
                         status === "on-request" && !isInSelectedRange && "bg-amber-500/10 hover:bg-amber-500/30",
                         isBooked && "bg-destructive/20 hover:bg-destructive/30",
                         isInSelectedRange && "bg-primary/40 ring-1 ring-primary",
-                        isSelectionStart && "ring-1 ring-primary"
+                        isSelectionStart && "ring-1 ring-primary",
+                        // Highlight secondary/tertiary calendar conflicts
+                        (hasSecondaryConflict || hasTertiaryConflict) && !isBooked && "ring-1 ring-purple-500/50"
                       )}
+                      title={
+                        hasSecondaryConflict || hasTertiaryConflict
+                          ? `${slot?.secondaryCalendarEventName || ""} ${slot?.tertiaryCalendarEventName || ""}`.trim()
+                          : undefined
+                      }
                     >
+                      {/* Secondary/Tertiary calendar indicator */}
+                      {(hasSecondaryConflict || hasTertiaryConflict) && !isBooked && (
+                        <div className="absolute top-0 right-0 flex gap-0.5 p-0.5">
+                          {hasSecondaryConflict && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title={slot?.secondaryCalendarEventName} />
+                          )}
+                          {hasTertiaryConflict && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" title={slot?.tertiaryCalendarEventName} />
+                          )}
+                        </div>
+                      )}
                       {isBooked && (
                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
                           <span className="text-[9px] text-destructive font-medium truncate px-0.5 leading-tight">
                             {slot.eventName}
+                          </span>
+                        </div>
+                      )}
+                      {/* Show secondary/tertiary event names when not booked */}
+                      {!isBooked && (hasSecondaryConflict || hasTertiaryConflict) && (
+                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                          <span className="text-[8px] text-purple-400 font-medium truncate px-0.5 leading-tight">
+                            {slot?.secondaryCalendarEventName || slot?.tertiaryCalendarEventName}
                           </span>
                         </div>
                       )}
@@ -742,7 +780,7 @@ const AdminCalendarModern = ({
 
       {/* Legend - Compact */}
       <div className={cn(
-        "flex items-center gap-3 mb-2 text-[10px]",
+        "flex flex-wrap items-center gap-3 mb-2 text-[10px]",
         isMobileView && "gap-2"
       )}>
         <div className="flex items-center gap-1">
@@ -757,6 +795,18 @@ const AdminCalendarModern = ({
           <div className="w-2.5 h-2.5 rounded-sm bg-destructive" />
           <span className="text-muted-foreground">Réservé</span>
         </div>
+        {isSuperAdmin && (
+          <>
+            <div className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <span className="text-muted-foreground">Agenda 2</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span className="text-muted-foreground">Agenda 3</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Calendar Content */}
