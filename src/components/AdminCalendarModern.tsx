@@ -96,6 +96,7 @@ const AdminCalendarModern = ({
   const [selectionStart, setSelectionStart] = useState<{ date: string; hour: number } | null>(null);
   const [selectedRange, setSelectedRange] = useState<{ date: string; startHour: number; endHour: number } | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [lastFetchWasSuperAdmin, setLastFetchWasSuperAdmin] = useState<boolean>(false);
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
@@ -117,6 +118,8 @@ const AdminCalendarModern = ({
         days = 1;
       }
 
+      console.log("[FETCH] Requesting availability:", { viewMode, isSuperAdmin, startDate: format(startDate, "yyyy-MM-dd"), days });
+
       const { data, error } = await supabase.functions.invoke("get-weekly-availability", {
         body: {
           startDate: format(startDate, "yyyy-MM-dd"),
@@ -127,6 +130,7 @@ const AdminCalendarModern = ({
 
       if (error) throw error;
       setAvailability(data.availability || []);
+      setLastFetchWasSuperAdmin(!!isSuperAdmin);
     } catch (err) {
       console.error("Failed to fetch availability:", err);
     } finally {
@@ -137,6 +141,14 @@ const AdminCalendarModern = ({
   useEffect(() => {
     fetchAvailability();
   }, [fetchAvailability]);
+
+  // Force refetch when isSuperAdmin becomes true but last fetch wasn't with super admin calendars
+  useEffect(() => {
+    if (isSuperAdmin && !lastFetchWasSuperAdmin && !loading) {
+      console.log("[REFETCH] isSuperAdmin became true, refetching with super admin calendars");
+      fetchAvailability();
+    }
+  }, [isSuperAdmin, lastFetchWasSuperAdmin, loading, fetchAvailability]);
 
   // Navigation
   const goToPrevious = () => {
