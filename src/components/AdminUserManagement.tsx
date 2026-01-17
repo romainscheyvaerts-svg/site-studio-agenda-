@@ -82,13 +82,35 @@ const AdminUserManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch registered users from edge function
-      const { data: usersData, error: usersError } = await supabase.functions.invoke("list-users");
-      
-      if (!usersError && usersData?.users) {
+      // Get session for auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error("No session available");
+        toast({
+          title: "Erreur",
+          description: "Non authentifié",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Fetch registered users from edge function using fetch for better header control
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/list-users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+
+      const usersData = await response.json();
+
+      if (response.ok && usersData?.users) {
         setRegisteredUsers(usersData.users);
       } else {
-        console.error("Error fetching users:", usersError);
+        console.error("Error fetching users:", usersData?.error);
       }
 
       // Fetch blocked users
