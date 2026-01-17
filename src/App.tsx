@@ -23,6 +23,7 @@ import BookingStatus from "./pages/BookingStatus";
 import Arsenal from "./pages/Arsenal";
 import Offres from "./pages/Offres";
 import Reservation from "./pages/Reservation";
+import MyPurchases from "./pages/MyPurchases";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/offres" element={<Offres />} />
               <Route path="/reservation" element={<Reservation />} />
               <Route path="/instrumentals" element={<Instrumentals />} />
+              <Route path="/mes-achats" element={<MyPurchases />} />
               <Route path="/checkout/instrumental/:instrumentalId/:licenseId" element={<InstrumentalCheckout />} />
               <Route path="/download/:token" element={<Download />} />
               <Route path="/studio" element={<Studio />} />

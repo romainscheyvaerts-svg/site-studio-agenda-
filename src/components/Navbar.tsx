@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Mic, LogOut, User, Music } from "lucide-react";
+import { Menu, X, Mic, LogOut, User, Music, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
@@ -95,11 +95,20 @@ const Navbar = () => {
             <LanguageSwitcher />
             {user ? (
               <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => goToPage("/mes-achats")}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Mes Achats
+                </Button>
                 <Button variant="neon" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="icon"
                   onClick={signOut}
                   title={t("auth.logout")}
@@ -171,24 +180,35 @@ const Navbar = () => {
               </div>
               
               <div className="flex flex-col gap-3 mt-8">
-                <Button 
-                  variant="hero" 
-                  size="lg" 
-                  className="w-full h-14 text-lg" 
+                <Button
+                  variant="hero"
+                  size="lg"
+                  className="w-full h-14 text-lg"
                   onClick={() => goToPage("/reservation")}
                 >
                   {t("nav.booking").toUpperCase()}
                 </Button>
                 {user ? (
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    className="w-full h-14 text-lg"
-                    onClick={signOut}
-                  >
-                    <LogOut className="w-5 h-5 mr-2" />
-                    {t("auth.logout")}
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full h-14 text-lg"
+                      onClick={() => goToPage("/mes-achats")}
+                    >
+                      <ShoppingBag className="w-5 h-5 mr-2" />
+                      MES ACHATS
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="w-full h-14 text-lg text-muted-foreground"
+                      onClick={signOut}
+                    >
+                      <LogOut className="w-5 h-5 mr-2" />
+                      {t("auth.logout")}
+                    </Button>
+                  </>
                 ) : (
                   <Button 
                     variant="outline" 
