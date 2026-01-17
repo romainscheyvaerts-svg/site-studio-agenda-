@@ -117,8 +117,6 @@ const AdminCalendarModern = ({
         days = 1;
       }
 
-      console.log("[CALENDAR FETCH]", { viewMode, startDate: format(startDate, "yyyy-MM-dd"), days, isSuperAdmin });
-
       const { data, error } = await supabase.functions.invoke("get-weekly-availability", {
         body: {
           startDate: format(startDate, "yyyy-MM-dd"),
@@ -128,21 +126,6 @@ const AdminCalendarModern = ({
       });
 
       if (error) throw error;
-
-      // Debug: check if Jan 25 has secondary calendar data
-      const jan25Data = (data.availability || []).find((d: DayAvailability) => d.date === "2026-01-25");
-      if (jan25Data) {
-        const slotsWithSecondary = jan25Data.slots.filter((s: TimeSlot) => s.hasSecondaryCalendarConflict);
-        console.log("[CALENDAR DEBUG] Jan 25 data found:", {
-          totalSlots: jan25Data.slots.length,
-          slotsWithSecondary: slotsWithSecondary.length,
-          firstSecondary: slotsWithSecondary[0]
-        });
-      } else {
-        console.log("[CALENDAR DEBUG] Jan 25 NOT found in response. Available dates:",
-          (data.availability || []).map((d: DayAvailability) => d.date).slice(0, 5), "...");
-      }
-
       setAvailability(data.availability || []);
     } catch (err) {
       console.error("Failed to fetch availability:", err);
@@ -319,43 +302,6 @@ const AdminCalendarModern = ({
   // Calendar container height - compact to fit on screen
   const calendarHeight = isMobileView ? "h-[450px]" : "h-[500px]";
 
-  // Get secondary/tertiary calendar events for a day (superadmin only)
-  const getSecondaryTertiaryEventsForDay = (date: string) => {
-    const dayData = availability.find(d => d.date === date);
-    if (!dayData) {
-      // Debug: log when no data found for a date
-      if (date === "2026-01-25") {
-        console.log("[CALENDAR DEBUG] No availability data for", date, "- available dates:", availability.map(d => d.date).slice(0, 5), "...");
-      }
-      return { secondary: [], tertiary: [] };
-    }
-
-    const secondaryEvents: { hour: number; name: string }[] = [];
-    const tertiaryEvents: { hour: number; name: string }[] = [];
-
-    dayData.slots.forEach((slot) => {
-      if (slot.hasSecondaryCalendarConflict && slot.secondaryCalendarEventName) {
-        // Check if we already have this event (consecutive hours)
-        const existing = secondaryEvents.find(e => e.name === slot.secondaryCalendarEventName);
-        if (!existing) {
-          secondaryEvents.push({ hour: slot.hour, name: slot.secondaryCalendarEventName });
-        }
-      }
-      if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
-        const existing = tertiaryEvents.find(e => e.name === slot.tertiaryCalendarEventName);
-        if (!existing) {
-          tertiaryEvents.push({ hour: slot.hour, name: slot.tertiaryCalendarEventName });
-        }
-      }
-    });
-
-    // Debug: log secondary events found
-    if (date === "2026-01-25" && (secondaryEvents.length > 0 || tertiaryEvents.length > 0)) {
-      console.log("[CALENDAR DEBUG] Found secondary/tertiary events for", date, ":", { secondary: secondaryEvents, tertiary: tertiaryEvents });
-    }
-
-    return { secondary: secondaryEvents, tertiary: tertiaryEvents };
-  };
 
   // Render Month View
   const renderMonthView = () => {
@@ -382,11 +328,33 @@ const AdminCalendarModern = ({
           {days.map(day => {
             const dateStr = format(day, "yyyy-MM-dd");
             const events = getEventsForDay(dateStr);
-            const { secondary: secondaryEvents, tertiary: tertiaryEvents } = getSecondaryTertiaryEventsForDay(dateStr);
+
+            // Get secondary/tertiary events directly from availability data (like week view does)
+            const dayData = availability.find(d => d.date === dateStr);
+            const secondaryEvents: { hour: number; name: string }[] = [];
+            const tertiaryEvents: { hour: number; name: string }[] = [];
+
+            if (dayData && isSuperAdmin) {
+              dayData.slots.forEach((slot) => {
+                if (slot.hasSecondaryCalendarConflict && slot.secondaryCalendarEventName) {
+                  const existing = secondaryEvents.find(e => e.name === slot.secondaryCalendarEventName);
+                  if (!existing) {
+                    secondaryEvents.push({ hour: slot.hour, name: slot.secondaryCalendarEventName });
+                  }
+                }
+                if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
+                  const existing = tertiaryEvents.find(e => e.name === slot.tertiaryCalendarEventName);
+                  if (!existing) {
+                    tertiaryEvents.push({ hour: slot.hour, name: slot.tertiaryCalendarEventName });
+                  }
+                }
+              });
+            }
+
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isToday = isSameDay(day, new Date());
-            const hasSecondaryEvents = isSuperAdmin && secondaryEvents.length > 0;
-            const hasTertiaryEvents = isSuperAdmin && tertiaryEvents.length > 0;
+            const hasSecondaryEvents = secondaryEvents.length > 0;
+            const hasTertiaryEvents = tertiaryEvents.length > 0;
 
             return (
               <div
@@ -436,8 +404,8 @@ const AdminCalendarModern = ({
                       {event.startHour}h {event.title}
                     </div>
                   ))}
-                  {/* Secondary calendar events (superadmin only) */}
-                  {isSuperAdmin && secondaryEvents.slice(0, 1).map((event, idx) => (
+                  {/* Secondary calendar events (superadmin only - already filtered above) */}
+                  {secondaryEvents.slice(0, 1).map((event, idx) => (
                     <div
                       key={`sec-${idx}`}
                       className="text-[8px] px-0.5 py-0 rounded bg-purple-500/20 text-purple-400 truncate leading-tight"
@@ -446,8 +414,8 @@ const AdminCalendarModern = ({
                       {event.hour}h {event.name}
                     </div>
                   ))}
-                  {/* Tertiary calendar events (superadmin only) */}
-                  {isSuperAdmin && tertiaryEvents.slice(0, 1).map((event, idx) => (
+                  {/* Tertiary calendar events (superadmin only - already filtered above) */}
+                  {tertiaryEvents.slice(0, 1).map((event, idx) => (
                     <div
                       key={`ter-${idx}`}
                       className="text-[8px] px-0.5 py-0 rounded bg-blue-500/20 text-blue-400 truncate leading-tight"
@@ -457,9 +425,9 @@ const AdminCalendarModern = ({
                     </div>
                   ))}
                   {/* Show count of additional events */}
-                  {(events.length + (isSuperAdmin ? secondaryEvents.length + tertiaryEvents.length : 0)) > (isMobileView ? 1 : 2) && (
+                  {(events.length + secondaryEvents.length + tertiaryEvents.length) > (isMobileView ? 1 : 2) && (
                     <div className="text-[8px] text-muted-foreground px-0.5">
-                      +{events.length + (isSuperAdmin ? secondaryEvents.length + tertiaryEvents.length : 0) - (isMobileView ? 1 : 2)}
+                      +{events.length + secondaryEvents.length + tertiaryEvents.length - (isMobileView ? 1 : 2)}
                     </div>
                   )}
                 </div>
