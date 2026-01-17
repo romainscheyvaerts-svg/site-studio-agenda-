@@ -300,6 +300,33 @@ const AdminCalendarModern = ({
   // Calendar container height - compact to fit on screen
   const calendarHeight = isMobileView ? "h-[450px]" : "h-[500px]";
 
+  // Get secondary/tertiary calendar events for a day (superadmin only)
+  const getSecondaryTertiaryEventsForDay = (date: string) => {
+    const dayData = availability.find(d => d.date === date);
+    if (!dayData) return { secondary: [], tertiary: [] };
+
+    const secondaryEvents: { hour: number; name: string }[] = [];
+    const tertiaryEvents: { hour: number; name: string }[] = [];
+
+    dayData.slots.forEach((slot) => {
+      if (slot.hasSecondaryCalendarConflict && slot.secondaryCalendarEventName) {
+        // Check if we already have this event (consecutive hours)
+        const existing = secondaryEvents.find(e => e.name === slot.secondaryCalendarEventName);
+        if (!existing) {
+          secondaryEvents.push({ hour: slot.hour, name: slot.secondaryCalendarEventName });
+        }
+      }
+      if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
+        const existing = tertiaryEvents.find(e => e.name === slot.tertiaryCalendarEventName);
+        if (!existing) {
+          tertiaryEvents.push({ hour: slot.hour, name: slot.tertiaryCalendarEventName });
+        }
+      }
+    });
+
+    return { secondary: secondaryEvents, tertiary: tertiaryEvents };
+  };
+
   // Render Month View
   const renderMonthView = () => {
     const monthStart = startOfMonth(currentDate);
@@ -320,13 +347,16 @@ const AdminCalendarModern = ({
               {isMobileView ? day : ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"][i]}
             </div>
           ))}
-          
+
           {/* Calendar days */}
           {days.map(day => {
             const dateStr = format(day, "yyyy-MM-dd");
             const events = getEventsForDay(dateStr);
+            const { secondary: secondaryEvents, tertiary: tertiaryEvents } = getSecondaryTertiaryEventsForDay(dateStr);
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isToday = isSameDay(day, new Date());
+            const hasSecondaryEvents = isSuperAdmin && secondaryEvents.length > 0;
+            const hasTertiaryEvents = isSuperAdmin && tertiaryEvents.length > 0;
 
             return (
               <div
@@ -342,13 +372,27 @@ const AdminCalendarModern = ({
                   isMobileView ? "min-h-[50px]" : "min-h-[70px]"
                 )}
               >
-                <div className={cn(
-                  "text-xs font-medium mb-0.5",
-                  isToday ? "text-primary" : "text-foreground"
-                )}>
-                  {format(day, "d")}
+                <div className="flex items-center justify-between">
+                  <div className={cn(
+                    "text-xs font-medium mb-0.5",
+                    isToday ? "text-primary" : "text-foreground"
+                  )}>
+                    {format(day, "d")}
+                  </div>
+                  {/* Secondary/Tertiary calendar indicators */}
+                  {(hasSecondaryEvents || hasTertiaryEvents) && (
+                    <div className="flex gap-0.5">
+                      {hasSecondaryEvents && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title={secondaryEvents[0]?.name} />
+                      )}
+                      {hasTertiaryEvents && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" title={tertiaryEvents[0]?.name} />
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-0.5">
+                  {/* Main calendar events */}
                   {events.slice(0, isMobileView ? 1 : 2).map(event => (
                     <div
                       key={event.id}
@@ -362,9 +406,30 @@ const AdminCalendarModern = ({
                       {event.startHour}h {event.title}
                     </div>
                   ))}
-                  {events.length > (isMobileView ? 1 : 2) && (
+                  {/* Secondary calendar events (superadmin only) */}
+                  {isSuperAdmin && secondaryEvents.slice(0, 1).map((event, idx) => (
+                    <div
+                      key={`sec-${idx}`}
+                      className="text-[8px] px-0.5 py-0 rounded bg-purple-500/20 text-purple-400 truncate leading-tight"
+                      title={`${event.name} (${event.hour}h) - Agenda 2`}
+                    >
+                      {event.hour}h {event.name}
+                    </div>
+                  ))}
+                  {/* Tertiary calendar events (superadmin only) */}
+                  {isSuperAdmin && tertiaryEvents.slice(0, 1).map((event, idx) => (
+                    <div
+                      key={`ter-${idx}`}
+                      className="text-[8px] px-0.5 py-0 rounded bg-blue-500/20 text-blue-400 truncate leading-tight"
+                      title={`${event.name} (${event.hour}h) - Agenda 3`}
+                    >
+                      {event.hour}h {event.name}
+                    </div>
+                  ))}
+                  {/* Show count of additional events */}
+                  {(events.length + (isSuperAdmin ? secondaryEvents.length + tertiaryEvents.length : 0)) > (isMobileView ? 1 : 2) && (
                     <div className="text-[8px] text-muted-foreground px-0.5">
-                      +{events.length - (isMobileView ? 1 : 2)}
+                      +{events.length + (isSuperAdmin ? secondaryEvents.length + tertiaryEvents.length : 0) - (isMobileView ? 1 : 2)}
                     </div>
                   )}
                 </div>
@@ -580,16 +645,20 @@ const AdminCalendarModern = ({
             const isBooked = status === "unavailable" && slot?.eventName;
             const event = getEventAtHour(hour);
             const isStart = isEventStart(hour);
-            
+
+            // Secondary/Tertiary calendar conflicts (superadmin only)
+            const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
+            const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
+
             // Check if this slot is part of a selected range
-            const isInSelectedRange = selectedRange && 
-              selectedRange.date === dateStr && 
-              hour >= selectedRange.startHour && 
+            const isInSelectedRange = selectedRange &&
+              selectedRange.date === dateStr &&
+              hour >= selectedRange.startHour &&
               hour < selectedRange.endHour;
-            
+
             // Check if this is the selection start point
-            const isSelectionStart = selectionStart && 
-              selectionStart.date === dateStr && 
+            const isSelectionStart = selectionStart &&
+              selectionStart.date === dateStr &&
               selectionStart.hour === hour;
 
             const handleSlotClick = () => {
@@ -608,9 +677,9 @@ const AdminCalendarModern = ({
                   // Second click: set end and confirm
                   const duration = hour - selectionStart.hour + 1;
                   const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
-                  
+
                   setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
-                  
+
                   if (onSelectSlot) {
                     onSelectSlot(dateStr, timeStr, duration);
                     toast({
@@ -618,7 +687,7 @@ const AdminCalendarModern = ({
                       description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
                     });
                   }
-                  
+
                   setSelectionStart(null);
                 } else {
                   // Restart selection
@@ -633,13 +702,15 @@ const AdminCalendarModern = ({
                 key={hour}
                 onClick={handleSlotClick}
                 className={cn(
-                  "flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer transition-all",
+                  "flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer transition-all relative",
                   isMobileView ? "gap-1 px-1" : "gap-2 px-2",
                   status === "available" && !isInSelectedRange && "bg-green-500/10 hover:bg-green-500/20",
                   status === "on-request" && !isInSelectedRange && "bg-amber-500/10 hover:bg-amber-500/20",
                   isBooked && "bg-destructive/10 hover:bg-destructive/20",
                   isInSelectedRange && "bg-primary/40 ring-1 ring-primary",
-                  isSelectionStart && "ring-1 ring-primary"
+                  isSelectionStart && "ring-1 ring-primary",
+                  // Highlight secondary/tertiary calendar conflicts
+                  (hasSecondaryConflict || hasTertiaryConflict) && !isBooked && "ring-1 ring-purple-500/50"
                 )}
               >
                 <div className={cn(
@@ -697,6 +768,24 @@ const AdminCalendarModern = ({
                         </div>
                       )}
                     </div>
+                  ) : (hasSecondaryConflict || hasTertiaryConflict) ? (
+                    // Show secondary/tertiary calendar events
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {hasSecondaryConflict && (
+                          <div className="w-2 h-2 rounded-full bg-purple-500" />
+                        )}
+                        {hasTertiaryConflict && (
+                          <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        )}
+                      </div>
+                      <span className={cn(
+                        "text-purple-400 font-medium truncate",
+                        isMobileView ? "text-xs" : "text-sm"
+                      )}>
+                        {slot?.secondaryCalendarEventName || slot?.tertiaryCalendarEventName || "Événement externe"}
+                      </span>
+                    </div>
                   ) : (
                     <span className={cn(
                       status === "available" ? "text-green-500" : "text-amber-500",
@@ -706,6 +795,21 @@ const AdminCalendarModern = ({
                     </span>
                   )}
                 </div>
+                {/* Secondary/Tertiary calendar indicator badges */}
+                {(hasSecondaryConflict || hasTertiaryConflict) && !isBooked && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {hasSecondaryConflict && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
+                        Agenda 2
+                      </span>
+                    )}
+                    {hasTertiaryConflict && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                        Agenda 3
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
