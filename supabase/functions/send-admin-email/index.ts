@@ -103,6 +103,8 @@ serve(async (req) => {
     let driveFolderLink = null;
     if (includeDriveLink && clientEmail) {
       try {
+        logStep("Calling create-client-subfolder", { clientEmail, clientName, sessionDate });
+
         const { data: folderData, error: folderError } = await supabaseAdmin.functions.invoke(
           "create-client-subfolder",
           {
@@ -114,13 +116,22 @@ serve(async (req) => {
           }
         );
 
+        logStep("create-client-subfolder response", {
+          folderData: JSON.stringify(folderData),
+          folderError: folderError ? JSON.stringify(folderError) : null
+        });
+
         // create-client-subfolder returns subfolderLink (session-specific) and clientFolderLink (main client folder)
-        if (!folderError && (folderData?.subfolderLink || folderData?.clientFolderLink)) {
+        if (folderError) {
+          logStep("Drive folder error from function", { error: JSON.stringify(folderError) });
+        } else if (folderData?.subfolderLink || folderData?.clientFolderLink) {
           driveFolderLink = folderData.subfolderLink || folderData.clientFolderLink;
-          logStep("Drive folder created/retrieved", { link: driveFolderLink });
+          logStep("Drive folder link set", { link: driveFolderLink });
+        } else {
+          logStep("No drive folder link in response", { folderData: JSON.stringify(folderData) });
         }
       } catch (driveError) {
-        console.error("Drive folder error:", driveError);
+        logStep("Drive folder exception", { error: driveError instanceof Error ? driveError.message : String(driveError) });
         // Continue without Drive link
       }
     }
