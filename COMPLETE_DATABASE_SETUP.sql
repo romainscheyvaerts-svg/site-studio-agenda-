@@ -6,13 +6,41 @@
 -- =============================================================================
 
 -- =============================================================================
+-- 0. CLEANUP - DROP EXISTING OBJECTS TO AVOID CONFLICTS
+-- =============================================================================
+DROP POLICY IF EXISTS "Admins can view all roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Admins can insert roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Admins can update roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Admins can delete roles" ON public.user_roles;
+
+DROP FUNCTION IF EXISTS public.is_superadmin(uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.is_admin_email(text) CASCADE;
+DROP FUNCTION IF EXISTS public.has_role(uuid, public.app_role) CASCADE;
+DROP FUNCTION IF EXISTS public.update_updated_at_column() CASCADE;
+
+DROP TABLE IF EXISTS public.user_roles CASCADE;
+DROP TYPE IF EXISTS public.app_role CASCADE;
+
+-- =============================================================================
 -- 1. ENUMS
 -- =============================================================================
-
 CREATE TYPE public.app_role AS ENUM ('admin', 'user', 'superadmin');
 
 -- =============================================================================
--- 2. FUNCTIONS (créées avant les tables car utilisées dans les policies)
+-- 2. USER_ROLES TABLE (MUST BE CREATED BEFORE FUNCTIONS THAT REFERENCE IT)
+-- =============================================================================
+CREATE TABLE public.user_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    role app_role NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    UNIQUE (user_id, role)
+);
+
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================================
+-- 3. UTILITY FUNCTIONS (After user_roles table exists)
 -- =============================================================================
 
 -- Function to update timestamps automatically
@@ -79,22 +107,8 @@ AS $$
 $$;
 
 -- =============================================================================
--- 3. TABLES
+-- 4. RLS POLICIES FOR USER_ROLES (After functions exist)
 -- =============================================================================
-
--- -----------------------------------------------------------------------------
--- USER ROLES TABLE
--- -----------------------------------------------------------------------------
-CREATE TABLE public.user_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    role app_role NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    UNIQUE (user_id, role)
-);
-
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Admins can view all roles"
 ON public.user_roles FOR SELECT TO authenticated
 USING (public.has_role(auth.uid(), 'admin') OR user_id = auth.uid());
