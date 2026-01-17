@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.generate-title]
 verify_jwt = false
+
+[functions.regenerate-download]
+verify_jwt = true
