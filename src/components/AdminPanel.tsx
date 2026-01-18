@@ -16,6 +16,7 @@ import AdminServicesPricing from "./AdminServicesPricing";
 import AdminServiceFeatures from "./AdminServiceFeatures";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminChatbotConfig from "./AdminChatbotConfig";
+import AdminEmailConfig from "./AdminEmailConfig";
 import AdminActivitySecurity from "./AdminActivitySecurity";
 import AdminGallery from "./AdminGallery";
 import AdminPromoCodeManager from "./AdminPromoCodeManager";
@@ -203,6 +204,7 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               </div>
               <AdminPaymentConfig />
               <AdminChatbotConfig />
+              <AdminEmailConfig />
             </TabsContent>
 
             <div className="pt-4 mt-4 border-t border-border">

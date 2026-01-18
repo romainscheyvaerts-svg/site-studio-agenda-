@@ -188,6 +188,90 @@ export type Database = {
         }
         Relationships: []
       }
+      email_config: {
+        Row: {
+          id: string
+          primary_color: string
+          secondary_color: string
+          background_color: string
+          card_color: string
+          text_color: string
+          muted_text_color: string
+          border_color: string
+          success_color: string
+          logo_url: string | null
+          studio_name: string
+          footer_text: string | null
+          footer_address: string | null
+          footer_phone: string | null
+          footer_email: string | null
+          social_instagram: string | null
+          social_facebook: string | null
+          social_youtube: string | null
+          social_tiktok: string | null
+          show_calendar_button: boolean
+          show_social_links: boolean
+          show_logo: boolean
+          font_family: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          primary_color?: string
+          secondary_color?: string
+          background_color?: string
+          card_color?: string
+          text_color?: string
+          muted_text_color?: string
+          border_color?: string
+          success_color?: string
+          logo_url?: string | null
+          studio_name?: string
+          footer_text?: string | null
+          footer_address?: string | null
+          footer_phone?: string | null
+          footer_email?: string | null
+          social_instagram?: string | null
+          social_facebook?: string | null
+          social_youtube?: string | null
+          social_tiktok?: string | null
+          show_calendar_button?: boolean
+          show_social_links?: boolean
+          show_logo?: boolean
+          font_family?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          primary_color?: string
+          secondary_color?: string
+          background_color?: string
+          card_color?: string
+          text_color?: string
+          muted_text_color?: string
+          border_color?: string
+          success_color?: string
+          logo_url?: string | null
+          studio_name?: string
+          footer_text?: string | null
+          footer_address?: string | null
+          footer_phone?: string | null
+          footer_email?: string | null
+          social_instagram?: string | null
+          social_facebook?: string | null
+          social_youtube?: string | null
+          social_tiktok?: string | null
+          show_calendar_button?: boolean
+          show_social_links?: boolean
+          show_logo?: boolean
+          font_family?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_drive_folders: {
         Row: {
           client_email: string
