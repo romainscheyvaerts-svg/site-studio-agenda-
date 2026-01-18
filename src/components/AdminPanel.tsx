@@ -112,7 +112,7 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                 <span className={isMobileView ? "" : "hidden sm:inline"}>Tarifs</span>
               </TabsTrigger>
               <TabsTrigger value="content" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
-                <Music className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                <Image className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
                 <span className={isMobileView ? "" : "hidden sm:inline"}>Contenu</span>
               </TabsTrigger>
               <TabsTrigger value="users" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>

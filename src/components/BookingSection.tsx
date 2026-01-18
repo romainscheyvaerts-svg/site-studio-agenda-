@@ -66,6 +66,7 @@ const BookingSection = () => {
   const [cashOnlyLoading, setCashOnlyLoading] = useState(false);
   const [stripeEnabled, setStripeEnabled] = useState(true);
   const [paypalEnabled, setPaypalEnabled] = useState(true);
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -831,6 +832,7 @@ const BookingSection = () => {
               {showVIPCalendar && (
                 <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500 space-y-6">
                   <AdminCalendarModern
+                    key={`admin-calendar-${calendarRefreshKey}`}
                     onSelectSlot={(date, time, duration) => {
                       setFormData(prev => ({
                         ...prev,
@@ -869,6 +871,10 @@ const BookingSection = () => {
                           title: t("booking.price_calculated"),
                           description: `${data.finalPrice}€ (${data.discountPercent}% ${t("booking.discount_applied")})`,
                         });
+                      }}
+                      onEventCreated={() => {
+                        // Increment key to force calendar refresh
+                        setCalendarRefreshKey(prev => prev + 1);
                       }}
                     />
                   </div>

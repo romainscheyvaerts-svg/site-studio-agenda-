@@ -24,9 +24,9 @@ import {
   Mail,
   FolderOpen,
   CreditCard,
-  Palette,
   Send,
   Check,
+  CheckCircle,
 } from "lucide-react";
 import ModernCalendar from "./ModernCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -34,20 +34,6 @@ import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
-
-// Color options for calendar events (Google Calendar colors)
-const colorOptions = [
-  { id: "1", name: "Lavande", color: "#7986cb", bgClass: "bg-[#7986cb]" },
-  { id: "2", name: "Sauge", color: "#33b679", bgClass: "bg-[#33b679]" },
-  { id: "3", name: "Raisin", color: "#8e24aa", bgClass: "bg-[#8e24aa]" },
-  { id: "4", name: "Flamant", color: "#e67c73", bgClass: "bg-[#e67c73]" },
-  { id: "5", name: "Banane", color: "#f6bf26", bgClass: "bg-[#f6bf26]" },
-  { id: "7", name: "Paon", color: "#039be5", bgClass: "bg-[#039be5]" },
-  { id: "8", name: "Graphite", color: "#616161", bgClass: "bg-[#616161]" },
-  { id: "9", name: "Myrtille", color: "#3f51b5", bgClass: "bg-[#3f51b5]" },
-  { id: "10", name: "Basilic", color: "#0b8043", bgClass: "bg-[#0b8043]" },
-  { id: "11", name: "Tomate", color: "#d50000", bgClass: "bg-[#d50000]" },
-];
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
 
@@ -64,13 +50,15 @@ interface AdminPriceCalculatorProps {
     date?: string;
     time?: string;
   }) => void;
+  onEventCreated?: () => void; // Callback to refresh calendar after event creation
 }
 
-const AdminPriceCalculator = ({ 
+const AdminPriceCalculator = ({
   selectedDate: externalDate,
   selectedTime: externalTime,
   selectedDuration: externalDuration,
-  onPriceCalculated 
+  onPriceCalculated,
+  onEventCreated
 }: AdminPriceCalculatorProps) => {
   const { toast } = useToast();
   const { getPrice } = usePricing();
@@ -90,7 +78,6 @@ const AdminPriceCalculator = ({
   const [includeStripeLink, setIncludeStripeLink] = useState(false);
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
   const [sendConfirmationEmail, setSendConfirmationEmail] = useState(false);
-  const [selectedColorId, setSelectedColorId] = useState("7"); // Default: Paon (cyan)
 
   // Sync with external date/time/duration from calendar
   useEffect(() => {
@@ -392,31 +379,6 @@ const AdminPriceCalculator = ({
                 </div>
               </div>
 
-              {/* Color selection */}
-              <div className="pt-4 border-t border-border">
-                <Label className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                  <Palette className="w-4 h-4" />
-                  Couleur de l'événement
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color.id}
-                      type="button"
-                      onClick={() => setSelectedColorId(color.id)}
-                      className={cn(
-                        "w-7 h-7 rounded-full transition-all",
-                        color.bgClass,
-                        selectedColorId === color.id
-                          ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110"
-                          : "opacity-70 hover:opacity-100"
-                      )}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
-              </div>
-
               {selectedDate && selectedTime && (
                 <div className="pt-4 space-y-4">
                   {/* Email options toggle */}
@@ -508,7 +470,6 @@ const AdminPriceCalculator = ({
                             date: selectedDate,
                             time: selectedTime,
                             hours: isHourlyService ? hours : (isPodcast ? Math.ceil(podcastMinutes / 60) : 1),
-                            colorId: selectedColorId,
                           },
                         });
 
@@ -552,6 +513,9 @@ const AdminPriceCalculator = ({
                             description: `Session du ${selectedDate} à ${selectedTime} ajoutée à l'agenda.`,
                           });
                         }
+
+                        // Refresh the calendar to show the new event
+                        onEventCreated?.();
 
                         if (onPriceCalculated && selectedService) {
                           onPriceCalculated({
