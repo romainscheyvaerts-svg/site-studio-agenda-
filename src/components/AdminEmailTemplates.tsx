@@ -24,6 +24,8 @@ import {
   X,
   Clock,
   AlertTriangle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +66,33 @@ const templateMeta: Record<string, { icon: React.ElementType; color: string; cat
   instrumental_delivery: { icon: Music, color: "text-primary", category: "Client" },
 };
 
+// Sample data for preview
+const sampleData: Record<string, string> = {
+  client_name: "Jean Dupont",
+  client_email: "jean.dupont@email.com",
+  client_phone: "+32 456 789 123",
+  session_date: "15 janvier 2026",
+  start_time: "14h00",
+  end_time: "17h00",
+  service_type: "Session avec ingénieur",
+  amount_paid: "135",
+  remaining_amount: "67.50",
+  total_amount: "135",
+  drive_link: "https://drive.google.com/...",
+  message: "Je souhaite enregistrer un EP de 4 titres.",
+  invoice_number: "INV-2026-001",
+  instrumental_title: "Midnight Dreams",
+  bpm: "140",
+  key: "Am",
+  license_type: "Licence Exclusive",
+};
+
+// Replace template variables with sample data
+const replaceVariables = (text: string | null): string => {
+  if (!text) return "";
+  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => sampleData[key] || match);
+};
+
 const TemplateEditor = ({
   template,
   onSave,
@@ -75,6 +104,7 @@ const TemplateEditor = ({
 }) => {
   const [editedTemplate, setEditedTemplate] = useState<EmailTemplate>(template);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const hasChanges = JSON.stringify(editedTemplate) !== JSON.stringify(template);
 
@@ -83,6 +113,176 @@ const TemplateEditor = ({
 
   const updateField = (field: keyof EmailTemplate, value: string | boolean) => {
     setEditedTemplate({ ...editedTemplate, [field]: value });
+  };
+
+  // Render email preview
+  const renderPreview = () => {
+    const subject = replaceVariables(editedTemplate.subject_template);
+    const heading = replaceVariables(editedTemplate.heading_text);
+    const subheading = replaceVariables(editedTemplate.subheading_text);
+    const body = replaceVariables(editedTemplate.body_template);
+    const ctaText = editedTemplate.cta_button_text;
+
+    return (
+      <div className="mt-4 border border-border rounded-lg overflow-hidden">
+        {/* Email Subject Preview */}
+        <div className="bg-secondary/50 p-3 border-b border-border">
+          <p className="text-xs text-muted-foreground">Sujet:</p>
+          <p className="text-sm font-medium text-foreground">{subject}</p>
+        </div>
+
+        {/* Email Body Preview */}
+        <div style={{ backgroundColor: "#0a0a0a", padding: "24px" }}>
+          <div
+            style={{
+              maxWidth: "500px",
+              margin: "0 auto",
+              backgroundColor: "#1a1a1a",
+              borderRadius: "12px",
+              border: "1px solid #262626",
+              overflow: "hidden",
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(124,58,237,0.2))",
+                padding: "20px",
+                textAlign: "center" as const,
+                borderBottom: "1px solid #262626",
+              }}
+            >
+              {editedTemplate.show_logo && (
+                <img
+                  src="https://www.studiomakemusic.com/favicon.png"
+                  alt="Logo"
+                  style={{ width: "50px", height: "50px", margin: "0 auto 10px", borderRadius: "8px" }}
+                />
+              )}
+              <h1 style={{ color: "#ffffff", fontSize: "18px", fontWeight: "bold", margin: 0 }}>
+                Make Music Studio
+              </h1>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "20px" }}>
+              {heading && (
+                <h2 style={{ color: "#ffffff", fontSize: "18px", marginBottom: "8px", marginTop: 0 }}>
+                  {heading}
+                </h2>
+              )}
+              {subheading && (
+                <p style={{ color: "#a1a1aa", fontSize: "13px", marginBottom: "16px", marginTop: 0 }}>
+                  {subheading}
+                </p>
+              )}
+
+              {/* Body text */}
+              <div
+                style={{
+                  color: "#a1a1aa",
+                  fontSize: "13px",
+                  lineHeight: "1.6",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {body.split("\n").map((line, i) => (
+                  <p key={i} style={{ margin: "8px 0" }}>
+                    {line.includes("{{") ? (
+                      <span style={{ color: "#22d3ee" }}>{line}</span>
+                    ) : (
+                      line
+                    )}
+                  </p>
+                ))}
+              </div>
+
+              {/* Session Details */}
+              {editedTemplate.show_session_details && (
+                <div
+                  style={{
+                    backgroundColor: "#0a0a0a",
+                    borderRadius: "8px",
+                    padding: "12px",
+                    marginTop: "16px",
+                    border: "1px solid #262626",
+                  }}
+                >
+                  <p style={{ color: "#a1a1aa", fontSize: "11px", margin: "0 0 6px" }}>
+                    Détails de la session
+                  </p>
+                  <p style={{ color: "#ffffff", fontSize: "13px", margin: 0 }}>
+                    <strong>{sampleData.service_type}</strong> - 3 heures
+                  </p>
+                  {editedTemplate.show_price && (
+                    <p style={{ color: "#10b981", fontSize: "16px", fontWeight: "bold", margin: "6px 0 0" }}>
+                      {sampleData.amount_paid}€
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Drive Link */}
+              {editedTemplate.show_drive_link && (
+                <div
+                  style={{
+                    backgroundColor: "rgba(66, 133, 244, 0.1)",
+                    borderRadius: "8px",
+                    padding: "12px",
+                    marginTop: "12px",
+                    border: "1px solid rgba(66, 133, 244, 0.3)",
+                  }}
+                >
+                  <p style={{ color: "#4285F4", fontSize: "12px", margin: 0 }}>
+                    📁 Dossier Google Drive créé
+                  </p>
+                </div>
+              )}
+
+              {/* CTA Button */}
+              {ctaText && editedTemplate.show_calendar_button && (
+                <div style={{ marginTop: "20px", textAlign: "center" as const }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: "#22d3ee",
+                      color: "#0a0a0a",
+                      padding: "10px 20px",
+                      borderRadius: "8px",
+                      fontWeight: "bold",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {ctaText}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                backgroundColor: "#0a0a0a",
+                padding: "16px",
+                borderTop: "1px solid #262626",
+                textAlign: "center" as const,
+              }}
+            >
+              <p style={{ color: "#a1a1aa", fontSize: "11px", margin: 0 }}>
+                {editedTemplate.footer_text || "Make Music Studio - Studio d'enregistrement à Bruxelles"}
+              </p>
+              {editedTemplate.show_social_links && (
+                <div style={{ marginTop: "10px" }}>
+                  <span style={{ color: "#22d3ee", fontSize: "11px", margin: "0 8px" }}>Instagram</span>
+                  <span style={{ color: "#22d3ee", fontSize: "11px", margin: "0 8px" }}>Facebook</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -129,6 +329,31 @@ const TemplateEditor = ({
 
       {isExpanded && (
         <div className="p-4 border-t border-border space-y-4 bg-secondary/10">
+          {/* Preview Toggle */}
+          <div className="flex items-center justify-between">
+            <Label className="text-sm text-foreground">Aperçu de l'email</Label>
+            <Button
+              variant={showPreview ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowPreview(!showPreview)}
+            >
+              {showPreview ? (
+                <>
+                  <EyeOff className="w-4 h-4 mr-2" />
+                  Masquer l'aperçu
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Voir l'aperçu
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Preview */}
+          {showPreview && renderPreview()}
+
           {/* Subject */}
           <div>
             <Label className="text-sm text-muted-foreground">Sujet de l'email</Label>
