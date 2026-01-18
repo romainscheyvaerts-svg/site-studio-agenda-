@@ -362,7 +362,10 @@ const AdminEmailConfig = () => {
       >
         <div className="flex items-center gap-3">
           <Mail className="w-5 h-5 text-primary" />
-          <span className="font-display text-lg text-foreground">PERSONNALISATION DES EMAILS</span>
+          <span className="font-display text-lg text-foreground">DESIGN GLOBAL DES EMAILS</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+            Couleurs & Branding
+          </span>
         </div>
         {expanded ? (
           <ChevronUp className="w-5 h-5 text-muted-foreground" />
