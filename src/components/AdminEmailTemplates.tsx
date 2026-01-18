@@ -50,20 +50,152 @@ interface EmailTemplate {
   is_active: boolean;
 }
 
-// Icons and colors for each template type
-const templateMeta: Record<string, { icon: React.ElementType; color: string; category: string }> = {
-  booking_confirmed: { icon: Check, color: "text-green-500", category: "Client" },
-  booking_rejected: { icon: X, color: "text-red-500", category: "Client" },
-  booking_pending: { icon: Clock, color: "text-yellow-500", category: "Client" },
-  booking_immediate: { icon: Calendar, color: "text-green-500", category: "Client" },
-  admin_session_email: { icon: Mail, color: "text-blue-500", category: "Client" },
-  admin_notification: { icon: UserCog, color: "text-purple-500", category: "Admin" },
-  admin_action_required: { icon: AlertTriangle, color: "text-orange-500", category: "Admin" },
-  payment_confirmation: { icon: CreditCard, color: "text-green-500", category: "Client" },
-  quote_request: { icon: FileQuestion, color: "text-blue-500", category: "Admin" },
-  quote_confirmation: { icon: FileText, color: "text-blue-500", category: "Client" },
-  invoice: { icon: Receipt, color: "text-gray-500", category: "Client" },
-  instrumental_delivery: { icon: Music, color: "text-primary", category: "Client" },
+// Category definitions with display info
+interface CategoryInfo {
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+  color: string;
+  bgColor: string;
+}
+
+const CATEGORIES: CategoryInfo[] = [
+  {
+    key: "reservations_client",
+    label: "📅 RÉSERVATIONS - Emails Client",
+    description: "Emails envoyés automatiquement aux clients concernant leurs réservations",
+    icon: Calendar,
+    color: "text-cyan-500",
+    bgColor: "bg-cyan-500/20",
+  },
+  {
+    key: "notifications_admin",
+    label: "🔔 NOTIFICATIONS ADMIN",
+    description: "Emails reçus par l'admin quand un client fait une action (réservation, demande)",
+    icon: UserCog,
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/20",
+  },
+  {
+    key: "paiements",
+    label: "💳 PAIEMENTS & FACTURES",
+    description: "Emails liés aux transactions financières et factures",
+    icon: CreditCard,
+    color: "text-green-500",
+    bgColor: "bg-green-500/20",
+  },
+  {
+    key: "devis",
+    label: "📋 DEVIS",
+    description: "Emails liés aux demandes de devis",
+    icon: FileQuestion,
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/20",
+  },
+  {
+    key: "instrumentaux",
+    label: "🎵 INSTRUMENTAUX",
+    description: "Emails de livraison après achat d'instrumentaux",
+    icon: Music,
+    color: "text-primary",
+    bgColor: "bg-primary/20",
+  },
+  {
+    key: "communications_admin",
+    label: "✉️ COMMUNICATIONS ADMIN",
+    description: "Emails personnalisés envoyés manuellement par l'admin aux clients",
+    icon: Mail,
+    color: "text-orange-500",
+    bgColor: "bg-orange-500/20",
+  },
+];
+
+// Icons and colors for each template type with detailed descriptions
+const templateMeta: Record<string, { icon: React.ElementType; color: string; category: string; shortDesc: string }> = {
+  // Réservations Client
+  booking_confirmed: {
+    icon: Check,
+    color: "text-green-500",
+    category: "reservations_client",
+    shortDesc: "Envoyé quand l'admin CONFIRME une réservation"
+  },
+  booking_rejected: {
+    icon: X,
+    color: "text-red-500",
+    category: "reservations_client",
+    shortDesc: "Envoyé quand l'admin REFUSE une réservation (remboursement)"
+  },
+  booking_pending: {
+    icon: Clock,
+    color: "text-yellow-500",
+    category: "reservations_client",
+    shortDesc: "Envoyé quand réservation < 24h (attente confirmation)"
+  },
+  booking_immediate: {
+    icon: Calendar,
+    color: "text-cyan-500",
+    category: "reservations_client",
+    shortDesc: "Confirmation automatique (réservation > 24h)"
+  },
+
+  // Notifications Admin
+  admin_notification: {
+    icon: UserCog,
+    color: "text-purple-500",
+    category: "notifications_admin",
+    shortDesc: "Reçu par l'admin quand un client réserve"
+  },
+  admin_action_required: {
+    icon: AlertTriangle,
+    color: "text-orange-500",
+    category: "notifications_admin",
+    shortDesc: "Demande à l'admin de confirmer/refuser (< 24h)"
+  },
+  quote_request: {
+    icon: FileQuestion,
+    color: "text-purple-500",
+    category: "notifications_admin",
+    shortDesc: "Reçu par l'admin quand demande de devis"
+  },
+
+  // Paiements & Factures
+  payment_confirmation: {
+    icon: CreditCard,
+    color: "text-green-500",
+    category: "paiements",
+    shortDesc: "Confirmation de paiement reçu"
+  },
+  invoice: {
+    icon: Receipt,
+    color: "text-gray-400",
+    category: "paiements",
+    shortDesc: "Envoi de facture au client"
+  },
+
+  // Devis
+  quote_confirmation: {
+    icon: FileText,
+    color: "text-blue-500",
+    category: "devis",
+    shortDesc: "Confirmation envoyée au client après demande de devis"
+  },
+
+  // Instrumentaux
+  instrumental_delivery: {
+    icon: Music,
+    color: "text-primary",
+    category: "instrumentaux",
+    shortDesc: "Email avec lien de téléchargement de l'instrumental"
+  },
+
+  // Communications Admin
+  admin_session_email: {
+    icon: Mail,
+    color: "text-orange-500",
+    category: "communications_admin",
+    shortDesc: "Email personnalisé envoyé par l'admin à un client"
+  },
 };
 
 // Sample data for preview
@@ -108,8 +240,9 @@ const TemplateEditor = ({
 
   const hasChanges = JSON.stringify(editedTemplate) !== JSON.stringify(template);
 
-  const meta = templateMeta[template.template_key] || { icon: Mail, color: "text-muted-foreground", category: "Autre" };
+  const meta = templateMeta[template.template_key] || { icon: Mail, color: "text-muted-foreground", category: "autre", shortDesc: "" };
   const Icon = meta.icon;
+  const categoryInfo = CATEGORIES.find(c => c.key === meta.category);
 
   const updateField = (field: keyof EmailTemplate, value: string | boolean) => {
     setEditedTemplate({ ...editedTemplate, [field]: value });
@@ -296,21 +429,15 @@ const TemplateEditor = ({
             <Icon className={cn("w-4 h-4", meta.color)} />
           </div>
           <div className="text-left">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-foreground">{template.template_name}</span>
-              <span className={cn(
-                "text-xs px-2 py-0.5 rounded-full",
-                meta.category === "Admin" ? "bg-purple-500/20 text-purple-500" : "bg-primary/20 text-primary"
-              )}>
-                {meta.category}
-              </span>
               {hasChanges && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500">
                   Modifié
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">{template.template_description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{meta.shortDesc || template.template_description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -583,12 +710,11 @@ const AdminEmailTemplates = () => {
   };
 
   // Group templates by category
-  const clientTemplates = templates.filter(
-    (t) => templateMeta[t.template_key]?.category === "Client"
-  );
-  const adminTemplates = templates.filter(
-    (t) => templateMeta[t.template_key]?.category === "Admin"
-  );
+  const getTemplatesByCategory = (categoryKey: string) => {
+    return templates.filter(
+      (t) => templateMeta[t.template_key]?.category === categoryKey
+    );
+  };
 
   return (
     <div className="border border-border rounded-xl overflow-hidden">
@@ -618,45 +744,42 @@ const AdminEmailTemplates = () => {
             </div>
           ) : (
             <>
-              {/* Client Templates */}
-              {clientTemplates.length > 0 && (
-                <div>
-                  <h4 className="font-display text-sm text-foreground mb-3 flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary" />
-                    EMAILS CLIENTS ({clientTemplates.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {clientTemplates.map((template) => (
-                      <TemplateEditor
-                        key={template.id}
-                        template={template}
-                        onSave={handleSaveTemplate}
-                        saving={savingId === template.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Render templates grouped by category */}
+              {CATEGORIES.map((category) => {
+                const categoryTemplates = getTemplatesByCategory(category.key);
+                if (categoryTemplates.length === 0) return null;
 
-              {/* Admin Templates */}
-              {adminTemplates.length > 0 && (
-                <div>
-                  <h4 className="font-display text-sm text-foreground mb-3 flex items-center gap-2">
-                    <UserCog className="w-4 h-4 text-purple-500" />
-                    EMAILS ADMIN ({adminTemplates.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {adminTemplates.map((template) => (
-                      <TemplateEditor
-                        key={template.id}
-                        template={template}
-                        onSave={handleSaveTemplate}
-                        saving={savingId === template.id}
-                      />
-                    ))}
+                const CategoryIcon = category.icon;
+
+                return (
+                  <div key={category.key} className="space-y-3">
+                    {/* Category Header */}
+                    <div className={cn("p-3 rounded-lg", category.bgColor)}>
+                      <div className="flex items-center gap-2">
+                        <CategoryIcon className={cn("w-5 h-5", category.color)} />
+                        <h4 className="font-display text-sm text-foreground">
+                          {category.label} ({categoryTemplates.length})
+                        </h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-7">
+                        {category.description}
+                      </p>
+                    </div>
+
+                    {/* Templates in this category */}
+                    <div className="space-y-2 ml-2">
+                      {categoryTemplates.map((template) => (
+                        <TemplateEditor
+                          key={template.id}
+                          template={template}
+                          onSave={handleSaveTemplate}
+                          saving={savingId === template.id}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })}
 
               {templates.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">

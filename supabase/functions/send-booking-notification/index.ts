@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import {
+  renderEmailHtml,
+  generateFallbackEmailHtml,
+  TemplateVariables,
+} from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,8 +59,8 @@ const BookingNotificationSchema = z.object({
   isAdmin: z.boolean().default(false),
   driveFolderLink: z.string().optional(),
   isCashPayment: z.boolean().default(false),
-  validationToken: z.string().optional(), // For confirmation flow
-  bookingId: z.string().optional(), // For confirmation flow
+  validationToken: z.string().optional(),
+  bookingId: z.string().optional(),
 });
 
 const escapeHtml = (str: string) =>
@@ -79,7 +84,7 @@ const getSessionTypeLabel = (type: string): string => {
   return labels[type] || type;
 };
 
-// Generate Google Calendar link (client-side link, not the studio agenda)
+// Generate Google Calendar link
 const generateGoogleCalendarLink = (booking: any): string => {
   const startDateTime = new Date(`${booking.date}T${booking.time}:00`);
   const endDateTime = new Date(
@@ -99,6 +104,17 @@ const generateGoogleCalendarLink = (booking: any): string => {
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+};
+
+// Format date in French
+const formatDateFr = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("fr-BE", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 };
 
 const logStep = (step: string, details?: unknown) => {
@@ -193,7 +209,6 @@ async function createClientDriveFolder(
     let clientFolderLink: string;
 
     if (existingFolder) {
-      // Verify folder name matches email. If legacy folder exists (named by client name), migrate to email folder.
       let shouldMigrateToEmailFolder = false;
       try {
         const metaRes = await fetch(
@@ -274,7 +289,7 @@ async function createClientDriveFolder(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: clientEmail, // Use email as folder name to avoid duplicates (case sensitivity)
+          name: clientEmail,
           mimeType: "application/vnd.google-apps.folder",
           parents: [PARENT_FOLDER_ID],
         }),
@@ -355,14 +370,13 @@ async function addToStudioGoogleCalendar(
   calendarId: string,
   booking: any
 ): Promise<string | null> {
-  // Format time correctly - if already has seconds, don't add more
   const formatTime = (time: string) => {
     if (!time) return "00:00:00";
     if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
     if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
     return `${time}:00`;
   };
-  
+
   const startDateTime = `${booking.date}T${formatTime(booking.time)}`;
   const durationHours = booking.duration || 2;
   const endDate = new Date(`${booking.date}T${formatTime(booking.time)}`);
@@ -397,6 +411,214 @@ async function addToStudioGoogleCalendar(
   const createdEvent = await response.json();
   logStep("Event added to studio Google Calendar", { eventId: createdEvent.id });
   return createdEvent.id;
+}
+
+// ============ FALLBACK EMAIL GENERATORS ============
+// Used when templates are not available in database
+
+function generateFallbackAdminEmail(
+  booking: any,
+  sessionLabel: string,
+  requiresConfirmation: boolean,
+  confirmationButtonsHtml: string,
+  identitySection: string
+): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
+      <h2 style="color: #22d3ee; margin-bottom: 20px;">
+        ${requiresConfirmation ? "⚠️ Réservation à confirmer (-24h)" : "Nouvelle réservation"}
+      </h2>
+
+      ${confirmationButtonsHtml}
+
+      <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="color: #fafafa; margin-top: 0;">👤 Informations client</h3>
+        <p><strong>Nom :</strong> ${escapeHtml(booking.clientName)}</p>
+        <p><strong>Email :</strong> <a href="mailto:${escapeHtml(booking.clientEmail)}" style="color: #22d3ee;">${escapeHtml(booking.clientEmail)}</a></p>
+        <p><strong>Téléphone :</strong> ${booking.clientPhone ? `<a href="tel:${escapeHtml(booking.clientPhone)}" style="color: #22d3ee;">${escapeHtml(booking.clientPhone)}</a>` : "<span style='color: #a1a1aa;'>Non fourni</span>"}</p>
+      </div>
+
+      <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="color: #fafafa; margin-top: 0;">📅 Détails de la session</h3>
+        <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
+        <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
+        <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
+        ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
+      </div>
+
+      <div style="background: #22d3ee; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
+        <h3 style="margin: 0 0 10px 0;">💰 ${booking.isCashPayment ? "À payer au studio" : booking.isDeposit ? "Acompte payé" : "Montant total"}</h3>
+        <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
+      </div>
+
+      ${identitySection}
+
+      <p style="margin-top: 20px; color: #a1a1aa; font-size: 12px; text-align: center;">
+        Réservation reçue le ${new Date().toLocaleDateString("fr-BE", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </p>
+    </div>
+  `;
+}
+
+function generateFallbackClientEmailPending(
+  booking: any,
+  sessionLabel: string,
+  googleCalendarLink: string
+): string {
+  const isStudioSession = booking.sessionType === "with-engineer" || booking.sessionType === "without-engineer";
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
+        <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
+      </div>
+
+      <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h2 style="color: #92400e; margin: 0 0 10px 0;">⏳ En attente de confirmation</h2>
+        <p style="color: #78350f; margin: 0;">
+          Votre réservation étant à moins de 24h, elle doit être confirmée par notre équipe.<br>
+          Vous recevrez un email de confirmation ou d'annulation très prochainement.
+        </p>
+      </div>
+
+      <h3 style="color: #22d3ee; margin-bottom: 15px;">Bonjour ${escapeHtml(booking.clientName)},</h3>
+
+      <p style="color: #fafafa; margin-bottom: 20px;">
+        Merci pour votre demande de réservation. Voici les détails :
+      </p>
+
+      <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="color: #fafafa; margin-top: 0;">📅 Session demandée</h3>
+        <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
+        <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
+        <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
+        ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
+      </div>
+
+      <div style="background: #fbbf24; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+        <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">💰 Montant réservé</p>
+        <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
+        <p style="font-size: 12px; margin: 5px 0 0 0;">
+          En cas de refus, vous serez intégralement remboursé.
+        </p>
+      </div>
+
+      ${isStudioSession ? `
+      <div style="text-align: center; margin: 20px 0;">
+        <p style="color: #a1a1aa; margin-bottom: 10px; font-size: 14px;">
+          En attendant la confirmation, vous pouvez déjà préparer votre agenda :
+        </p>
+        <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
+          📅 Ajouter à mon calendrier
+        </a>
+      </div>
+      ` : ""}
+
+      <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
+        <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Une question ?</h4>
+        <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
+          Téléphone : <a href="tel:+32476094172" style="color: #22d3ee;">+32 476 09 41 72</a><br>
+          Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
+        </p>
+      </div>
+
+      <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
+        L'équipe Make Music
+      </p>
+    </div>
+  `;
+}
+
+function generateFallbackClientEmailConfirmed(
+  booking: any,
+  sessionLabel: string,
+  googleCalendarLink: string,
+  driveFolderLink: string | undefined
+): string {
+  const isStudioSession = booking.sessionType === "with-engineer" || booking.sessionType === "without-engineer";
+  const driveFolderSection = driveFolderLink ? `
+    <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
+      <h4 style="color: #fafafa; margin: 0 0 10px 0;">📁 Votre dossier Google Drive</h4>
+      <p style="color: #a1a1aa; margin: 0 0 10px 0; font-size: 14px;">
+        Déposez vos fichiers audio (instrus, références, voix, etc.) dans ce dossier partagé :
+      </p>
+      <a href="${escapeHtml(driveFolderLink)}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+        Ouvrir le dossier Drive
+      </a>
+    </div>
+  ` : "";
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
+        <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
+      </div>
+
+      <h2 style="color: #22d3ee; margin-bottom: 20px;">Merci pour votre réservation, ${escapeHtml(booking.clientName)} !</h2>
+
+      <p style="color: #fafafa; margin-bottom: 20px;">
+        Votre demande a bien été reçue. Voici les détails :
+      </p>
+
+      <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="color: #fafafa; margin-top: 0;">📅 Votre session</h3>
+        <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
+        <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
+        <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
+        ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
+      </div>
+
+      <div style="background: ${booking.isCashPayment ? "#fbbf24" : "#22d3ee"}; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+        <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">
+          ${booking.isCashPayment ? "💵 À payer au studio" : "💳 Paiement"}
+        </p>
+        <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
+        ${booking.isDeposit && !booking.isCashPayment ? '<p style="font-size: 12px; margin: 5px 0 0 0;">Acompte - Reste à payer au studio</p>' : ""}
+      </div>
+
+      ${driveFolderSection}
+
+      <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="color: #fafafa; margin-top: 0;">📍 Adresse du studio</h3>
+        <p style="color: #fafafa; margin: 0;">
+          <strong>Rue du Sceptre 22</strong><br>
+          1050 Ixelles, Bruxelles
+        </p>
+        <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" style="display: inline-block; margin-top: 10px; color: #22d3ee; text-decoration: underline;">
+          Voir sur Google Maps
+        </a>
+      </div>
+
+      ${isStudioSession ? `
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
+          📅 Ajouter à mon calendrier
+        </a>
+      </div>
+      ` : ""}
+
+      <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
+        <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Contact</h4>
+        <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
+          Téléphone : <a href="tel:+32476094172" style="color: #22d3ee;">+32 476 09 41 72</a><br>
+          Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
+        </p>
+      </div>
+
+      <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
+        À très bientôt au studio ! 🎵<br>
+        L'équipe Make Music
+      </p>
+    </div>
+  `;
 }
 
 serve(async (req) => {
@@ -434,22 +656,20 @@ serve(async (req) => {
     const googleCalendarLink = generateGoogleCalendarLink(booking);
     const isStudioSession = booking.sessionType === "with-engineer" || booking.sessionType === "without-engineer";
 
-    // Check if booking is less than 24 hours in advance (only for non-admin studio sessions)
+    // Check if booking is less than 24 hours in advance
     const sessionDateTime = new Date(`${booking.date}T${booking.time}:00`);
     const now = new Date();
     const hoursUntilSession = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     const isLessThan24Hours = hoursUntilSession < 24 && hoursUntilSession > 0;
     const requiresConfirmation = isLessThan24Hours && isStudioSession && !booking.isAdmin;
-    
-    logStep("Checking 24h rule", { 
-      hoursUntilSession: Math.round(hoursUntilSession * 10) / 10, 
-      isLessThan24Hours, 
+
+    logStep("Checking 24h rule", {
+      hoursUntilSession: Math.round(hoursUntilSession * 10) / 10,
+      isLessThan24Hours,
       requiresConfirmation,
       isAdmin: booking.isAdmin
     });
 
-    // Ensure we create Drive folder link for studio sessions (if not already provided)
-    // BUT only if not requiring confirmation (will be created on confirm)
     let driveFolderLink = booking.driveFolderLink;
 
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
@@ -476,7 +696,6 @@ serve(async (req) => {
         }
       }
 
-      // Add event to the studio agenda (best effort) - only if not requiring confirmation
       if (isStudioSession && serviceAccountKey && studioCalendarId) {
         try {
           const calendarToken = await getGoogleAccessToken(serviceAccountKey, "https://www.googleapis.com/auth/calendar");
@@ -487,6 +706,21 @@ serve(async (req) => {
       }
     }
 
+    // Prepare template variables
+    const templateVars: TemplateVariables = {
+      client_name: booking.clientName,
+      client_email: booking.clientEmail,
+      client_phone: booking.clientPhone || "Non fourni",
+      session_date: formatDateFr(booking.date),
+      start_time: booking.time,
+      service_type: sessionLabel,
+      amount_paid: String(booking.totalPrice),
+      total_amount: String(booking.totalPrice),
+      drive_link: driveFolderLink,
+      calendar_link: googleCalendarLink,
+    };
+
+    // Build identity section for admin email
     let identitySection = "";
     if (booking.identityDocUrl && !booking.isAdmin) {
       identitySection = `
@@ -499,34 +733,6 @@ serve(async (req) => {
       `;
     }
 
-    // Drive folder section for client
-    let driveFolderSection = "";
-    if (driveFolderLink) {
-      driveFolderSection = `
-        <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
-          <h4 style="color: #fafafa; margin: 0 0 10px 0;">📁 Votre dossier Google Drive</h4>
-          <p style="color: #a1a1aa; margin: 0 0 10px 0; font-size: 14px;">
-            Déposez vos fichiers audio (instrus, références, voix, etc.) dans ce dossier partagé :
-          </p>
-          <a href="${escapeHtml(driveFolderLink)}" style="display: inline-block; background: #22d3ee; color: #1a1a1a; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
-            Ouvrir le dossier Drive
-          </a>
-        </div>
-      `;
-    }
-
-    // ---------- 1. EMAIL TO ADMIN ----------
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
-    const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
-
-    const adminEmails = [
-      "prod.makemusic@gmail.com",
-      "kazamzamka@gmail.com",
-      "romain.scheyvaerts@gmail.com",
-    ];
-
-    logStep("Sending admin notification", { to: adminEmails, from: fromAddress, requiresConfirmation });
-
     // Build confirmation buttons for 24h bookings
     let confirmationButtonsHtml = "";
     if (requiresConfirmation && booking.validationToken) {
@@ -534,7 +740,10 @@ serve(async (req) => {
       const baseUrl = `${supabaseUrl}/functions/v1/handle-booking-action`;
       const confirmUrl = `${baseUrl}?token=${booking.validationToken}&action=confirm`;
       const rejectUrl = `${baseUrl}?token=${booking.validationToken}&action=reject`;
-      
+
+      templateVars.confirm_url = confirmUrl;
+      templateVars.reject_url = rejectUrl;
+
       confirmationButtonsHtml = `
         <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="color: #92400e; margin: 0 0 15px 0;">⚠️ RÉSERVATION À MOINS DE 24H - ACTION REQUISE</h3>
@@ -542,11 +751,11 @@ serve(async (req) => {
             Cette réservation est à moins de 24 heures. Veuillez confirmer ou refuser :
           </p>
           <div style="display: flex; gap: 15px; justify-content: center;">
-            <a href="${confirmUrl}" 
+            <a href="${confirmUrl}"
                style="display: inline-block; background: #10b981; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
               ✅ CONFIRMER
             </a>
-            <a href="${rejectUrl}" 
+            <a href="${rejectUrl}"
                style="display: inline-block; background: #ef4444; color: white; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
               ❌ REFUSER
             </a>
@@ -558,57 +767,48 @@ serve(async (req) => {
       `;
     }
 
-    const adminSubject = requiresConfirmation 
-      ? `⚠️ [URGENT -24H] Réservation à confirmer - ${escapeHtml(booking.clientName)}`
-      : `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`;
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
+    const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
+
+    const adminEmails = [
+      "prod.makemusic@gmail.com",
+      "kazamzamka@gmail.com",
+      "romain.scheyvaerts@gmail.com",
+    ];
+
+    // ============ 1. ADMIN EMAIL ============
+    logStep("Sending admin notification", { to: adminEmails, from: fromAddress, requiresConfirmation });
+
+    const adminTemplateKey = requiresConfirmation ? "admin_action_required" : "admin_notification";
+
+    // Try to use template from database
+    let adminEmailHtml: string;
+    let adminSubject: string;
+
+    const adminTemplateResult = await renderEmailHtml(adminTemplateKey, templateVars, {
+      confirmationButtons: confirmationButtonsHtml,
+      extraContent: identitySection,
+    });
+
+    if (adminTemplateResult) {
+      adminSubject = adminTemplateResult.subject;
+      adminEmailHtml = adminTemplateResult.html;
+      logStep("Using database template for admin email", { templateKey: adminTemplateKey });
+    } else {
+      // Fallback to hardcoded template
+      adminSubject = requiresConfirmation
+        ? `⚠️ [URGENT -24H] Réservation à confirmer - ${escapeHtml(booking.clientName)}`
+        : `🎵 Nouvelle réservation [${bookedBy}] - ${escapeHtml(booking.clientName)}`;
+      adminEmailHtml = generateFallbackAdminEmail(booking, sessionLabel, requiresConfirmation, confirmationButtonsHtml, identitySection);
+      logStep("Using fallback template for admin email");
+    }
 
     const { data: adminEmailData, error: adminEmailError } = await resend.emails.send({
       from: fromAddress,
       to: adminEmails,
       reply_to: "prod.makemusic@gmail.com",
       subject: adminSubject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
-          <h2 style="color: #22d3ee; margin-bottom: 20px;">
-            ${requiresConfirmation ? "⚠️ Réservation à confirmer (-24h)" : `Nouvelle réservation ${bookedBy === "ADMIN" ? "(Admin)" : ""}`}
-          </h2>
-
-          ${confirmationButtonsHtml}
-
-          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-            <h3 style="color: #fafafa; margin-top: 0;">👤 Informations client</h3>
-            <p><strong>Nom :</strong> ${escapeHtml(booking.clientName)}</p>
-            <p><strong>Email :</strong> <a href="mailto:${escapeHtml(booking.clientEmail)}" style="color: #22d3ee;">${escapeHtml(booking.clientEmail)}</a></p>
-            <p><strong>Téléphone :</strong> ${booking.clientPhone ? `<a href="tel:${escapeHtml(booking.clientPhone)}" style="color: #22d3ee;">${escapeHtml(booking.clientPhone)}</a>` : "<span style='color: #a1a1aa;'>Non fourni</span>"}</p>
-          </div>
-
-          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-            <h3 style="color: #fafafa; margin-top: 0;">📅 Détails de la session</h3>
-            <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
-            <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
-            <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
-            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
-          </div>
-
-          <div style="background: #22d3ee; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center;">
-            <h3 style="margin: 0 0 10px 0;">💰 ${booking.isCashPayment ? "À payer au studio" : booking.isDeposit ? "Acompte payé" : "Montant total"}</h3>
-            <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
-          </div>
-
-          ${identitySection}
-
-          <p style="margin-top: 20px; color: #a1a1aa; font-size: 12px; text-align: center;">
-            Réservation reçue le ${new Date().toLocaleDateString("fr-BE", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
-      `,
+      html: adminEmailHtml,
     });
 
     if (adminEmailError) {
@@ -617,144 +817,32 @@ serve(async (req) => {
       logStep("Admin email sent", { id: adminEmailData?.id });
     }
 
-    // ---------- 2. EMAIL TO CLIENT ----------
+    // ============ 2. CLIENT EMAIL ============
     logStep("Sending client email", { to: booking.clientEmail, requiresConfirmation });
 
-    // Different email content based on whether confirmation is required
+    const clientTemplateKey = requiresConfirmation ? "booking_pending" : "booking_immediate";
+
+    let clientEmailHtml: string;
     let clientSubject: string;
-    let clientHtmlContent: string;
 
-    if (requiresConfirmation) {
-      // Email for bookings requiring confirmation
-      clientSubject = "⏳ Réservation en attente de confirmation - Make Music Studio";
-      clientHtmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
-            <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
-          </div>
+    const clientTemplateResult = await renderEmailHtml(clientTemplateKey, templateVars, {
+      driveSection: driveFolderLink ? undefined : "",
+    });
 
-          <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h2 style="color: #92400e; margin: 0 0 10px 0;">⏳ En attente de confirmation</h2>
-            <p style="color: #78350f; margin: 0;">
-              Votre réservation étant à moins de 24h, elle doit être confirmée par notre équipe.<br>
-              Vous recevrez un email de confirmation ou d'annulation très prochainement.
-            </p>
-          </div>
-
-          <h3 style="color: #22d3ee; margin-bottom: 15px;">Bonjour ${escapeHtml(booking.clientName)},</h3>
-
-          <p style="color: #fafafa; margin-bottom: 20px;">
-            Merci pour votre demande de réservation. Voici les détails :
-          </p>
-
-          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-            <h3 style="color: #fafafa; margin-top: 0;">📅 Session demandée</h3>
-            <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
-            <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
-            <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
-            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
-          </div>
-
-          <div style="background: #fbbf24; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
-            <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">💰 Montant réservé</p>
-            <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
-            <p style="font-size: 12px; margin: 5px 0 0 0;">
-              En cas de refus, vous serez intégralement remboursé.
-            </p>
-          </div>
-
-          ${isStudioSession ? `
-          <div style="text-align: center; margin: 20px 0;">
-            <p style="color: #a1a1aa; margin-bottom: 10px; font-size: 14px;">
-              En attendant la confirmation, vous pouvez déjà préparer votre agenda :
-            </p>
-            <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
-              📅 Ajouter à mon calendrier
-            </a>
-          </div>
-          ` : ""}
-
-          <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
-            <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Une question ?</h4>
-            <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
-              Téléphone : <a href="tel:+32476094172" style="color: #22d3ee;">+32 476 09 41 72</a><br>
-              Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
-            </p>
-          </div>
-
-          <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
-            L'équipe Make Music
-          </p>
-        </div>
-      `;
+    if (clientTemplateResult) {
+      clientSubject = clientTemplateResult.subject;
+      clientEmailHtml = clientTemplateResult.html;
+      logStep("Using database template for client email", { templateKey: clientTemplateKey });
     } else {
-      // Standard confirmation email
-      clientSubject = "✅ Confirmation de réservation - Make Music Studio";
-      clientHtmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fafafa;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Make Music Studio</h1>
-            <p style="color: #a1a1aa; margin-top: 5px;">Bruxelles, Belgique</p>
-          </div>
-
-          <h2 style="color: #22d3ee; margin-bottom: 20px;">Merci pour votre réservation, ${escapeHtml(booking.clientName)} !</h2>
-
-          <p style="color: #fafafa; margin-bottom: 20px;">
-            Votre demande a bien été reçue. Voici les détails :
-          </p>
-
-          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-            <h3 style="color: #fafafa; margin-top: 0;">📅 Votre session</h3>
-            <p><strong>Type :</strong> ${escapeHtml(sessionLabel)}</p>
-            <p><strong>Date :</strong> ${escapeHtml(booking.date)}</p>
-            <p><strong>Heure :</strong> ${escapeHtml(booking.time)}</p>
-            ${booking.duration ? `<p><strong>Durée :</strong> ${booking.duration} heure(s)</p>` : ""}
-          </div>
-
-          <div style="background: ${booking.isCashPayment ? "#fbbf24" : "#22d3ee"}; color: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
-            <p style="font-size: 16px; margin: 0 0 5px 0; font-weight: bold;">
-              ${booking.isCashPayment ? "💵 À payer au studio" : "💳 Paiement"}
-            </p>
-            <p style="font-size: 28px; font-weight: bold; margin: 0;">${booking.totalPrice}€</p>
-            ${booking.isDeposit && !booking.isCashPayment ? '<p style="font-size: 12px; margin: 5px 0 0 0;">Acompte - Reste à payer au studio</p>' : ""}
-          </div>
-
-          ${driveFolderSection}
-
-          <div style="background: #262626; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-            <h3 style="color: #fafafa; margin-top: 0;">📍 Adresse du studio</h3>
-            <p style="color: #fafafa; margin: 0;">
-              <strong>Rue du Sceptre 22</strong><br>
-              1050 Ixelles, Bruxelles
-            </p>
-            <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" style="display: inline-block; margin-top: 10px; color: #22d3ee; text-decoration: underline;">
-              Voir sur Google Maps
-            </a>
-          </div>
-
-          ${isStudioSession ? `
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);">
-              📅 Ajouter à mon calendrier
-            </a>
-          </div>
-          ` : ""}
-
-          <div style="background: #262626; padding: 15px; border-radius: 8px; margin-top: 15px;">
-            <h4 style="color: #fafafa; margin: 0 0 10px 0;">📞 Contact</h4>
-            <p style="color: #a1a1aa; margin: 0; font-size: 14px;">
-              Téléphone : <a href="tel:+32476094172" style="color: #22d3ee;">+32 476 09 41 72</a><br>
-              Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
-            </p>
-          </div>
-
-          <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
-            À très bientôt au studio ! 🎵<br>
-            L'équipe Make Music
-          </p>
-        </div>
-      `;
+      // Fallback to hardcoded template
+      if (requiresConfirmation) {
+        clientSubject = "⏳ Réservation en attente de confirmation - Make Music Studio";
+        clientEmailHtml = generateFallbackClientEmailPending(booking, sessionLabel, googleCalendarLink);
+      } else {
+        clientSubject = "✅ Confirmation de réservation - Make Music Studio";
+        clientEmailHtml = generateFallbackClientEmailConfirmed(booking, sessionLabel, googleCalendarLink, driveFolderLink);
+      }
+      logStep("Using fallback template for client email");
     }
 
     const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
@@ -762,7 +850,7 @@ serve(async (req) => {
       to: [booking.clientEmail],
       reply_to: "prod.makemusic@gmail.com",
       subject: clientSubject,
-      html: clientHtmlContent,
+      html: clientEmailHtml,
     });
 
     if (clientEmailError) {

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { renderEmailHtml, TemplateVariables } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,15 +21,15 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { 
-      instrumentalId, 
-      licenseId, 
-      paymentId, 
-      paymentMethod, 
-      amountPaid, 
-      buyerEmail, 
+    const {
+      instrumentalId,
+      licenseId,
+      paymentId,
+      paymentMethod,
+      amountPaid,
+      buyerEmail,
       buyerName,
-      userId 
+      userId
     } = await req.json();
 
     logStep("Request data", { instrumentalId, licenseId, buyerEmail });
@@ -90,10 +91,10 @@ serve(async (req) => {
 
     // Generate Google Drive download link
     const driveDownloadUrl = `https://drive.google.com/uc?export=download&id=${instrumental.drive_file_id}`;
-    
+
     // Also generate a view link for the download page
     const downloadPageUrl = `${req.headers.get("origin")}/download/${downloadToken}`;
-    
+
     logStep("Download URLs generated", { driveDownloadUrl, downloadPageUrl });
 
     // Send delivery email via Resend
@@ -109,7 +110,59 @@ serve(async (req) => {
       year: 'numeric'
     });
 
-    const emailHtml = `
+    // Prepare template variables
+    const templateVars: TemplateVariables = {
+      client_name: buyerName || 'Artiste',
+      client_email: buyerEmail,
+      instrumental_title: instrumental.title,
+      bpm: instrumental.bpm ? String(instrumental.bpm) : undefined,
+      key: instrumental.key,
+      license_type: license.name,
+      download_link: downloadPageUrl,
+      amount_paid: String(amountPaid),
+    };
+
+    // Try to use template from database
+    const templateResult = await renderEmailHtml("instrumental_delivery", templateVars, {
+      extraContent: `
+        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 25px; margin: 16px 0;">
+          <h2 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 20px;">📀 ${instrumental.title}</h2>
+          <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
+            <strong style="color: #e0e0e0;">Licence :</strong> ${license.name}
+          </p>
+          ${instrumental.bpm ? `<p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;"><strong style="color: #e0e0e0;">BPM :</strong> ${instrumental.bpm}</p>` : ''}
+          ${instrumental.key ? `<p style="color: #a0a0a0; margin: 0; font-size: 14px;"><strong style="color: #e0e0e0;">Tonalité :</strong> ${instrumental.key}</p>` : ''}
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="${downloadPageUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 18px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4);">
+            🎧 Télécharger : ${instrumental.title}
+          </a>
+        </div>
+
+        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 20px; margin: 20px 0 0 0;">
+          <h3 style="color: #ffc107; margin: 0 0 15px 0; font-size: 16px;">💡 Aide au téléchargement</h3>
+          <ul style="color: #a0a0a0; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+            <li>Si le téléchargement ne démarre pas immédiatement, patientez quelques secondes.</li>
+            <li>En cas de souci, répondez à cet email.</li>
+            <li style="color: #ff6b6b;"><strong>Ce lien expire le ${expirationDate}</strong></li>
+          </ul>
+        </div>
+      `,
+    });
+
+    let emailSubject: string;
+    let emailHtml: string;
+
+    if (templateResult) {
+      emailSubject = templateResult.subject;
+      emailHtml = templateResult.html;
+      logStep("Using database template for instrumental_delivery");
+    } else {
+      // Fallback to hardcoded template
+      logStep("Using fallback template for instrumental_delivery");
+      emailSubject = `🎵 Votre Instrumental "${instrumental.title}" est prêt !`;
+      emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -118,23 +171,23 @@ serve(async (req) => {
 </head>
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0a0a0a; margin: 0; padding: 40px 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
-    
+
     <!-- Header -->
     <div style="background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); padding: 30px; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">🎵 Make Music</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">Votre instrumental est prêt !</p>
     </div>
-    
+
     <!-- Content -->
     <div style="padding: 40px 30px;">
       <p style="color: #e0e0e0; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
         Bonjour ${buyerName || 'Artiste'},
       </p>
-      
+
       <p style="color: #e0e0e0; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
         Merci pour votre achat ! Votre instrumental est maintenant disponible au téléchargement.
       </p>
-      
+
       <!-- Instrumental Info Box -->
       <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 25px; margin: 0 0 30px 0;">
         <h2 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 20px;">📀 ${instrumental.title}</h2>
@@ -144,14 +197,14 @@ serve(async (req) => {
         ${instrumental.bpm ? `<p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;"><strong style="color: #e0e0e0;">BPM :</strong> ${instrumental.bpm}</p>` : ''}
         ${instrumental.key ? `<p style="color: #a0a0a0; margin: 0; font-size: 14px;"><strong style="color: #e0e0e0;">Tonalité :</strong> ${instrumental.key}</p>` : ''}
       </div>
-      
+
       <!-- Download Button -->
       <div style="text-align: center; margin: 30px 0;">
         <a href="${downloadPageUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 18px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4);">
           🎧 Télécharger : ${instrumental.title}
         </a>
       </div>
-      
+
       <!-- Help Section -->
       <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 20px; margin: 30px 0 0 0;">
         <h3 style="color: #ffc107; margin: 0 0 15px 0; font-size: 16px;">💡 Aide au téléchargement</h3>
@@ -162,7 +215,7 @@ serve(async (req) => {
         </ul>
       </div>
     </div>
-    
+
     <!-- Footer -->
     <div style="background: rgba(0,0,0,0.3); padding: 25px 30px; text-align: center;">
       <p style="color: #666; margin: 0; font-size: 12px;">
@@ -175,12 +228,13 @@ serve(async (req) => {
   </div>
 </body>
 </html>
-    `;
+      `;
+    }
 
     const { error: emailError } = await resend.emails.send({
       from: "Make Music Studio <noreply@studiomakemusic.com>",
       to: [buyerEmail],
-      subject: `🎵 Votre Instrumental "${instrumental.title}" est prêt !`,
+      subject: emailSubject,
       html: emailHtml
     });
 
@@ -192,8 +246,8 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         downloadToken,
         downloadPageUrl,
         message: "Instrumental delivery initiated"
