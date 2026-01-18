@@ -272,6 +272,75 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          id: string
+          template_key: string
+          template_name: string
+          template_description: string | null
+          subject_template: string
+          heading_text: string | null
+          subheading_text: string | null
+          body_template: string | null
+          cta_button_text: string | null
+          cta_button_url_template: string | null
+          footer_text: string | null
+          show_logo: boolean
+          show_session_details: boolean
+          show_price: boolean
+          show_calendar_button: boolean
+          show_drive_link: boolean
+          show_social_links: boolean
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          template_key: string
+          template_name: string
+          template_description?: string | null
+          subject_template: string
+          heading_text?: string | null
+          subheading_text?: string | null
+          body_template?: string | null
+          cta_button_text?: string | null
+          cta_button_url_template?: string | null
+          footer_text?: string | null
+          show_logo?: boolean
+          show_session_details?: boolean
+          show_price?: boolean
+          show_calendar_button?: boolean
+          show_drive_link?: boolean
+          show_social_links?: boolean
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          template_key?: string
+          template_name?: string
+          template_description?: string | null
+          subject_template?: string
+          heading_text?: string | null
+          subheading_text?: string | null
+          body_template?: string | null
+          cta_button_text?: string | null
+          cta_button_url_template?: string | null
+          footer_text?: string | null
+          show_logo?: boolean
+          show_session_details?: boolean
+          show_price?: boolean
+          show_calendar_button?: boolean
+          show_drive_link?: boolean
+          show_social_links?: boolean
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_drive_folders: {
         Row: {
           client_email: string
