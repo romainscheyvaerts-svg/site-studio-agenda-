@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { renderEmailHtml, TemplateVariables } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -409,87 +410,114 @@ async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLi
     day: 'numeric'
   });
 
-  // Build Drive section if link is available
-  const driveSectionHtml = driveLink ? `
-      <div style="background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); border-radius: 8px; padding: 20px; margin-bottom: 20px; color: white;">
-        <h4 style="margin: 0 0 12px 0; font-size: 16px;">📁 Votre dossier de session</h4>
-        <p style="margin: 0 0 16px 0; opacity: 0.9; font-size: 14px;">
-          Cliquez ci-dessous pour accéder à votre dossier Google Drive.<br>
-          Vous pouvez y déposer vos fichiers (instrumentales, références, etc.) avant la session.
-        </p>
-        <a href="${driveLink}" 
-           target="_blank" 
-           style="display: inline-block; background-color: white; color: #4285F4; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-          📂 Ouvrir mon dossier Drive
-        </a>
-      </div>
-  ` : '';
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #16213e; padding: 30px; border-radius: 12px; color: #ffffff; text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0; color: #ffffff; font-size: 28px; line-height: 1.2;">Make Music Studio</h1>
-        <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 14px; line-height: 1.4;">Votre session est confirmée !</p>
-      </div>
-      
-      <div style="background-color: #ECFDF5; border: 1px solid #10B981; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
-        <h2 style="color: #059669; margin: 0 0 8px 0;">✓ Réservation confirmée</h2>
-        <p style="color: #047857; margin: 0;">Votre session au studio est validée</p>
-      </div>
-      
-      <div style="background-color: #F8FAFC; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="margin: 0 0 16px 0; color: #1E293B;">Détails de votre session</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px 0; color: #64748B;">Type de session</td>
-            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.session_type}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #64748B;">Date</td>
-            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${sessionDate}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #64748B;">Horaire</td>
-            <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.start_time} - ${booking.end_time}</td>
-          </tr>
-        </table>
-      </div>
+  // Prepare template variables
+  const templateVars: TemplateVariables = {
+    client_name: booking.client_name,
+    client_email: booking.client_email,
+    session_date: sessionDate,
+    start_time: booking.start_time,
+    end_time: booking.end_time,
+    service_type: booking.session_type,
+    amount_paid: String(booking.amount_paid),
+    drive_link: driveLink,
+  };
 
-      ${driveSectionHtml}
-      
-      <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-        <h4 style="color: #92400E; margin: 0 0 8px 0;">📍 Adresse du studio</h4>
-        <p style="color: #78350F; margin: 0;">
-          Make Music Studio<br>
-          Bruxelles<br>
-          (L'adresse exacte vous sera communiquée par email séparé)
+  // Try to use template from database
+  const templateResult = await renderEmailHtml("booking_confirmed", templateVars);
+
+  let subject: string;
+  let html: string;
+
+  if (templateResult) {
+    subject = templateResult.subject;
+    html = templateResult.html;
+    logStep("Using database template for booking_confirmed");
+  } else {
+    // Fallback to hardcoded template
+    logStep("Using fallback template for booking_confirmed");
+    subject = `✓ Session confirmée - ${sessionDate}`;
+
+    const driveSectionHtml = driveLink ? `
+        <div style="background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); border-radius: 8px; padding: 20px; margin-bottom: 20px; color: white;">
+          <h4 style="margin: 0 0 12px 0; font-size: 16px;">📁 Votre dossier de session</h4>
+          <p style="margin: 0 0 16px 0; opacity: 0.9; font-size: 14px;">
+            Cliquez ci-dessous pour accéder à votre dossier Google Drive.<br>
+            Vous pouvez y déposer vos fichiers (instrumentales, références, etc.) avant la session.
+          </p>
+          <a href="${driveLink}"
+             target="_blank"
+             style="display: inline-block; background-color: white; color: #4285F4; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            📂 Ouvrir mon dossier Drive
+          </a>
+        </div>
+    ` : '';
+
+    html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #16213e; padding: 30px; border-radius: 12px; color: #ffffff; text-align: center; margin-bottom: 20px;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 28px; line-height: 1.2;">Make Music Studio</h1>
+          <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 14px; line-height: 1.4;">Votre session est confirmée !</p>
+        </div>
+
+        <div style="background-color: #ECFDF5; border: 1px solid #10B981; border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: center;">
+          <h2 style="color: #059669; margin: 0 0 8px 0;">✓ Réservation confirmée</h2>
+          <p style="color: #047857; margin: 0;">Votre session au studio est validée</p>
+        </div>
+
+        <div style="background-color: #F8FAFC; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 16px 0; color: #1E293B;">Détails de votre session</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #64748B;">Type de session</td>
+              <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.session_type}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748B;">Date</td>
+              <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${sessionDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748B;">Horaire</td>
+              <td style="padding: 8px 0; color: #1E293B; text-align: right; font-weight: 500;">${booking.start_time} - ${booking.end_time}</td>
+            </tr>
+          </table>
+        </div>
+
+        ${driveSectionHtml}
+
+        <div style="background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <h4 style="color: #92400E; margin: 0 0 8px 0;">📍 Adresse du studio</h4>
+          <p style="color: #78350F; margin: 0;">
+            Make Music Studio<br>
+            Bruxelles<br>
+            (L'adresse exacte vous sera communiquée par email séparé)
+          </p>
+        </div>
+
+        <p style="color: #475569; line-height: 1.6;">
+          À très bientôt au studio !<br><br>
+          L'équipe Make Music
         </p>
-      </div>
-      
-      <p style="color: #475569; line-height: 1.6;">
-        À très bientôt au studio !<br><br>
-        L'équipe Make Music
-      </p>
-      
-      <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
-        Make Music Studio - Bruxelles
-      </p>
-    </body>
-    </html>
-  `;
-  
+
+        <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
+          Make Music Studio - Bruxelles
+        </p>
+      </body>
+      </html>
+    `;
+  }
+
   await resend.emails.send({
     from: 'Make Music Studio <noreply@studiomakemusic.com>',
     to: [booking.client_email],
-    subject: `✓ Session confirmée - ${sessionDate}`,
+    subject,
     html
   });
-  
+
   logStep("Final confirmation sent to client", { email: booking.client_email, hasDriveLink: !!driveLink });
 }
 
@@ -501,49 +529,76 @@ async function sendClientRejectionEmail(resend: Resend, booking: any): Promise<v
     month: 'long',
     day: 'numeric'
   });
-  
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0;">Make Music Studio</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.8;">Information importante</p>
-      </div>
-      
-      <div style="background-color: #FEF2F2; border: 1px solid #EF4444; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: #DC2626; margin: 0 0 8px 0;">Session non disponible</h2>
-        <p style="color: #7F1D1D; margin: 0;">
-          Malheureusement, le créneau que vous avez réservé n'est plus disponible.
+
+  // Prepare template variables
+  const templateVars: TemplateVariables = {
+    client_name: booking.client_name,
+    client_email: booking.client_email,
+    session_date: sessionDate,
+    start_time: booking.start_time,
+    end_time: booking.end_time,
+    service_type: booking.session_type,
+    amount_paid: String(booking.amount_paid),
+  };
+
+  // Try to use template from database
+  const templateResult = await renderEmailHtml("booking_rejected", templateVars);
+
+  let subject: string;
+  let html: string;
+
+  if (templateResult) {
+    subject = templateResult.subject;
+    html = templateResult.html;
+    logStep("Using database template for booking_rejected");
+  } else {
+    // Fallback to hardcoded template
+    logStep("Using fallback template for booking_rejected");
+    subject = `Information sur votre réservation - ${sessionDate}`;
+
+    html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin-bottom: 20px;">
+          <h1 style="margin: 0;">Make Music Studio</h1>
+          <p style="margin: 10px 0 0 0; opacity: 0.8;">Information importante</p>
+        </div>
+
+        <div style="background-color: #FEF2F2; border: 1px solid #EF4444; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+          <h2 style="color: #DC2626; margin: 0 0 8px 0;">Session non disponible</h2>
+          <p style="color: #7F1D1D; margin: 0;">
+            Malheureusement, le créneau que vous avez réservé n'est plus disponible.
+          </p>
+        </div>
+
+        <p style="color: #475569; line-height: 1.6;">
+          Bonjour ${booking.client_name},<br><br>
+          Nous sommes désolés de vous informer que votre session du <strong>${sessionDate}</strong>
+          (${booking.start_time} - ${booking.end_time}) ne peut pas être confirmée.<br><br>
+          <strong>Un remboursement complet de ${booking.amount_paid}€ sera effectué sous 5-10 jours ouvrables.</strong><br><br>
+          Nous vous invitons à effectuer une nouvelle réservation sur notre site.<br><br>
+          Nous nous excusons pour ce désagrément.
         </p>
-      </div>
-      
-      <p style="color: #475569; line-height: 1.6;">
-        Bonjour ${booking.client_name},<br><br>
-        Nous sommes désolés de vous informer que votre session du <strong>${sessionDate}</strong> 
-        (${booking.start_time} - ${booking.end_time}) ne peut pas être confirmée.<br><br>
-        <strong>Un remboursement complet de ${booking.amount_paid}€ sera effectué sous 5-10 jours ouvrables.</strong><br><br>
-        Nous vous invitons à effectuer une nouvelle réservation sur notre site.<br><br>
-        Nous nous excusons pour ce désagrément.
-      </p>
-      
-      <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
-        Make Music Studio - Bruxelles
-      </p>
-    </body>
-    </html>
-  `;
-  
+
+        <p style="color: #64748B; font-size: 12px; text-align: center; margin-top: 30px;">
+          Make Music Studio - Bruxelles
+        </p>
+      </body>
+      </html>
+    `;
+  }
+
   await resend.emails.send({
     from: 'Make Music Studio <noreply@studiomakemusic.com>',
     to: [booking.client_email],
-    subject: `Information sur votre réservation - ${sessionDate}`,
+    subject,
     html
   });
-  
+
   logStep("Rejection email sent to client", { email: booking.client_email });
 }
 

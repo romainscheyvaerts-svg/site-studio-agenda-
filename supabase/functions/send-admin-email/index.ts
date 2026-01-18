@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { renderEmailHtml, TemplateVariables } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -172,7 +173,70 @@ serve(async (req) => {
       googleCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${calendarDetails}&location=${calendarLocation}`;
     }
 
-    const emailHtml = `
+    // Prepare template variables
+    const templateVars: TemplateVariables = {
+      client_name: clientName || 'Artiste',
+      client_email: clientEmail,
+      service_type: serviceLabels[sessionType] || sessionType,
+      session_date: sessionDate,
+      start_time: sessionTime,
+      amount_paid: String(totalPrice),
+      total_amount: String(totalPrice),
+      drive_link: driveFolderLink,
+      calendar_link: googleCalendarLink,
+      message: customMessage,
+    };
+
+    // Build extra content for template
+    const extraContentHtml = `
+      ${customMessage ? `
+      <div style="background: rgba(124, 58, 237, 0.2); border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 0 0 20px 0;">
+        <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0; white-space: pre-wrap;">
+          ${customMessage}
+        </p>
+      </div>
+      ` : ''}
+
+      <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 25px; margin: 0 0 20px 0;">
+        <h2 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 20px;">📅 Détails de la session</h2>
+        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
+          <strong style="color: #ffffff;">Service :</strong> ${serviceLabels[sessionType] || sessionType}
+        </p>
+        ${sessionDate ? `<p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;"><strong style="color: #ffffff;">Date :</strong> ${sessionDate}</p>` : ''}
+        ${sessionTime ? `<p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;"><strong style="color: #ffffff;">Heure :</strong> ${sessionTime}</p>` : ''}
+        ${hours ? `<p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;"><strong style="color: #ffffff;">Durée :</strong> ${hours}h</p>` : ''}
+        <p style="color: #ffd700; margin: 15px 0 0 0; font-size: 18px; font-weight: bold;">💰 Montant : ${totalPrice}€</p>
+      </div>
+
+      <div style="text-align: center; margin: 20px 0;">
+        ${stripePaymentUrl ? `<a href="${stripePaymentUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4); margin-bottom: 15px;">💳 Payer maintenant (${totalPrice}€)</a><br><br>` : ''}
+        ${googleCalendarLink ? `<a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 2px solid #00d4ff; color: #00d4ff; text-decoration: none; padding: 14px 30px; border-radius: 50px; font-size: 14px; font-weight: bold;">📆 Ajouter à mon agenda</a>` : ''}
+      </div>
+
+      ${driveFolderLink ? `
+      <div style="background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #ffc107; margin: 0 0 15px 0; font-size: 16px;">📁 Votre dossier Google Drive</h3>
+        <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 14px;">Vous pouvez déposer vos fichiers audio ici :</p>
+        <a href="${driveFolderLink}" style="display: inline-block; background: #ffc107; color: #1a1a1a; text-decoration: none; padding: 12px 25px; border-radius: 8px; font-size: 14px; font-weight: bold;">📂 Ouvrir le dossier Drive</a>
+      </div>
+      ` : ''}
+    `;
+
+    // Try to use template from database
+    const templateResult = await renderEmailHtml("admin_session_email", templateVars, { extraContent: extraContentHtml });
+
+    let emailSubject: string;
+    let emailHtml: string;
+
+    if (templateResult) {
+      emailSubject = templateResult.subject;
+      emailHtml = templateResult.html;
+      logStep("Using database template for admin_session_email");
+    } else {
+      // Fallback to hardcoded template
+      logStep("Using fallback template for admin_session_email");
+      emailSubject = `🎵 Make Music - ${serviceLabels[sessionType] || sessionType}`;
+      emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -182,85 +246,18 @@ serve(async (req) => {
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0a0a0a; margin: 0; padding: 40px 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
 
-    <!-- Header -->
     <div style="background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); padding: 30px; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">🎵 Make Music</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">Détails de votre session</p>
     </div>
 
-    <!-- Content -->
     <div style="padding: 40px 30px;">
       <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
         Bonjour ${clientName || 'Artiste'},
       </p>
 
-      ${customMessage ? `
-      <!-- Message personnalisé -->
-      <div style="background: rgba(124, 58, 237, 0.2); border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 0 0 30px 0;">
-        <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0; white-space: pre-wrap;">
-          ${customMessage}
-        </p>
-      </div>
-      ` : ''}
+      ${extraContentHtml}
 
-      <!-- Session Info Box -->
-      <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 25px; margin: 0 0 30px 0;">
-        <h2 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 20px;">📅 Détails de la session</h2>
-        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #ffffff;">Service :</strong> ${serviceLabels[sessionType] || sessionType}
-        </p>
-        ${sessionDate ? `
-        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #ffffff;">Date :</strong> ${sessionDate}
-        </p>
-        ` : ''}
-        ${sessionTime ? `
-        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #ffffff;">Heure :</strong> ${sessionTime}
-        </p>
-        ` : ''}
-        ${hours ? `
-        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          <strong style="color: #ffffff;">Durée :</strong> ${hours}h
-        </p>
-        ` : ''}
-        <p style="color: #ffd700; margin: 15px 0 0 0; font-size: 18px; font-weight: bold;">
-          💰 Montant : ${totalPrice}€
-        </p>
-      </div>
-
-      <!-- Action Buttons -->
-      <div style="text-align: center; margin: 30px 0;">
-        ${stripePaymentUrl ? `
-        <!-- Payment Button -->
-        <a href="${stripePaymentUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4); margin-bottom: 15px;">
-          💳 Payer maintenant (${totalPrice}€)
-        </a>
-        <br><br>
-        ` : ''}
-
-        ${googleCalendarLink ? `
-        <!-- Add to Calendar Button -->
-        <a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 2px solid #00d4ff; color: #00d4ff; text-decoration: none; padding: 14px 30px; border-radius: 50px; font-size: 14px; font-weight: bold;">
-          📆 Ajouter à mon agenda
-        </a>
-        ` : ''}
-      </div>
-
-      ${driveFolderLink ? `
-      <!-- Drive Link -->
-      <div style="background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; padding: 20px; margin: 30px 0;">
-        <h3 style="color: #ffc107; margin: 0 0 15px 0; font-size: 16px;">📁 Votre dossier Google Drive</h3>
-        <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 14px;">
-          Vous pouvez déposer vos fichiers audio ici :
-        </p>
-        <a href="${driveFolderLink}" style="display: inline-block; background: #ffc107; color: #1a1a1a; text-decoration: none; padding: 12px 25px; border-radius: 8px; font-size: 14px; font-weight: bold;">
-          📂 Ouvrir le dossier Drive
-        </a>
-      </div>
-      ` : ''}
-
-      <!-- Studio Address -->
       <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 20px; margin: 30px 0 0 0;">
         <h3 style="color: #ffffff; margin: 0 0 10px 0; font-size: 16px;">📍 Adresse du studio</h3>
         <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
@@ -272,7 +269,6 @@ serve(async (req) => {
       </div>
     </div>
 
-    <!-- Footer -->
     <div style="background: rgba(0,0,0,0.3); padding: 25px 30px; text-align: center;">
       <p style="color: #888; margin: 0; font-size: 12px;">
         Make Music Studio • Rue du Sceptre 22, 1050 Ixelles, Bruxelles
@@ -284,7 +280,8 @@ serve(async (req) => {
   </div>
 </body>
 </html>
-    `;
+      `;
+    }
 
     // Send to client
     const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
@@ -297,7 +294,7 @@ serve(async (req) => {
       from: fromAddress,
       to: [clientEmail],
       reply_to: adminEmailAddress,
-      subject: `🎵 Make Music - ${serviceLabels[sessionType] || sessionType}`,
+      subject: emailSubject,
       html: emailHtml,
     });
 
@@ -312,7 +309,7 @@ serve(async (req) => {
     const { data: adminCopyData, error: adminCopyError } = await resend.emails.send({
       from: fromAddress,
       to: [adminEmailAddress],
-      subject: `[COPIE] Email envoyé à ${clientEmail} - ${serviceLabels[sessionType] || sessionType}`,
+      subject: `[COPIE] Email envoyé à ${clientEmail} - ${emailSubject}`,
       html: emailHtml,
     });
 
