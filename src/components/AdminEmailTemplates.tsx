@@ -13,7 +13,6 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  User,
   UserCog,
   CreditCard,
   Calendar,
@@ -25,7 +24,6 @@ import {
   Clock,
   AlertTriangle,
   Eye,
-  EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -236,7 +234,6 @@ const TemplateEditor = ({
 }) => {
   const [editedTemplate, setEditedTemplate] = useState<EmailTemplate>(template);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   const hasChanges = JSON.stringify(editedTemplate) !== JSON.stringify(template);
 
@@ -455,174 +452,174 @@ const TemplateEditor = ({
       </button>
 
       {isExpanded && (
-        <div className="p-4 border-t border-border space-y-4 bg-secondary/10">
-          {/* Preview Toggle */}
-          <div className="flex items-center justify-between">
-            <Label className="text-sm text-foreground">Aperçu de l'email</Label>
-            <Button
-              variant={showPreview ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              {showPreview ? (
-                <>
-                  <EyeOff className="w-4 h-4 mr-2" />
-                  Masquer l'aperçu
-                </>
-              ) : (
-                <>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Voir l'aperçu
-                </>
+        <div className="p-4 border-t border-border bg-secondary/10">
+          {/* Layout: Editor on left, Preview on right */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* LEFT: Editor Fields */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="w-4 h-4 text-primary" />
+                <Label className="text-sm font-medium text-foreground">Édition du template</Label>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <Label className="text-sm text-muted-foreground">Sujet de l'email</Label>
+                <Input
+                  value={editedTemplate.subject_template}
+                  onChange={(e) => updateField("subject_template", e.target.value)}
+                  className="mt-1"
+                  placeholder="Sujet..."
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Variables: {"{{client_name}}, {{session_date}}, {{service_type}}, {{amount_paid}}"}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Heading */}
+                <div>
+                  <Label className="text-sm text-muted-foreground">Titre principal</Label>
+                  <Input
+                    value={editedTemplate.heading_text || ""}
+                    onChange={(e) => updateField("heading_text", e.target.value)}
+                    className="mt-1"
+                    placeholder="Titre de l'email..."
+                  />
+                </div>
+
+                {/* Subheading */}
+                <div>
+                  <Label className="text-sm text-muted-foreground">Sous-titre</Label>
+                  <Input
+                    value={editedTemplate.subheading_text || ""}
+                    onChange={(e) => updateField("subheading_text", e.target.value)}
+                    className="mt-1"
+                    placeholder="Sous-titre..."
+                  />
+                </div>
+              </div>
+
+              {/* Body */}
+              <div>
+                <Label className="text-sm text-muted-foreground">Corps du message</Label>
+                <Textarea
+                  value={editedTemplate.body_template || ""}
+                  onChange={(e) => updateField("body_template", e.target.value)}
+                  className="mt-1 min-h-[180px] font-mono text-sm"
+                  placeholder="Contenu de l'email..."
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Variables: {"{{client_name}}, {{session_date}}, {{start_time}}, {{end_time}}, {{service_type}}, {{amount_paid}}, {{drive_link}}, {{message}}"}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* CTA Button Text */}
+                <div>
+                  <Label className="text-sm text-muted-foreground">Texte du bouton</Label>
+                  <Input
+                    value={editedTemplate.cta_button_text || ""}
+                    onChange={(e) => updateField("cta_button_text", e.target.value)}
+                    className="mt-1"
+                    placeholder="Ex: Ajouter à mon agenda"
+                  />
+                </div>
+
+                {/* Footer */}
+                <div>
+                  <Label className="text-sm text-muted-foreground">Footer personnalisé</Label>
+                  <Input
+                    value={editedTemplate.footer_text || ""}
+                    onChange={(e) => updateField("footer_text", e.target.value)}
+                    className="mt-1"
+                    placeholder="Texte du footer..."
+                  />
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="pt-4 border-t border-border">
+                <Label className="text-sm text-foreground mb-3 block">Options d'affichage</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
+                    <span className="text-xs">Logo</span>
+                    <Switch
+                      checked={editedTemplate.show_logo}
+                      onCheckedChange={(v) => updateField("show_logo", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
+                    <span className="text-xs">Détails session</span>
+                    <Switch
+                      checked={editedTemplate.show_session_details}
+                      onCheckedChange={(v) => updateField("show_session_details", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
+                    <span className="text-xs">Prix</span>
+                    <Switch
+                      checked={editedTemplate.show_price}
+                      onCheckedChange={(v) => updateField("show_price", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
+                    <span className="text-xs">Bouton agenda</span>
+                    <Switch
+                      checked={editedTemplate.show_calendar_button}
+                      onCheckedChange={(v) => updateField("show_calendar_button", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
+                    <span className="text-xs">Lien Drive</span>
+                    <Switch
+                      checked={editedTemplate.show_drive_link}
+                      onCheckedChange={(v) => updateField("show_drive_link", v)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
+                    <span className="text-xs">Réseaux sociaux</span>
+                    <Switch
+                      checked={editedTemplate.show_social_links}
+                      onCheckedChange={(v) => updateField("show_social_links", v)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              {hasChanges && (
+                <div className="flex justify-end pt-4">
+                  <Button
+                    onClick={() => onSave(editedTemplate)}
+                    disabled={saving}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Sauvegarder ce template
+                  </Button>
+                </div>
               )}
-            </Button>
-          </div>
-
-          {/* Preview */}
-          {showPreview && renderPreview()}
-
-          {/* Subject */}
-          <div>
-            <Label className="text-sm text-muted-foreground">Sujet de l'email</Label>
-            <Input
-              value={editedTemplate.subject_template}
-              onChange={(e) => updateField("subject_template", e.target.value)}
-              className="mt-1"
-              placeholder="Sujet..."
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Variables: {"{{client_name}}, {{session_date}}, {{service_type}}, {{amount_paid}}"}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Heading */}
-            <div>
-              <Label className="text-sm text-muted-foreground">Titre principal</Label>
-              <Input
-                value={editedTemplate.heading_text || ""}
-                onChange={(e) => updateField("heading_text", e.target.value)}
-                className="mt-1"
-                placeholder="Titre de l'email..."
-              />
             </div>
 
-            {/* Subheading */}
-            <div>
-              <Label className="text-sm text-muted-foreground">Sous-titre</Label>
-              <Input
-                value={editedTemplate.subheading_text || ""}
-                onChange={(e) => updateField("subheading_text", e.target.value)}
-                className="mt-1"
-                placeholder="Sous-titre..."
-              />
-            </div>
-          </div>
-
-          {/* Body */}
-          <div>
-            <Label className="text-sm text-muted-foreground">Corps du message</Label>
-            <Textarea
-              value={editedTemplate.body_template || ""}
-              onChange={(e) => updateField("body_template", e.target.value)}
-              className="mt-1 min-h-[150px] font-mono text-sm"
-              placeholder="Contenu de l'email..."
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Variables disponibles: {"{{client_name}}, {{client_email}}, {{session_date}}, {{start_time}}, {{end_time}}, {{service_type}}, {{amount_paid}}, {{remaining_amount}}, {{drive_link}}, {{message}}"}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* CTA Button Text */}
-            <div>
-              <Label className="text-sm text-muted-foreground">Texte du bouton</Label>
-              <Input
-                value={editedTemplate.cta_button_text || ""}
-                onChange={(e) => updateField("cta_button_text", e.target.value)}
-                className="mt-1"
-                placeholder="Ex: Ajouter à mon agenda"
-              />
-            </div>
-
-            {/* Footer */}
-            <div>
-              <Label className="text-sm text-muted-foreground">Footer personnalisé (optionnel)</Label>
-              <Input
-                value={editedTemplate.footer_text || ""}
-                onChange={(e) => updateField("footer_text", e.target.value)}
-                className="mt-1"
-                placeholder="Texte du footer..."
-              />
-            </div>
-          </div>
-
-          {/* Options */}
-          <div className="pt-4 border-t border-border">
-            <Label className="text-sm text-foreground mb-3 block">Options d'affichage</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
-                <span className="text-sm">Logo</span>
-                <Switch
-                  checked={editedTemplate.show_logo}
-                  onCheckedChange={(v) => updateField("show_logo", v)}
-                />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
-                <span className="text-sm">Détails session</span>
-                <Switch
-                  checked={editedTemplate.show_session_details}
-                  onCheckedChange={(v) => updateField("show_session_details", v)}
-                />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
-                <span className="text-sm">Prix</span>
-                <Switch
-                  checked={editedTemplate.show_price}
-                  onCheckedChange={(v) => updateField("show_price", v)}
-                />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
-                <span className="text-sm">Bouton agenda</span>
-                <Switch
-                  checked={editedTemplate.show_calendar_button}
-                  onCheckedChange={(v) => updateField("show_calendar_button", v)}
-                />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
-                <span className="text-sm">Lien Drive</span>
-                <Switch
-                  checked={editedTemplate.show_drive_link}
-                  onCheckedChange={(v) => updateField("show_drive_link", v)}
-                />
-              </div>
-              <div className="flex items-center justify-between p-2 rounded bg-secondary/50">
-                <span className="text-sm">Réseaux sociaux</span>
-                <Switch
-                  checked={editedTemplate.show_social_links}
-                  onCheckedChange={(v) => updateField("show_social_links", v)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          {hasChanges && (
-            <div className="flex justify-end pt-4">
-              <Button
-                onClick={() => onSave(editedTemplate)}
-                disabled={saving}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
+            {/* RIGHT: Live Preview - Always visible */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-4">
+                <Eye className="w-4 h-4 text-green-500" />
+                <Label className="text-sm font-medium text-foreground">Aperçu en direct</Label>
+                {hasChanges && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 animate-pulse">
+                    Non sauvegardé
+                  </span>
                 )}
-                Sauvegarder ce template
-              </Button>
+              </div>
+              {renderPreview()}
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
