@@ -402,7 +402,7 @@ async function deleteFromGoogleCalendar(
 }
 
 // Send confirmation email to client with Drive folder link
-async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLink?: string): Promise<void> {
+async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLink?: string, clientRootDriveLink?: string): Promise<void> {
   const sessionDate = new Date(booking.session_date).toLocaleDateString('fr-FR', {
     weekday: 'long',
     year: 'numeric',
@@ -420,6 +420,7 @@ async function sendClientFinalConfirmation(resend: Resend, booking: any, driveLi
     service_type: booking.session_type,
     amount_paid: String(booking.amount_paid),
     drive_link: driveLink,
+    client_root_drive_link: clientRootDriveLink,
   };
 
   // Try to use template from database
@@ -752,6 +753,7 @@ serve(async (req) => {
       
       let googleEventId = null;
       let driveLink: string | undefined = undefined;
+      let clientRootDriveLink: string | undefined = undefined;
 
       if (serviceAccountKey) {
         // Get access tokens for Calendar and Drive
@@ -767,13 +769,14 @@ serve(async (req) => {
         const driveFolderResult = await createClientDriveFolder(supabaseClient, driveAccessToken, booking);
         if (driveFolderResult) {
           driveLink = driveFolderResult.subfolderLink;
-          logStep("Drive folder created", { 
+          clientRootDriveLink = driveFolderResult.clientFolderLink;
+          logStep("Drive folder created", {
             clientFolder: driveFolderResult.clientFolderLink,
-            sessionFolder: driveFolderResult.subfolderLink 
+            sessionFolder: driveFolderResult.subfolderLink
           });
         }
       }
-      
+
       // Update booking status
       const { error: updateError } = await supabaseClient
         .from('bookings')
@@ -789,8 +792,8 @@ serve(async (req) => {
       }
       
       // Send confirmation to client with Drive link
-      await sendClientFinalConfirmation(resend, booking, driveLink);
-      
+      await sendClientFinalConfirmation(resend, booking, driveLink, clientRootDriveLink);
+
       // Send notification to admin
       await sendAdminNotification(resend, booking, 'confirmed', driveLink);
       

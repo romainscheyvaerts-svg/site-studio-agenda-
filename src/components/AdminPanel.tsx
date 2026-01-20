@@ -1,15 +1,24 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Settings, 
-  X, 
-  Crown, 
-  DollarSign, 
-  Music, 
-  Users, 
+import {
+  Settings,
+  X,
+  Crown,
+  DollarSign,
+  Music,
+  Users,
   MessageSquare,
-  Image
+  Image,
+  Tag,
+  ListChecks,
+  Shield,
+  Mail,
+  FileText,
+  CreditCard,
+  Bot,
+  Palette,
+  UserCog
 } from "lucide-react";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
@@ -24,6 +33,7 @@ import AdminPromoCodeManager from "./AdminPromoCodeManager";
 import AdminRoleManager from "./AdminRoleManager";
 import AdminDawConfig from "./AdminDawConfig";
 import AdminPaymentConfig from "./AdminPaymentConfig";
+import AdminCollapsibleSection from "./AdminCollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
@@ -131,82 +141,108 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
           <div className={cn("flex-1 overflow-y-auto", isMobileView ? "p-3" : "p-4")}>
             {/* Super Admin Tab */}
             {isSuperAdmin && (
-              <TabsContent value="super-admin" className="mt-0 space-y-4">
-                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg p-4 mb-4">
+              <TabsContent value="super-admin" className="mt-0 space-y-3">
+                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg p-4 mb-2">
                   <div className="flex items-center gap-2 mb-2">
                     <Crown className="w-5 h-5 text-amber-400" />
                     <h3 className="font-semibold text-amber-200">Zone Super Admin</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Gérez les rôles, tarifs des services, le catalogue d'instrumentales et le DAW.
+                    Cliquez sur une section pour la déplier.
                   </p>
                 </div>
-                <AdminDawConfig />
-                <AdminRoleManager />
-                <AdminServicesPricing />
-                <AdminInstrumentals />
+                <AdminCollapsibleSection title="Configuration DAW" icon={Palette}>
+                  <AdminDawConfig />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Gestion des Rôles" icon={UserCog}>
+                  <AdminRoleManager />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Tarifs des Services" icon={DollarSign}>
+                  <AdminServicesPricing />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Catalogue Instrumentales" icon={Music}>
+                  <AdminInstrumentals />
+                </AdminCollapsibleSection>
               </TabsContent>
             )}
 
             {/* Pricing Tab */}
-            <TabsContent value="pricing" className="mt-0 space-y-4">
-              <div className="bg-muted/30 rounded-lg p-4 mb-4">
+            <TabsContent value="pricing" className="mt-0 space-y-3">
+              <div className="bg-muted/30 rounded-lg p-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="w-5 h-5 text-primary" />
                   <h3 className="font-semibold">Promotions & Fonctionnalités</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Gérez les codes promo et les fonctionnalités des services.
+                  Cliquez sur une section pour la déplier.
                 </p>
               </div>
-              <AdminPromoCodeManager />
-              <AdminServiceFeatures />
+              <AdminCollapsibleSection title="Codes Promo" icon={Tag}>
+                <AdminPromoCodeManager />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Caractéristiques des Services" icon={ListChecks}>
+                <AdminServiceFeatures />
+              </AdminCollapsibleSection>
             </TabsContent>
 
             {/* Content Tab */}
-            <TabsContent value="content" className="mt-0 space-y-4">
-              <div className="bg-muted/30 rounded-lg p-4 mb-4">
+            <TabsContent value="content" className="mt-0 space-y-3">
+              <div className="bg-muted/30 rounded-lg p-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Image className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Galerie Photos</h3>
+                  <h3 className="font-semibold">Contenu du Site</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Gérez la galerie photos du studio.
+                  Cliquez sur une section pour la déplier.
                 </p>
               </div>
-              <AdminGallery />
+              <AdminCollapsibleSection title="Galerie Photos" icon={Image}>
+                <AdminGallery />
+              </AdminCollapsibleSection>
             </TabsContent>
 
             {/* Users Tab */}
-            <TabsContent value="users" className="mt-0 space-y-4">
-              <div className="bg-muted/30 rounded-lg p-4 mb-4">
+            <TabsContent value="users" className="mt-0 space-y-3">
+              <div className="bg-muted/30 rounded-lg p-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-5 h-5 text-primary" />
                   <h3 className="font-semibold">Utilisateurs & Sécurité</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Gérez les utilisateurs inscrits et la sécurité.
+                  Cliquez sur une section pour la déplier.
                 </p>
               </div>
-              <AdminUserManagement />
-              <AdminActivitySecurity />
+              <AdminCollapsibleSection title="Gestion des Utilisateurs" icon={Users}>
+                <AdminUserManagement />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Activité & Sécurité" icon={Shield}>
+                <AdminActivitySecurity />
+              </AdminCollapsibleSection>
             </TabsContent>
 
             {/* Config Tab */}
-            <TabsContent value="config" className="mt-0 space-y-4">
-              <div className="bg-muted/30 rounded-lg p-4 mb-4">
+            <TabsContent value="config" className="mt-0 space-y-3">
+              <div className="bg-muted/30 rounded-lg p-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <MessageSquare className="w-5 h-5 text-primary" />
                   <h3 className="font-semibold">Configuration</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Configurez les paiements, le chatbot et autres paramètres.
+                  Cliquez sur une section pour la déplier.
                 </p>
               </div>
-              <AdminPaymentConfig />
-              <AdminChatbotConfig />
-              <AdminEmailConfig />
-              <AdminEmailTemplates />
+              <AdminCollapsibleSection title="Configuration Paiements" icon={CreditCard}>
+                <AdminPaymentConfig />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Configuration Chatbot" icon={Bot}>
+                <AdminChatbotConfig />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Configuration Emails" icon={Mail}>
+                <AdminEmailConfig />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Templates Emails" icon={FileText}>
+                <AdminEmailTemplates />
+              </AdminCollapsibleSection>
             </TabsContent>
 
             <div className="pt-4 mt-4 border-t border-border">

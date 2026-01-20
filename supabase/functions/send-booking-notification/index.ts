@@ -671,6 +671,7 @@ serve(async (req) => {
     });
 
     let driveFolderLink = booking.driveFolderLink;
+    let clientRootDriveLink: string | undefined;
 
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
@@ -690,6 +691,9 @@ serve(async (req) => {
 
           if (driveResult?.subfolderLink) {
             driveFolderLink = driveResult.subfolderLink;
+          }
+          if (driveResult?.clientFolderLink) {
+            clientRootDriveLink = driveResult.clientFolderLink;
           }
         } catch (e) {
           logStep("Drive folder creation failed", { error: e instanceof Error ? e.message : String(e) });
@@ -717,6 +721,7 @@ serve(async (req) => {
       amount_paid: String(booking.totalPrice),
       total_amount: String(booking.totalPrice),
       drive_link: driveFolderLink,
+      client_root_drive_link: clientRootDriveLink,
       calendar_link: googleCalendarLink,
     };
 

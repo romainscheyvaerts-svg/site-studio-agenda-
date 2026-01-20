@@ -53,6 +53,7 @@ export interface TemplateVariables {
   remaining_amount?: string;
   total_amount?: string;
   drive_link?: string;
+  client_root_drive_link?: string; // Lien vers le dossier racine du client (tous ses dossiers)
   message?: string;
   invoice_number?: string;
   instrumental_title?: string;
@@ -193,18 +194,29 @@ export async function renderEmailHtml(
 
   // Build Drive link section
   let driveHtml = "";
-  if (template.show_drive_link && (variables.drive_link || customSections?.driveSection)) {
+  if (template.show_drive_link && (variables.drive_link || variables.client_root_drive_link || customSections?.driveSection)) {
     driveHtml = customSections?.driveSection || `
       <div style="background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); border-radius: 8px; padding: 16px; margin: 16px 0; color: white;">
-        <p style="margin: 0 0 8px; font-weight: bold;">📁 Votre dossier de session</p>
+        <p style="margin: 0 0 8px; font-weight: bold;">📁 Vos dossiers Google Drive</p>
         <p style="margin: 0 0 12px; opacity: 0.9; font-size: 13px;">
-          Déposez vos fichiers (instrumentales, références, etc.) avant la session.
+          ${variables.drive_link ? "Déposez vos fichiers (instrumentales, références, etc.) avant la session." : "Accédez à tous vos dossiers de sessions."}
         </p>
-        <a href="${variables.drive_link}"
-           target="_blank"
-           style="display: inline-block; background-color: white; color: #4285F4; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">
-          📂 Ouvrir mon dossier Drive
-        </a>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${variables.drive_link ? `
+            <a href="${variables.drive_link}"
+               target="_blank"
+               style="display: inline-block; background-color: white; color: #4285F4; padding: 10px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">
+              📂 Dossier de cette session
+            </a>
+          ` : ""}
+          ${variables.client_root_drive_link ? `
+            <a href="${variables.client_root_drive_link}"
+               target="_blank"
+               style="display: inline-block; background-color: rgba(255,255,255,0.15); color: white; padding: 10px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; border: 1px solid rgba(255,255,255,0.3);">
+              📁 Tous mes dossiers
+            </a>
+          ` : ""}
+        </div>
       </div>
     `;
   }

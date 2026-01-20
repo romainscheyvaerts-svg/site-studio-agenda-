@@ -2,23 +2,56 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Mic, LogOut, User, Music, ShoppingBag } from "lucide-react";
+import { Menu, X, Mic, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewMode } from "@/hooks/useViewMode";
 import ViewModeToggle from "./ViewModeToggle";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Navbar = () => {
   const { t } = useTranslation();
-  const { user, signOut } = useAuth();
+  const { user, signOut, session } = useAuth();
   const { isMobileView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+  const [isLoadingDrive, setIsLoadingDrive] = useState(false);
+
   const isHomePage = location.pathname === "/";
+
+  // Function to open user's Drive folder
+  const openDriveFolder = async () => {
+    if (!session?.access_token) {
+      toast.error("Veuillez vous reconnecter");
+      return;
+    }
+
+    setIsLoadingDrive(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("get-client-drive-folder", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.found && data?.folderLink) {
+        window.open(data.folderLink, "_blank");
+      } else {
+        toast.info("Aucun dossier Drive trouvé. Un dossier sera créé lors de votre prochaine réservation.");
+      }
+    } catch (error) {
+      console.error("Error fetching Drive folder:", error);
+      toast.error("Impossible d'accéder au dossier Drive");
+    } finally {
+      setIsLoadingDrive(false);
+    }
+  };
   
   useEffect(() => {
     const handleScroll = () => {
@@ -103,6 +136,21 @@ const Navbar = () => {
                 >
                   <ShoppingBag className="w-4 h-4" />
                   Mes Achats
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openDriveFolder}
+                  disabled={isLoadingDrive}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                  title="Accéder à mon dossier Google Drive"
+                >
+                  {isLoadingDrive ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FolderOpen className="w-4 h-4" />
+                  )}
+                  Mon Drive
                 </Button>
                 <Button variant="neon" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
@@ -198,6 +246,23 @@ const Navbar = () => {
                     >
                       <ShoppingBag className="w-5 h-5 mr-2" />
                       MES ACHATS
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full h-14 text-lg"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        openDriveFolder();
+                      }}
+                      disabled={isLoadingDrive}
+                    >
+                      {isLoadingDrive ? (
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      ) : (
+                        <FolderOpen className="w-5 h-5 mr-2" />
+                      )}
+                      MON DRIVE
                     </Button>
                     <Button
                       variant="ghost"
