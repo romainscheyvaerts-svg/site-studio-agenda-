@@ -21,6 +21,9 @@ interface ServiceFeature {
   id: string;
   service_key: string;
   feature_text: string;
+  feature_text_en?: string;
+  feature_text_nl?: string;
+  feature_text_es?: string;
   sort_order: number;
 }
 
@@ -159,13 +162,16 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
   );
 };
 const PricingSection = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isMobileView } = useViewMode();
   const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [serviceFeatures, setServiceFeatures] = useState<ServiceFeature[]>([]);
   const [salesConfig, setSalesConfig] = useState<SalesConfig | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Get current language code (fr, en, nl, es)
+  const currentLang = i18n.language?.substring(0, 2) || "fr";
 
   const handleSelectService = (serviceType: string) => {
     navigate(`/reservation?service=${serviceType}`);
@@ -187,11 +193,24 @@ const PricingSection = () => {
     fetchData();
   }, []);
 
-  // Get features for a specific service
+  // Get features for a specific service with translation based on current language
   const getFeatures = (serviceKey: string): string[] => {
     return serviceFeatures
       .filter(f => f.service_key === serviceKey)
-      .map(f => f.feature_text);
+      .map(f => {
+        // Return translated text based on current language, fallback to French
+        if (currentLang === "en" && f.feature_text_en) {
+          return f.feature_text_en;
+        }
+        if (currentLang === "nl" && f.feature_text_nl) {
+          return f.feature_text_nl;
+        }
+        if (currentLang === "es" && f.feature_text_es) {
+          return f.feature_text_es;
+        }
+        // Default to French text
+        return f.feature_text;
+      });
   };
 
   const getPrice = (serviceKey: string): number => {

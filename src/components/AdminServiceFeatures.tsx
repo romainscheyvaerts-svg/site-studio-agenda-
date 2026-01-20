@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Save, Loader2, GripVertical } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, GripVertical, Languages } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ServiceFeature {
   id: string;
   service_key: string;
   feature_text: string;
+  feature_text_en?: string;
+  feature_text_nl?: string;
+  feature_text_es?: string;
   sort_order: number;
   is_active: boolean;
 }
@@ -26,9 +29,11 @@ const SERVICE_LABELS: Record<string, string> = {
 
 const AdminServiceFeatures = () => {
   const { toast } = useToast();
+  const { session } = useAuth();
   const [features, setFeatures] = useState<ServiceFeature[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [editedFeatures, setEditedFeatures] = useState<Record<string, string>>({});
   const [newFeatures, setNewFeatures] = useState<Record<string, string>>({});
 
@@ -62,23 +67,60 @@ const AdminServiceFeatures = () => {
     setEditedFeatures(prev => ({ ...prev, [id]: value }));
   };
 
+  // Translate a single feature to all languages
+  const translateFeature = async (featureId: string, featureText: string): Promise<boolean> => {
+    if (!session?.access_token) return false;
+
+    try {
+      const { error } = await supabase.functions.invoke("translate-text", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: { featureId, featureText },
+      });
+
+      return !error;
+    } catch (error) {
+      console.error("Translation error:", error);
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Update existing features
+      // Update existing features and trigger translations
+      const translationPromises: Promise<boolean>[] = [];
+
       for (const [id, text] of Object.entries(editedFeatures)) {
+        // First update the French text
         const { error } = await supabase
           .from("service_features")
           .update({ feature_text: text })
           .eq("id", id);
         if (error) throw error;
+
+        // Queue translation
+        translationPromises.push(translateFeature(id, text));
       }
 
       toast({
         title: "Sauvegardé !",
-        description: "Les caractéristiques ont été mises à jour.",
+        description: "Les caractéristiques ont été mises à jour. Traduction en cours...",
       });
-      
+
+      // Run translations in background
+      setTranslating(true);
+      const results = await Promise.all(translationPromises);
+      const successCount = results.filter(Boolean).length;
+
+      if (successCount > 0) {
+        toast({
+          title: "Traductions terminées",
+          description: `${successCount}/${results.length} caractéristique(s) traduite(s) en EN, NL, ES.`,
+        });
+      }
+
       setEditedFeatures({});
       fetchFeatures();
     } catch (error) {
@@ -90,6 +132,7 @@ const AdminServiceFeatures = () => {
       });
     } finally {
       setSaving(false);
+      setTranslating(false);
     }
   };
 
@@ -102,23 +145,39 @@ const AdminServiceFeatures = () => {
         .filter(f => f.service_key === serviceKey)
         .reduce((max, f) => Math.max(max, f.sort_order), 0);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("service_features")
         .insert({
           service_key: serviceKey,
           feature_text: text,
           sort_order: maxOrder + 1,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
       toast({
         title: "Ajouté !",
-        description: "La caractéristique a été ajoutée.",
+        description: "La caractéristique a été ajoutée. Traduction en cours...",
       });
 
       setNewFeatures(prev => ({ ...prev, [serviceKey]: "" }));
-      fetchFeatures();
+
+      // Trigger translation for the new feature
+      if (data?.id) {
+        translateFeature(data.id, text).then((success) => {
+          if (success) {
+            toast({
+              title: "Traduction terminée",
+              description: "Caractéristique traduite en EN, NL, ES.",
+            });
+          }
+          fetchFeatures();
+        });
+      } else {
+        fetchFeatures();
+      }
     } catch (error) {
       console.error("Error adding feature:", error);
       toast({
@@ -126,6 +185,52 @@ const AdminServiceFeatures = () => {
         description: "Impossible d'ajouter la caractéristique.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Translate all features that don't have translations yet
+  const handleTranslateAll = async () => {
+    // Find features without translations
+    const featuresToTranslate = features.filter(
+      f => !f.feature_text_en || !f.feature_text_nl || !f.feature_text_es
+    );
+
+    if (featuresToTranslate.length === 0) {
+      toast({
+        title: "Déjà traduit",
+        description: "Toutes les caractéristiques ont déjà des traductions.",
+      });
+      return;
+    }
+
+    setTranslating(true);
+    toast({
+      title: "Traduction en cours...",
+      description: `${featuresToTranslate.length} caractéristique(s) à traduire.`,
+    });
+
+    try {
+      let successCount = 0;
+      for (const feature of featuresToTranslate) {
+        const success = await translateFeature(feature.id, feature.feature_text);
+        if (success) successCount++;
+      }
+
+      toast({
+        title: "Traductions terminées",
+        description: `${successCount}/${featuresToTranslate.length} caractéristique(s) traduite(s).`,
+      });
+
+      fetchFeatures();
+    } catch (error) {
+      console.error("Error translating all:", error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la traduction.",
+        variant: "destructive",
+      });
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -174,14 +279,39 @@ const AdminServiceFeatures = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Caractéristiques des Services</h3>
-        {hasChanges && (
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-            Sauvegarder
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">Caractéristiques des Services</h3>
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Languages className="w-3 h-3" />
+            Auto-traduction EN/NL/ES
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTranslateAll}
+            disabled={translating || saving}
+          >
+            {translating ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Languages className="w-4 h-4 mr-2" />
+            )}
+            Traduire tout
           </Button>
-        )}
+          {hasChanges && (
+            <Button onClick={handleSave} disabled={saving || translating}>
+              {saving || translating ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {translating ? "Traduction..." : "Sauvegarder"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
