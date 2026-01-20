@@ -13,30 +13,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // --- FONCTIONS UTILITAIRES ---
 
-// 1. DÉCODER LE JWT MANUELLEMENT (Bypass le check Auth strict)
-function getUserIdFromJwt(token: string): string | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = parts[1];
-    // Décodage Base64 Url Safe
-    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    const json = JSON.parse(decoded);
-    return json.sub; // 'sub' est l'ID de l'utilisateur
-  } catch (e) {
-    console.error("Erreur décodage JWT:", e);
-    return null;
-  }
-}
-
-// 2. VÉRIFIER LE RÔLE DANS LA BDD
+// Vérifier le rôle admin dans la BDD
 async function isUserAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
     .in("role", ["admin", "superadmin"]);
-  
+
   if (error) return false;
   return data && data.length > 0;
 }
@@ -102,20 +86,26 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing Auth Header");
-
-    const token = authHeader.replace("Bearer ", "");
-    
-    // --- BYPASS: On décode manuellement au lieu de demander à auth.getUser() ---
-    const userId = getUserIdFromJwt(token);
-    
-    if (!userId) {
-       return new Response(JSON.stringify({ error: "Invalid Token format" }), {
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Auth Header" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // On vérifie le rôle SQL (C'est la vraie sécurité)
+    const token = authHeader.replace("Bearer ", "");
+
+    // SÉCURITÉ: Vérifier le token avec supabase.auth.getUser() au lieu de décodage manuel
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const userId = userData.user.id;
+
+    // Vérifier le rôle admin dans la BDD
     const isAdmin = await isUserAdmin(userId);
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Not Admin" }), {

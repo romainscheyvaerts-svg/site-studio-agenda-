@@ -1,36 +1,59 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Rate limiting: max 5 requêtes par IP par minute
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CREATE-INSTRUMENTAL-PAYMENT] ${step}${detailsStr}`);
-};
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("origin"));
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    logStep("Function started");
+    // Rate limiting check
+    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+                     req.headers.get("x-real-ip") ||
+                     "unknown";
 
-    const { 
-      instrumentalId, 
-      licenseId, 
+    if (!checkRateLimit(clientIP)) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const {
+      instrumentalId,
+      licenseId,
       licenseName,
       instrumentalTitle,
-      amount, 
-      buyerEmail, 
+      amount,
+      buyerEmail,
       buyerName,
-      userId 
+      userId
     } = await req.json();
-
-    logStep("Request data", { instrumentalId, licenseId, amount, buyerEmail });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
@@ -79,8 +102,6 @@ serve(async (req) => {
       }
     });
 
-    logStep("Stripe session created", { sessionId: session.id, url: session.url });
-
     return new Response(
       JSON.stringify({ url: session.url, sessionId: session.id }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
@@ -88,7 +109,6 @@ serve(async (req) => {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: errorMessage });
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }

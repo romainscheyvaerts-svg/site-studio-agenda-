@@ -41,30 +41,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Check if there's a hash with access_token (OAuth callback)
       const hash = window.location.hash;
       if (hash && hash.includes('access_token')) {
-        console.log("[Auth] Detected OAuth callback with tokens in URL");
-        
         // Parse the hash to extract tokens
         const params = new URLSearchParams(hash.substring(1));
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
-        
+
         if (accessToken && refreshToken) {
-          console.log("[Auth] Setting session from URL tokens...");
           try {
-            const { data, error } = await supabase.auth.setSession({
+            const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-            
-            if (error) {
-              console.error("[Auth] Error setting session:", error.message);
-            } else {
-              console.log("[Auth] Session set successfully:", data.user?.email);
-              // Clear the hash from URL
+
+            if (!error) {
+              // Clear the hash from URL immediately for security
               window.history.replaceState(null, '', window.location.pathname);
             }
-          } catch (err) {
-            console.error("[Auth] Exception setting session:", err);
+          } catch {
+            // Silent fail - auth state listener will handle the state
           }
         }
       }
@@ -76,12 +70,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("[Auth] Event:", event, "Session:", session ? "exists" : "null", "User:", session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        // Log auth events
+
+        // Log auth events (without exposing PII in console)
         if (event === "SIGNED_IN" && session?.user) {
           logActivity("login", session.user.email, session.user.id);
         } else if (event === "SIGNED_OUT") {
@@ -91,8 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log("[Auth] getSession result:", session ? "exists" : "null", "Error:", error?.message || "none");
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession(session);
         setUser(session.user);

@@ -73,7 +73,13 @@ const Auth = () => {
   };
 
   const validatePassword = (password: string) => {
-    return password.length >= 6;
+    // Minimum 12 characters for security
+    if (password.length < 12) return false;
+    // Must contain at least one uppercase, one lowercase, one number
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    return hasUppercase && hasLowercase && hasNumber;
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -112,8 +118,8 @@ const Auth = () => {
     
     if (!validatePassword(newPassword)) {
       toast({
-        title: "Mot de passe trop court",
-        description: "Le mot de passe doit contenir au moins 6 caractères.",
+        title: "Mot de passe invalide",
+        description: "Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule et un chiffre.",
         variant: "destructive",
       });
       return;
@@ -157,8 +163,8 @@ const Auth = () => {
 
     if (!validatePassword(password)) {
       toast({
-        title: "Mot de passe trop court",
-        description: "Le mot de passe doit contenir au moins 6 caractères.",
+        title: "Mot de passe invalide",
+        description: "Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule et un chiffre.",
         variant: "destructive",
       });
       return;

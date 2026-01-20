@@ -11,21 +11,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Decode JWT manually to extract user ID (bypass auth.getUser() issues)
-function getUserIdFromJwt(token: string): string | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = parts[1];
-    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    const json = JSON.parse(decoded);
-    return json.sub;
-  } catch (e) {
-    console.error("[UPDATE-ADMIN-EVENT] JWT decode error:", e);
-    return null;
-  }
-}
-
 // Check if user has admin or superadmin role in database
 async function isUserAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabase
@@ -34,11 +19,7 @@ async function isUserAdmin(userId: string): Promise<boolean> {
     .eq("user_id", userId)
     .in("role", ["admin", "superadmin"]);
 
-  if (error) {
-    console.error("[UPDATE-ADMIN-EVENT] Error checking admin role:", error);
-    return false;
-  }
-
+  if (error) return false;
   return data && data.length > 0;
 }
 
@@ -103,7 +84,6 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   const tokenData = await tokenResponse.json();
 
   if (!tokenData.access_token) {
-    console.error("Token response:", tokenData);
     throw new Error("Failed to get access token");
   }
 
@@ -133,8 +113,6 @@ async function updateCalendarEvent(
   });
 
   if (!getResponse.ok) {
-    const errorText = await getResponse.text();
-    console.error(`[UPDATE-EVENT] Error getting event:`, errorText);
     throw new Error(`Failed to get calendar event: ${getResponse.status}`);
   }
 
@@ -167,8 +145,6 @@ async function updateCalendarEvent(
     updatedEvent.colorId = updates.colorId;
   }
 
-  console.log(`[UPDATE-EVENT] Updating event: ${eventId} with colorId: ${updates.colorId}`);
-
   const updateUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
 
   const response = await fetch(updateUrl, {
@@ -181,13 +157,10 @@ async function updateCalendarEvent(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[UPDATE-EVENT] Error updating event:`, errorText);
     throw new Error(`Failed to update calendar event: ${response.status}`);
   }
 
   const result = await response.json();
-  console.log(`[UPDATE-EVENT] Event updated successfully: ${result.id}, colorId: ${result.colorId}`);
 
   return {
     id: result.id,
@@ -203,10 +176,8 @@ serve(async (req) => {
   try {
     // Get auth header
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-    console.log("[UPDATE-ADMIN-EVENT] Auth header present:", !!authHeader);
 
     if (!authHeader) {
-      console.log("[UPDATE-ADMIN-EVENT] No auth header found");
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -215,23 +186,21 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
 
-    // Decode JWT manually (bypass auth.getUser() which can fail)
-    const userId = getUserIdFromJwt(token);
+    // SÉCURITÉ: Vérifier le token avec supabase.auth.getUser() au lieu de décodage manuel
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
 
-    if (!userId) {
-      console.log("[UPDATE-ADMIN-EVENT] Invalid token format");
+    if (authError || !userData?.user) {
       return new Response(
-        JSON.stringify({ error: "Invalid token format" }),
+        JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("[UPDATE-ADMIN-EVENT] User ID from JWT:", userId);
+    const userId = userData.user.id;
 
     // Check if user is admin via database role check
     const hasAdminRole = await isUserAdmin(userId);
     if (!hasAdminRole) {
-      console.log("[UPDATE-ADMIN-EVENT] User lacks admin role:", userId);
       return new Response(
         JSON.stringify({ error: "Forbidden - Admin access required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -240,8 +209,6 @@ serve(async (req) => {
 
     const body = await req.json();
     const { eventId, title, date, startTime, endTime, colorId } = body;
-
-    console.log("[UPDATE-ADMIN-EVENT] Updating event:", { eventId, title, date, startTime, endTime, colorId });
 
     // Validate required fields
     if (!eventId) {
@@ -310,7 +277,6 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
-    console.error("[UPDATE-ADMIN-EVENT] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

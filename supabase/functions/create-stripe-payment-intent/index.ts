@@ -1,45 +1,67 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Rate limiting: max 5 requêtes par IP par minute
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CREATE-STRIPE-PAYMENT-INTENT] ${step}${detailsStr}`);
-};
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("origin"));
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    logStep("Function started");
-    
+    // Rate limiting check
+    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+                     req.headers.get("x-real-ip") ||
+                     "unknown";
+
+    if (!checkRateLimit(clientIP)) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please try again later." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-    logStep("Stripe key verified");
 
     const body = await req.json();
-    const { 
-      amount, 
-      email, 
-      name, 
-      phone, 
-      sessionType, 
-      hours, 
-      date, 
-      time, 
-      isDeposit, 
+    const {
+      amount,
+      email,
+      name,
+      phone,
+      sessionType,
+      hours,
+      date,
+      time,
+      isDeposit,
       totalPrice,
       podcastMinutes,
-      message 
+      message
     } = body;
-    
-    logStep("Request body received", { amount, email, sessionType, hours });
 
     if (!amount || !email || !sessionType) {
       throw new Error("Missing required fields: amount, email, sessionType");
@@ -52,7 +74,6 @@ serve(async (req) => {
     let customerId;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
-      logStep("Existing customer found", { customerId });
     } else {
       // Create new customer
       const customer = await stripe.customers.create({
@@ -61,7 +82,6 @@ serve(async (req) => {
         phone,
       });
       customerId = customer.id;
-      logStep("New customer created", { customerId });
     }
 
     // Build description for the payment
@@ -115,18 +135,15 @@ serve(async (req) => {
       },
     });
 
-    logStep("PaymentIntent created", { paymentIntentId: paymentIntent.id, clientSecret: paymentIntent.client_secret?.substring(0, 20) + "..." });
-
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id 
+      paymentIntentId: paymentIntent.id
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
