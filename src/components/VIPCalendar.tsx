@@ -1059,17 +1059,12 @@ const VIPCalendar = ({
                           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => {
                             const displayStatus = getSlotDisplayStatus(day.slots, hour);
                             const slot = day.slots.find(s => s.hour === hour);
-                            const isEventHour = slot?.eventId && slot?.status === "unavailable";
+                            // Check if this is an event hour (has eventId OR eventName and is unavailable)
+                            const isEventHour = slot?.status === "unavailable" && (slot?.eventId || slot?.eventName);
 
                             // Don't render background for event hours - they'll be covered by event blocks
                             if (isEventHour) {
-                              return (
-                                <div
-                                  key={`${day.date}-${hour}-bg`}
-                                  className="absolute left-0 right-0 h-[31px] bg-transparent"
-                                  style={{ top: `${hour * 32}px` }}
-                                />
-                              );
+                              return null; // Don't render anything - event block overlay will handle this
                             }
 
                             const hasSecondaryConflict = !!slot?.hasSecondaryCalendarConflict;
