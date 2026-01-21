@@ -5,9 +5,15 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Trash2, RotateCcw, Loader2, ImageIcon, Move, ZoomIn } from "lucide-react";
+import { Upload, Trash2, RotateCcw, Loader2, ImageIcon, Move, ZoomIn, ChevronDown } from "lucide-react";
 import ReactCrop, { Crop, PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface BackgroundConfig {
   enabled: boolean;
@@ -28,6 +34,21 @@ const DEFAULT_CONFIG: BackgroundConfig = {
   positionY: 50,
   scale: 100,
 };
+
+// Pages disponibles pour les fonds personnalisés
+const PAGES = [
+  { id: "home", label: "Accueil", path: "/" },
+  { id: "offres", label: "Offres", path: "/offres" },
+  { id: "daw", label: "DAW Nova", path: "/daw" },
+  { id: "reservation", label: "Réserver", path: "/reservation" },
+  { id: "studio", label: "Découvrir le Studio", path: "/studio" },
+  { id: "instrumentals", label: "Instrumentales", path: "/instrumentals" },
+  { id: "arsenal", label: "Arsenal", path: "/arsenal" },
+  { id: "gallery", label: "Galerie", path: "/gallery" },
+  { id: "music", label: "Musique", path: "/music" },
+] as const;
+
+type PageId = typeof PAGES[number]["id"];
 
 // Aspect ratio for typical desktop screens (16:9)
 const ASPECT_RATIO = 16 / 9;
@@ -50,7 +71,8 @@ function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: numbe
 
 const AdminBackgroundImage = () => {
   const { toast } = useToast();
-  const [config, setConfig] = useState<BackgroundConfig>(DEFAULT_CONFIG);
+  const [selectedPage, setSelectedPage] = useState<PageId>("home");
+  const [configs, setConfigs] = useState<Record<PageId, BackgroundConfig>>({} as Record<PageId, BackgroundConfig>);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -61,37 +83,70 @@ const AdminBackgroundImage = () => {
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const config = configs[selectedPage] || DEFAULT_CONFIG;
+
   useEffect(() => {
-    fetchConfig();
+    fetchAllConfigs();
   }, []);
 
-  const fetchConfig = async () => {
+  const fetchAllConfigs = async () => {
     try {
       const { data, error } = await supabase
         .from("site_config")
         .select("config_key, config_value")
-        .eq("config_key", "background_image");
+        .like("config_key", "background_image_%");
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        const savedConfig = JSON.parse(data[0].config_value);
-        setConfig({ ...DEFAULT_CONFIG, ...savedConfig });
+      const loadedConfigs: Record<PageId, BackgroundConfig> = {} as Record<PageId, BackgroundConfig>;
+
+      // Initialiser toutes les pages avec la config par défaut
+      PAGES.forEach(page => {
+        loadedConfigs[page.id] = { ...DEFAULT_CONFIG };
+      });
+
+      // Charger les configs existantes
+      if (data) {
+        data.forEach(item => {
+          const pageId = item.config_key.replace("background_image_", "") as PageId;
+          if (PAGES.some(p => p.id === pageId)) {
+            loadedConfigs[pageId] = { ...DEFAULT_CONFIG, ...JSON.parse(item.config_value) };
+          }
+        });
       }
+
+      // Aussi charger l'ancienne config globale pour "home" si elle existe
+      const { data: oldConfig } = await supabase
+        .from("site_config")
+        .select("config_value")
+        .eq("config_key", "background_image")
+        .single();
+
+      if (oldConfig && !loadedConfigs.home.imageUrl) {
+        const parsed = JSON.parse(oldConfig.config_value);
+        if (parsed.imageUrl) {
+          loadedConfigs.home = { ...DEFAULT_CONFIG, ...parsed };
+        }
+      }
+
+      setConfigs(loadedConfigs);
     } catch (err) {
-      console.error("Error fetching background config:", err);
+      console.error("Error fetching background configs:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const saveConfig = async (newConfig: BackgroundConfig) => {
+  const saveConfig = async (pageId: PageId, newConfig: BackgroundConfig) => {
     setSaving(true);
     try {
+      const configKey = `background_image_${pageId}`;
+      const pageName = PAGES.find(p => p.id === pageId)?.label || pageId;
+
       const { data: existing } = await supabase
         .from("site_config")
         .select("id")
-        .eq("config_key", "background_image")
+        .eq("config_key", configKey)
         .single();
 
       if (existing) {
@@ -101,23 +156,23 @@ const AdminBackgroundImage = () => {
             config_value: JSON.stringify(newConfig),
             updated_at: new Date().toISOString(),
           })
-          .eq("config_key", "background_image");
+          .eq("config_key", configKey);
 
         if (error) throw error;
       } else {
         const { error } = await supabase.from("site_config").insert({
-          config_key: "background_image",
+          config_key: configKey,
           config_value: JSON.stringify(newConfig),
-          description: "Configuration de l'image de fond du site",
+          description: `Image de fond - ${pageName}`,
         });
 
         if (error) throw error;
       }
 
-      setConfig(newConfig);
+      setConfigs(prev => ({ ...prev, [pageId]: newConfig }));
       toast({
         title: "Sauvegardé",
-        description: "La configuration a été mise à jour",
+        description: `Configuration de ${pageName} mise à jour`,
       });
     } catch (err) {
       console.error("Error saving config:", err);
@@ -140,7 +195,6 @@ const AdminBackgroundImage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Créer une URL de prévisualisation
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     setShowCropEditor(true);
@@ -154,7 +208,6 @@ const AdminBackgroundImage = () => {
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
 
-    // Taille de sortie pour une image de fond (Full HD)
     const outputWidth = 1920;
     const outputHeight = 1080;
 
@@ -200,11 +253,8 @@ const AdminBackgroundImage = () => {
 
     setUploading(true);
     try {
-      // Générer l'image recadrée
       const croppedBlob = await getCroppedImg(imgRef.current, completedCrop);
-
-      // Upload vers Supabase Storage
-      const fileName = `background_${Date.now()}.jpg`;
+      const fileName = `background_${selectedPage}_${Date.now()}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from("gallery")
@@ -219,16 +269,14 @@ const AdminBackgroundImage = () => {
         .from("gallery")
         .getPublicUrl(fileName);
 
-      // Sauvegarder la nouvelle config
       const newConfig: BackgroundConfig = {
         ...config,
         enabled: true,
         imageUrl: urlData.publicUrl,
       };
 
-      await saveConfig(newConfig);
+      await saveConfig(selectedPage, newConfig);
 
-      // Nettoyer
       setShowCropEditor(false);
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
@@ -237,7 +285,7 @@ const AdminBackgroundImage = () => {
 
       toast({
         title: "Image de fond mise à jour",
-        description: "L'image a été recadrée et uploadée avec succès",
+        description: `L'image a été appliquée à la page ${PAGES.find(p => p.id === selectedPage)?.label}`,
       });
     } catch (err) {
       console.error("Error uploading cropped image:", err);
@@ -255,24 +303,25 @@ const AdminBackgroundImage = () => {
   };
 
   const handleRemoveBackground = async () => {
-    const newConfig: BackgroundConfig = {
-      ...DEFAULT_CONFIG,
-    };
-    await saveConfig(newConfig);
+    const newConfig: BackgroundConfig = { ...DEFAULT_CONFIG };
+    await saveConfig(selectedPage, newConfig);
   };
 
   const handleToggleEnabled = async (enabled: boolean) => {
     const newConfig = { ...config, enabled };
-    await saveConfig(newConfig);
+    await saveConfig(selectedPage, newConfig);
   };
 
   const handleSliderChange = (key: keyof BackgroundConfig, value: number) => {
-    setConfig((prev) => ({ ...prev, [key]: value }));
+    setConfigs(prev => ({
+      ...prev,
+      [selectedPage]: { ...config, [key]: value }
+    }));
   };
 
   const handleSliderCommit = async (key: keyof BackgroundConfig, value: number) => {
     const newConfig = { ...config, [key]: value };
-    await saveConfig(newConfig);
+    await saveConfig(selectedPage, newConfig);
   };
 
   const cancelCrop = () => {
@@ -285,6 +334,9 @@ const AdminBackgroundImage = () => {
       fileInputRef.current.value = "";
     }
   };
+
+  const selectedPageLabel = PAGES.find(p => p.id === selectedPage)?.label || "Page";
+  const pagesWithBackground = PAGES.filter(p => configs[p.id]?.imageUrl);
 
   if (loading) {
     return (
@@ -301,9 +353,9 @@ const AdminBackgroundImage = () => {
         <div className="flex items-center justify-between">
           <h4 className="font-medium flex items-center gap-2">
             <Move className="w-4 h-4" />
-            Recadrer l'image
+            Recadrer l'image pour "{selectedPageLabel}"
           </h4>
-          <p className="text-xs text-muted-foreground">Format 16:9 (écran large)</p>
+          <p className="text-xs text-muted-foreground">Format 16:9</p>
         </div>
 
         <div className="border border-border rounded-lg overflow-hidden bg-black/50">
@@ -356,10 +408,52 @@ const AdminBackgroundImage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Sélecteur de page */}
+      <div className="flex items-center gap-3">
+        <Label className="text-sm font-medium shrink-0">Page :</Label>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex-1 justify-between">
+              <span className="flex items-center gap-2">
+                {selectedPageLabel}
+                {config.imageUrl && (
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                )}
+              </span>
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[200px]">
+            {PAGES.map((page) => (
+              <DropdownMenuItem
+                key={page.id}
+                onClick={() => setSelectedPage(page.id)}
+                className="flex items-center justify-between"
+              >
+                <span>{page.label}</span>
+                {configs[page.id]?.imageUrl && (
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Indicateur des pages avec fond */}
+      {pagesWithBackground.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-primary" />
+            {pagesWithBackground.length} page{pagesWithBackground.length > 1 ? "s" : ""} avec fond personnalisé
+          </span>
+        </div>
+      )}
+
       {/* Toggle activation */}
       <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 border border-border">
         <div>
-          <Label className="text-sm font-medium">Image de fond personnalisée</Label>
+          <Label className="text-sm font-medium">Image de fond - {selectedPageLabel}</Label>
           <p className="text-xs text-muted-foreground mt-1">
             {config.imageUrl ? "Activez pour afficher votre image" : "Uploadez une image d'abord"}
           </p>
@@ -387,7 +481,7 @@ const AdminBackgroundImage = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
           <div className="absolute bottom-2 left-2 right-2 flex justify-between items-end">
             <span className="text-xs text-muted-foreground bg-background/50 px-2 py-1 rounded">
-              Prévisualisation
+              {selectedPageLabel}
             </span>
             <Button
               variant="destructive"
@@ -527,7 +621,7 @@ const AdminBackgroundImage = () => {
                 positionY: 50,
                 scale: 100,
               };
-              saveConfig(resetConfig);
+              saveConfig(selectedPage, resetConfig);
             }}
             className="w-full"
           >

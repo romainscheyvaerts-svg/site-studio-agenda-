@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 interface BackgroundConfig {
@@ -21,39 +22,84 @@ const DEFAULT_CONFIG: BackgroundConfig = {
   scale: 100,
 };
 
+// Mapping des routes vers les IDs de page
+const ROUTE_TO_PAGE_ID: Record<string, string> = {
+  "/": "home",
+  "/offres": "offres",
+  "/daw": "daw",
+  "/reservation": "reservation",
+  "/studio": "studio",
+  "/instrumentals": "instrumentals",
+  "/arsenal": "arsenal",
+  "/gallery": "gallery",
+  "/music": "music",
+};
+
 const BackgroundImage = () => {
+  const location = useLocation();
   const [config, setConfig] = useState<BackgroundConfig>(DEFAULT_CONFIG);
+  const [currentPageId, setCurrentPageId] = useState<string>("home");
+
+  // Déterminer l'ID de page basé sur la route
+  useEffect(() => {
+    const pathname = location.pathname;
+    const pageId = ROUTE_TO_PAGE_ID[pathname] || "home";
+    setCurrentPageId(pageId);
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchConfig = async () => {
       try {
+        // Essayer d'abord la config spécifique à la page
+        const configKey = `background_image_${currentPageId}`;
         const { data, error } = await supabase
           .from("site_config")
           .select("config_value")
-          .eq("config_key", "background_image")
+          .eq("config_key", configKey)
           .single();
 
         if (!error && data) {
           const savedConfig = JSON.parse(data.config_value);
           setConfig({ ...DEFAULT_CONFIG, ...savedConfig });
+          return;
         }
+
+        // Fallback: si c'est la page d'accueil, essayer l'ancienne config globale
+        if (currentPageId === "home") {
+          const { data: oldData, error: oldError } = await supabase
+            .from("site_config")
+            .select("config_value")
+            .eq("config_key", "background_image")
+            .single();
+
+          if (!oldError && oldData) {
+            const savedConfig = JSON.parse(oldData.config_value);
+            setConfig({ ...DEFAULT_CONFIG, ...savedConfig });
+            return;
+          }
+        }
+
+        // Pas de config trouvée, utiliser les valeurs par défaut
+        setConfig(DEFAULT_CONFIG);
       } catch (err) {
         console.error("Error fetching background config:", err);
+        setConfig(DEFAULT_CONFIG);
       }
     };
 
     fetchConfig();
 
-    // Écouter les changements en temps réel
+    // Écouter les changements en temps réel pour cette page
+    const configKey = `background_image_${currentPageId}`;
     const channel = supabase
-      .channel("background_changes")
+      .channel(`background_changes_${currentPageId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "site_config",
-          filter: "config_key=eq.background_image",
+          filter: `config_key=eq.${configKey}`,
         },
         (payload) => {
           if (payload.new && "config_value" in payload.new) {
@@ -67,7 +113,7 @@ const BackgroundImage = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentPageId]);
 
   // Ne rien afficher si désactivé ou pas d'image
   if (!config.enabled || !config.imageUrl) {
