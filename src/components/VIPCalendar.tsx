@@ -472,6 +472,86 @@ const VIPCalendar = ({
     return slot?.eventId;
   };
 
+  // Group consecutive slots with the same eventId into event blocks
+  interface EventBlock {
+    eventId: string;
+    eventName: string;
+    startHour: number;
+    endHour: number; // exclusive
+    clientEmail?: string;
+    driveFolderLink?: string;
+  }
+
+  const getEventBlocksForDay = (daySlots: TimeSlot[]): EventBlock[] => {
+    const blocks: EventBlock[] = [];
+    let currentBlock: EventBlock | null = null;
+
+    for (let hour = 0; hour <= 23; hour++) {
+      const slot = daySlots.find(s => s.hour === hour);
+
+      if (slot?.eventId && slot?.status === "unavailable") {
+        if (currentBlock && currentBlock.eventId === slot.eventId) {
+          // Extend current block
+          currentBlock.endHour = hour + 1;
+        } else {
+          // Save previous block if exists
+          if (currentBlock) {
+            blocks.push(currentBlock);
+          }
+          // Start new block
+          currentBlock = {
+            eventId: slot.eventId,
+            eventName: slot.eventName || "Réservé",
+            startHour: hour,
+            endHour: hour + 1,
+            clientEmail: slot.clientEmail,
+            driveFolderLink: slot.driveFolderLink,
+          };
+        }
+      } else {
+        // No event at this hour, save current block if exists
+        if (currentBlock) {
+          blocks.push(currentBlock);
+          currentBlock = null;
+        }
+      }
+    }
+
+    // Don't forget the last block
+    if (currentBlock) {
+      blocks.push(currentBlock);
+    }
+
+    return blocks;
+  };
+
+  // Check if an hour is the start of an event block (to avoid rendering it multiple times)
+  const isEventBlockStart = (daySlots: TimeSlot[], hour: number): boolean => {
+    const slot = daySlots.find(s => s.hour === hour);
+    if (!slot?.eventId || slot?.status !== "unavailable") return false;
+
+    // Check if previous hour has the same eventId
+    const prevSlot = daySlots.find(s => s.hour === hour - 1);
+    return !prevSlot || prevSlot.eventId !== slot.eventId;
+  };
+
+  // Get the duration of an event block starting at a given hour
+  const getEventBlockDuration = (daySlots: TimeSlot[], startHour: number): number => {
+    const slot = daySlots.find(s => s.hour === startHour);
+    if (!slot?.eventId) return 1;
+
+    let duration = 1;
+    for (let h = startHour + 1; h <= 23; h++) {
+      const nextSlot = daySlots.find(s => s.hour === h);
+      if (nextSlot?.eventId === slot.eventId) {
+        duration++;
+      } else {
+        break;
+      }
+    }
+    return duration;
+  };
+
   // Check if selected slot can be deleted (has eventId and is unavailable)
   // Admin can delete any event, VIP can only delete their own events
   const canDeleteSelectedSlot = hasAdminFeatures && selectedDay && selectedHour !== null && (() => {
@@ -918,11 +998,14 @@ const VIPCalendar = ({
               </div>
             </div>
           ) : (
-            /* DESKTOP VIEW - Week grid - No hour column, 8 days */
+            /* DESKTOP VIEW - Week grid with event blocks spanning their duration */
             <div className="overflow-x-auto">
               <div className="min-w-[700px]">
-                {/* Days header - 8 columns */}
-                <div className="grid grid-cols-8 gap-1 mb-2">
+                {/* Days header - 8 columns + hour column */}
+                <div className="grid grid-cols-[40px_repeat(8,1fr)] gap-1 mb-2">
+                  <div className="text-center p-2 text-xs text-muted-foreground">
+                    {/* Empty corner for hours column */}
+                  </div>
                   {displayDays.map((day) => {
                     const date = new Date(day.date);
                     const isSelected = selectedDay === day.date;
@@ -942,87 +1025,121 @@ const VIPCalendar = ({
                   })}
                 </div>
 
-                {/* Time slots grid - scroll starts at 8am */}
-                <div id="calendar-scroll-container" className="space-y-1 max-h-[400px] overflow-y-auto">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => (
-                    <div key={hour} className="grid grid-cols-8 gap-1">
-                      {displayDays.map((day) => {
-                        const displayStatus = getSlotDisplayStatus(day.slots, hour);
-                        const slot = day.slots.find(s => s.hour === hour);
-                        const eventName = getSlotEventName(day.slots, hour);
+                {/* Time slots grid with event blocks */}
+                <div id="calendar-scroll-container" className="max-h-[400px] overflow-y-auto">
+                  <div className="grid grid-cols-[40px_repeat(8,1fr)] gap-1">
+                    {/* Hours column */}
+                    <div className="flex flex-col gap-1">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => (
+                        <div
+                          key={hour}
+                          className="h-[36px] flex items-center justify-center text-[10px] text-muted-foreground"
+                        >
+                          {formatHour(hour)}
+                        </div>
+                      ))}
+                    </div>
 
-                        const hasSecondaryConflict = !!slot?.hasSecondaryCalendarConflict;
-                        const secondaryEventName = slot?.secondaryCalendarEventName;
-                        const hasTertiaryConflict = !!slot?.hasTertiaryCalendarConflict;
-                        const tertiaryEventName = slot?.tertiaryCalendarEventName;
+                    {/* Day columns with event blocks */}
+                    {displayDays.map((day) => {
+                      const eventBlocks = getEventBlocksForDay(day.slots);
 
-                        const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
+                      return (
+                        <div key={day.date} className="relative flex flex-col gap-1">
+                          {/* Hour slots background */}
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => {
+                            const displayStatus = getSlotDisplayStatus(day.slots, hour);
+                            const slot = day.slots.find(s => s.hour === hour);
+                            const isEventHour = slot?.eventId && slot?.status === "unavailable";
+                            const eventBlockStart = isEventHour && isEventBlockStart(day.slots, hour);
 
-                        const specialConflictColor = hasAdminFeatures && hasAnySpecialConflict
-                          ? "bg-orange-500/30 text-orange-400 hover:bg-orange-500/50 ring-1 ring-orange-500/50"
-                          : "";
+                            // Skip rendering if this hour is part of an event block (not the start)
+                            if (isEventHour && !eventBlockStart) {
+                              return null;
+                            }
 
-                        const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
-                        const isSelected = selectedDay === day.date && selectedHour === hour;
-                        const isMultiSelected = hasAdminFeatures && isSlotMultiSelected(day.date, hour);
+                            // If this is the start of an event block, render the full block
+                            if (eventBlockStart) {
+                              const blockDuration = getEventBlockDuration(day.slots, hour);
+                              const eventName = slot?.eventName || "Réservé";
+                              const isMultiSelected = hasAdminFeatures && selectedSlots.some(
+                                s => s.date === day.date && s.hour >= hour && s.hour < hour + blockDuration
+                              );
 
-                        let hoverTitle = eventName || formatHour(hour);
-                        if (hasAdminFeatures && hasSecondaryConflict && secondaryEventName) {
-                          hoverTitle += ` | 📅2: ${secondaryEventName}`;
-                        }
-                        if (hasAdminFeatures && hasTertiaryConflict && tertiaryEventName) {
-                          hoverTitle += ` | 📅3: ${tertiaryEventName}`;
-                        }
-                        
-                        return (
-                          <button
-                            key={`${day.date}-${hour}`}
-                            onClick={() => isClickable && handleSelectSlot(day.date, hour)}
-                            disabled={!isClickable && !hasAdminFeatures}
-                            className={cn(
-                              "p-1 rounded text-[10px] transition-all duration-200 min-h-[36px] flex flex-col items-center justify-center relative",
-                              isMultiSelected
-                                ? "bg-blue-500 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-background"
-                                : displayStatus === "available"
-                                  ? hasAdminFeatures && hasAnySpecialConflict
-                                    ? specialConflictColor
-                                    : isSelected
-                                      ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                      : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
-                                  : displayStatus === "on-request"
+                              return (
+                                <button
+                                  key={`${day.date}-${hour}-block`}
+                                  onClick={() => hasAdminFeatures && handleSelectSlot(day.date, hour)}
+                                  className={cn(
+                                    "rounded text-[10px] transition-all duration-200 flex flex-col items-center justify-center cursor-pointer overflow-hidden",
+                                    isMultiSelected
+                                      ? "bg-blue-500 text-white ring-2 ring-blue-400"
+                                      : "bg-purple-500/30 text-purple-300 hover:bg-purple-500/50 border border-purple-500/50"
+                                  )}
+                                  style={{
+                                    height: `${blockDuration * 36 + (blockDuration - 1) * 4}px`, // 36px per hour + 4px gap
+                                  }}
+                                  title={`${eventName} (${formatHour(hour)} - ${formatHour(hour + blockDuration)})`}
+                                >
+                                  <span className="font-semibold text-xs">{eventName}</span>
+                                  <span className="text-[9px] opacity-80">
+                                    {formatHour(hour)} - {formatHour(hour + blockDuration)}
+                                  </span>
+                                  <span className="text-[9px] opacity-60">{blockDuration}h</span>
+                                </button>
+                              );
+                            }
+
+                            // Regular available/on-request slot
+                            const hasSecondaryConflict = !!slot?.hasSecondaryCalendarConflict;
+                            const hasTertiaryConflict = !!slot?.hasTertiaryCalendarConflict;
+                            const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
+
+                            const specialConflictColor = hasAdminFeatures && hasAnySpecialConflict
+                              ? "bg-orange-500/30 text-orange-400 hover:bg-orange-500/50 ring-1 ring-orange-500/50"
+                              : "";
+
+                            const isClickable = displayStatus !== "unavailable" || hasAdminFeatures;
+                            const isSelected = selectedDay === day.date && selectedHour === hour;
+
+                            return (
+                              <button
+                                key={`${day.date}-${hour}`}
+                                onClick={() => isClickable && handleSelectSlot(day.date, hour)}
+                                disabled={!isClickable && !hasAdminFeatures}
+                                className={cn(
+                                  "h-[36px] rounded text-[10px] transition-all duration-200 flex items-center justify-center relative",
+                                  displayStatus === "available"
                                     ? hasAdminFeatures && hasAnySpecialConflict
                                       ? specialConflictColor
                                       : isSelected
-                                        ? "bg-primary text-primary-foreground ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
-                                        : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
-                                    : isSelected
-                                      ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
-                                      : hasAdminFeatures
-                                        ? "bg-destructive/20 text-destructive hover:bg-destructive/40 cursor-pointer"
-                                        : "bg-destructive/20 text-destructive cursor-pointer"
-                            )}
-                            title={hoverTitle}
-                          >
-                            {/* Secondary/Tertiary indicator - orange dot */}
-                            {hasAdminFeatures && hasAnySpecialConflict && displayStatus !== "unavailable" && (
-                              <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
-                            )}
-
-                            <span className="font-medium">{formatHour(hour)}</span>
-                            {isMultiSelected ? (
-                              <span className="text-[8px]">✓ sélectionné</span>
-                            ) : displayStatus === "unavailable" && eventName ? (
-                              <span className="truncate w-full text-[8px] opacity-80 px-0.5">{eventName}</span>
-                            ) : displayStatus === "available" ? (
-                              <span className="opacity-50">✓</span>
-                            ) : displayStatus === "on-request" ? (
-                              <span className="opacity-50">?</span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
+                                        ? "bg-primary text-primary-foreground ring-2 ring-primary"
+                                        : "bg-green-500/20 text-green-500 hover:bg-green-500/40 cursor-pointer"
+                                    : displayStatus === "on-request"
+                                      ? hasAdminFeatures && hasAnySpecialConflict
+                                        ? specialConflictColor
+                                        : isSelected
+                                          ? "bg-primary text-primary-foreground ring-2 ring-amber-500"
+                                          : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
+                                      : "bg-muted/30 text-muted-foreground"
+                                )}
+                              >
+                                {/* Secondary/Tertiary indicator - orange dot */}
+                                {hasAdminFeatures && hasAnySpecialConflict && displayStatus !== "unavailable" && (
+                                  <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
+                                )}
+                                {displayStatus === "available" ? (
+                                  <span className="opacity-50">✓</span>
+                                ) : displayStatus === "on-request" ? (
+                                  <span className="opacity-50">?</span>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
