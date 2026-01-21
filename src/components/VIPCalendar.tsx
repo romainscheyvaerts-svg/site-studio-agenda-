@@ -489,8 +489,17 @@ const VIPCalendar = ({
     for (let hour = 0; hour <= 23; hour++) {
       const slot = daySlots.find(s => s.hour === hour);
 
-      if (slot?.eventId && slot?.status === "unavailable") {
-        if (currentBlock && currentBlock.eventId === slot.eventId) {
+      if (slot?.status === "unavailable" && (slot?.eventId || slot?.eventName)) {
+        // Check if this slot continues the current block
+        // Priority: same eventId, or same eventName if consecutive
+        const canExtendBlock = currentBlock && (
+          // Same Google Calendar event ID
+          (slot.eventId && currentBlock.eventId === slot.eventId) ||
+          // Same event name (for events created as separate hourly slots)
+          (slot.eventName && currentBlock.eventName === slot.eventName)
+        );
+
+        if (canExtendBlock) {
           // Extend current block
           currentBlock.endHour = hour + 1;
         } else {
@@ -500,7 +509,7 @@ const VIPCalendar = ({
           }
           // Start new block
           currentBlock = {
-            eventId: slot.eventId,
+            eventId: slot.eventId || `block-${hour}`,
             eventName: slot.eventName || "Réservé",
             startHour: hour,
             endHour: hour + 1,
