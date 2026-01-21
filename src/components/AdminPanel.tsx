@@ -36,6 +36,7 @@ import AdminDawConfig from "./AdminDawConfig";
 import AdminPaymentConfig from "./AdminPaymentConfig";
 import AdminCollapsibleSection from "./AdminCollapsibleSection";
 import AdminClientDrive from "./AdminClientDrive";
+import AdminBackgroundImage from "./AdminBackgroundImage";
 import { supabase } from "@/integrations/supabase/client";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
@@ -198,6 +199,9 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                   Cliquez sur une section pour la déplier.
                 </p>
               </div>
+              <AdminCollapsibleSection title="Image de Fond" icon={Image} defaultOpen>
+                <AdminBackgroundImage />
+              </AdminCollapsibleSection>
               <AdminCollapsibleSection title="Galerie Photos" icon={Image}>
                 <AdminGallery />
               </AdminCollapsibleSection>
