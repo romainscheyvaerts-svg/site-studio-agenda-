@@ -486,20 +486,28 @@ const VIPCalendar = ({
     const blocks: EventBlock[] = [];
     let currentBlock: EventBlock | null = null;
 
-    for (let hour = 0; hour <= 23; hour++) {
-      const slot = daySlots.find(s => s.hour === hour);
+    // Sort slots by hour first
+    const sortedSlots = [...daySlots].sort((a, b) => a.hour - b.hour);
 
-      if (slot?.status === "unavailable" && (slot?.eventId || slot?.eventName)) {
+    for (let hour = 0; hour <= 23; hour++) {
+      const slot = sortedSlots.find(s => s.hour === hour);
+
+      // Check if this slot has an event (either unavailable with event info, or has eventName)
+      const hasEvent = slot && (
+        (slot.status === "unavailable" && (slot.eventId || slot.eventName)) ||
+        slot.eventName
+      );
+
+      if (hasEvent && slot) {
         // Check if this slot continues the current block
-        // Priority: same eventId, or same eventName if consecutive
         const canExtendBlock = currentBlock && (
           // Same Google Calendar event ID
-          (slot.eventId && currentBlock.eventId === slot.eventId) ||
+          (slot.eventId && slot.eventId === currentBlock.eventId) ||
           // Same event name (for events created as separate hourly slots)
-          (slot.eventName && currentBlock.eventName === slot.eventName)
+          (slot.eventName && slot.eventName === currentBlock.eventName)
         );
 
-        if (canExtendBlock) {
+        if (canExtendBlock && currentBlock) {
           // Extend current block
           currentBlock.endHour = hour + 1;
         } else {
@@ -529,6 +537,16 @@ const VIPCalendar = ({
     // Don't forget the last block
     if (currentBlock) {
       blocks.push(currentBlock);
+    }
+
+    // Debug log
+    if (blocks.length > 0) {
+      console.log("getEventBlocksForDay result:", blocks.map(b => ({
+        name: b.eventName,
+        start: b.startHour,
+        end: b.endHour,
+        duration: b.endHour - b.startHour
+      })));
     }
 
     return blocks;
