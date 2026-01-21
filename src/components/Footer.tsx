@@ -187,7 +187,7 @@ const Footer = () => {
               </div>
 
               {/* Admin Drive Section */}
-              {isAdmin && driveFolders.length > 0 && (
+              {isAdmin && (
                 <div className="md:col-span-2">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="font-display text-lg text-foreground flex items-center gap-2">
@@ -277,6 +277,12 @@ const Footer = () => {
                   {filteredDriveFolders.length === 0 && driveSearchTerm && (
                     <p className="text-xs text-muted-foreground text-center py-2">
                       Aucun résultat pour "{driveSearchTerm}"
+                    </p>
+                  )}
+
+                  {driveFolders.length === 0 && !driveSearchTerm && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Aucun dossier client enregistré
                     </p>
                   )}
                 </div>
