@@ -746,6 +746,9 @@ export type Database = {
         Row: {
           created_at: string
           feature_text: string
+          feature_text_en: string | null
+          feature_text_nl: string | null
+          feature_text_es: string | null
           id: string
           is_active: boolean
           service_key: string
@@ -755,6 +758,9 @@ export type Database = {
         Insert: {
           created_at?: string
           feature_text: string
+          feature_text_en?: string | null
+          feature_text_nl?: string | null
+          feature_text_es?: string | null
           id?: string
           is_active?: boolean
           service_key: string
@@ -764,6 +770,9 @@ export type Database = {
         Update: {
           created_at?: string
           feature_text?: string
+          feature_text_en?: string | null
+          feature_text_nl?: string | null
+          feature_text_es?: string | null
           id?: string
           is_active?: boolean
           service_key?: string

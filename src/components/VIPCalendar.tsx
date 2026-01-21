@@ -2,14 +2,42 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, FolderOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, FolderOpen, Search, Mic2, Music, Radio, Calendar } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
+
+// Types pour le panneau Drive
+interface ClientDriveFolder {
+  id: string;
+  client_email: string;
+  client_name: string;
+  drive_folder_link: string;
+}
+
+interface TodayBookingInfo {
+  client_email: string;
+  session_type: string;
+  start_time: string;
+}
+
+const SESSION_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+  "with-engineer": { label: "Session", color: "bg-green-500/20 text-green-400" },
+  "with_engineer": { label: "Session", color: "bg-green-500/20 text-green-400" },
+  "without-engineer": { label: "Location", color: "bg-blue-500/20 text-blue-400" },
+  "without_engineer": { label: "Location", color: "bg-blue-500/20 text-blue-400" },
+  "mixing": { label: "Mix", color: "bg-purple-500/20 text-purple-400" },
+  "mastering": { label: "Master", color: "bg-amber-500/20 text-amber-400" },
+  "analog-mastering": { label: "Analog", color: "bg-orange-500/20 text-orange-400" },
+  "analog_mastering": { label: "Analog", color: "bg-orange-500/20 text-orange-400" },
+  "podcast": { label: "Podcast", color: "bg-pink-500/20 text-pink-400" },
+};
 
 interface TimeSlot {
   hour: number;
@@ -83,9 +111,15 @@ const VIPCalendar = ({
   
   // Multi-select for admin - always enabled in admin mode for booked slots
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
-  
+
   // Mobile: selected day index for single-day navigation
   const [mobileSelectedDayIndex, setMobileSelectedDayIndex] = useState(0);
+
+  // Admin Drive Panel state
+  const [driveFolders, setDriveFolders] = useState<ClientDriveFolder[]>([]);
+  const [todayBookingsInfo, setTodayBookingsInfo] = useState<TodayBookingInfo[]>([]);
+  const [driveSearchTerm, setDriveSearchTerm] = useState("");
+  const [drivePopoverOpen, setDrivePopoverOpen] = useState(false);
 
   // Fetch availability data
   useEffect(() => {
@@ -111,6 +145,36 @@ const VIPCalendar = ({
 
     fetchAvailability();
   }, [weekStart, isSuperAdmin]);
+
+  // Fetch drive folders for admin mode
+  useEffect(() => {
+    if (!isAdminMode) return;
+
+    const fetchDriveFolders = async () => {
+      try {
+        // Fetch all client drive folders
+        const { data: folders } = await supabase
+          .from("client_drive_folders")
+          .select("id, client_email, client_name, drive_folder_link")
+          .order("client_name");
+
+        // Fetch today's bookings
+        const today = new Date().toISOString().split("T")[0];
+        const { data: bookings } = await supabase
+          .from("bookings")
+          .select("client_email, session_type, start_time")
+          .eq("session_date", today)
+          .in("status", ["confirmed", "pending"]);
+
+        setDriveFolders(folders || []);
+        setTodayBookingsInfo(bookings || []);
+      } catch (err) {
+        console.error("Failed to fetch drive folders:", err);
+      }
+    };
+
+    fetchDriveFolders();
+  }, [isAdminMode]);
 
   const handlePreviousWeek = () => {
     // Allow navigating to past weeks for history viewing (admin mode only)
@@ -429,11 +493,50 @@ const VIPCalendar = ({
 
   const openWhatsApp = () => {
     const phoneNumber = "+32476094172";
-    const message = selectedDay && selectedHour !== null 
+    const message = selectedDay && selectedHour !== null
       ? `Bonjour, je souhaite réserver le studio le ${format(new Date(selectedDay), "EEEE d MMMM yyyy", { locale: fr })} de ${formatHour(selectedHour)} à ${formatHour(selectedHour + duration)}. Ce créneau est-il disponible ?`
       : "Bonjour, je souhaite vérifier la disponibilité du studio.";
     window.open(`https://wa.me/${phoneNumber.replace("+", "")}?text=${encodeURIComponent(message)}`, "_blank");
   };
+
+  // Drive panel helpers
+  const getTodaySessionForClient = (clientEmail: string): TodayBookingInfo | undefined => {
+    return todayBookingsInfo.find(
+      (b) => b.client_email.toLowerCase() === clientEmail.toLowerCase()
+    );
+  };
+
+  const getSessionTypeConfig = (sessionType: string) => {
+    const normalizedType = sessionType.replace(/_/g, "-");
+    return SESSION_TYPE_CONFIG[normalizedType] || SESSION_TYPE_CONFIG[sessionType] || {
+      label: sessionType,
+      color: "bg-gray-500/20 text-gray-400",
+    };
+  };
+
+  // Filter and sort drive folders
+  const filteredDriveFolders = driveFolders
+    .filter((folder) => {
+      const search = driveSearchTerm.toLowerCase();
+      return (
+        folder.client_name.toLowerCase().includes(search) ||
+        folder.client_email.toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) => {
+      const aHasSession = getTodaySessionForClient(a.client_email);
+      const bHasSession = getTodaySessionForClient(b.client_email);
+      if (aHasSession && !bHasSession) return -1;
+      if (!aHasSession && bHasSession) return 1;
+      return a.client_name.localeCompare(b.client_name);
+    });
+
+  const clientsWithTodaySession = filteredDriveFolders.filter((f) =>
+    getTodaySessionForClient(f.client_email)
+  );
+  const otherClients = filteredDriveFolders.filter(
+    (f) => !getTodaySessionForClient(f.client_email)
+  );
 
   // Get the days to display - 3 days on mobile, 8 on desktop (removed hour column = space for 1 more day)
   const daysToShow = isMobileView ? 3 : 8;
@@ -469,13 +572,116 @@ const VIPCalendar = ({
         "flex items-center justify-between",
         isMobileView ? "mb-3 flex-col gap-2" : "mb-6"
       )}>
-        <h3 className={cn(
-          "font-display text-foreground flex items-center gap-2",
-          isMobileView ? "text-sm" : "text-xl"
-        )}>
-          <Clock className={cn(isMobileView ? "w-4 h-4" : "w-5 h-5", "text-primary")} />
-          {isAdminMode ? "AGENDA" : "AGENDA VIP"}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className={cn(
+            "font-display text-foreground flex items-center gap-2",
+            isMobileView ? "text-sm" : "text-xl"
+          )}>
+            <Clock className={cn(isMobileView ? "w-4 h-4" : "w-5 h-5", "text-primary")} />
+            {isAdminMode ? "AGENDA" : "AGENDA VIP"}
+          </h3>
+
+          {/* Admin Drive Button */}
+          {isAdminMode && driveFolders.length > 0 && (
+            <Popover open={drivePopoverOpen} onOpenChange={setDrivePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "relative",
+                    clientsWithTodaySession.length > 0 && "border-amber-500/50 text-amber-500",
+                    isMobileView && "h-7 px-2 text-xs"
+                  )}
+                >
+                  <FolderOpen className={cn(isMobileView ? "w-3 h-3" : "w-4 h-4", clientsWithTodaySession.length > 0 ? "mr-1" : "")} />
+                  {clientsWithTodaySession.length > 0 && (
+                    <span className="font-bold">{clientsWithTodaySession.length}</span>
+                  )}
+                  {!isMobileView && clientsWithTodaySession.length === 0 && <span className="ml-1">Drive</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="start">
+                <div className="p-3 border-b border-border">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher..."
+                      value={driveSearchTerm}
+                      onChange={(e) => setDriveSearchTerm(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="max-h-[350px] overflow-y-auto">
+                  {/* Today's sessions */}
+                  {clientsWithTodaySession.length > 0 && (
+                    <div className="p-2 border-b border-border">
+                      <p className="text-xs font-medium text-amber-400 mb-2 flex items-center gap-1 px-1">
+                        <Calendar className="w-3 h-3" />
+                        Aujourd'hui ({clientsWithTodaySession.length})
+                      </p>
+                      {clientsWithTodaySession.map((folder) => {
+                        const session = getTodaySessionForClient(folder.client_email)!;
+                        const config = getSessionTypeConfig(session.session_type);
+                        return (
+                          <button
+                            key={folder.id}
+                            onClick={() => {
+                              window.open(folder.drive_folder_link, "_blank");
+                              setDrivePopoverOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-amber-500/10 transition-colors text-left"
+                          >
+                            <FolderOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{folder.client_name}</p>
+                              <p className="text-xs text-muted-foreground">{session.start_time.slice(0, 5)}</p>
+                            </div>
+                            <Badge variant="outline" className={cn("text-[10px] shrink-0", config.color)}>
+                              {config.label}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Other clients */}
+                  {otherClients.length > 0 && (
+                    <div className="p-2">
+                      <p className="text-xs text-muted-foreground mb-1 px-1">
+                        Tous ({otherClients.length})
+                      </p>
+                      {otherClients.slice(0, 15).map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => {
+                            window.open(folder.drive_folder_link, "_blank");
+                            setDrivePopoverOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <FolderOpen className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate flex-1">{folder.client_name}</span>
+                        </button>
+                      ))}
+                      {otherClients.length > 15 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">
+                          +{otherClients.length - 15} autres...
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {filteredDriveFolders.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Aucun résultat
+                    </p>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
