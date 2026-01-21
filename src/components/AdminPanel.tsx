@@ -37,34 +37,25 @@ import AdminPaymentConfig from "./AdminPaymentConfig";
 import AdminCollapsibleSection from "./AdminCollapsibleSection";
 import AdminClientDrive from "./AdminClientDrive";
 import AdminBackgroundImage from "./AdminBackgroundImage";
-import { supabase } from "@/integrations/supabase/client";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 
 interface AdminPanelProps {
   inline?: boolean;
 }
 
-const SUPER_ADMIN_EMAILS = ["prod.makemusic@gmail.com", "romain.scheyvaerts@gmail.com"];
-
 const AdminPanel = ({ inline = false }: AdminPanelProps) => {
   const { isMobileView } = useViewMode();
+  const { isSuperAdmin } = useAdmin();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("pricing");
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
-    const checkSuperAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-        setIsSuperAdmin(true);
-        setActiveTab("super-admin");
-      }
-    };
-    if (isOpen) {
-      checkSuperAdmin();
+    if (isOpen && isSuperAdmin) {
+      setActiveTab("super-admin");
     }
-  }, [isOpen]);
+  }, [isOpen, isSuperAdmin]);
 
   // Inline mode - renders nothing (removed from admin banner)
   if (inline) {
@@ -134,10 +125,12 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                 <Users className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
                 <span className={isMobileView ? "" : "hidden sm:inline"}>Users</span>
               </TabsTrigger>
-              <TabsTrigger value="config" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
-                <MessageSquare className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
-                <span className={isMobileView ? "" : "hidden sm:inline"}>Config</span>
-              </TabsTrigger>
+              {isSuperAdmin && (
+                <TabsTrigger value="config" className={cn("flex items-center", isMobileView ? "gap-1 text-xs px-2" : "gap-2")}>
+                  <MessageSquare className={isMobileView ? "w-3 h-3" : "w-4 h-4"} />
+                  <span className={isMobileView ? "" : "hidden sm:inline"}>Config</span>
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -183,9 +176,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               <AdminCollapsibleSection title="Codes Promo" icon={Tag}>
                 <AdminPromoCodeManager />
               </AdminCollapsibleSection>
-              <AdminCollapsibleSection title="Caractéristiques des Services" icon={ListChecks}>
-                <AdminServiceFeatures />
-              </AdminCollapsibleSection>
+              {isSuperAdmin && (
+                <AdminCollapsibleSection title="Caractéristiques des Services" icon={ListChecks}>
+                  <AdminServiceFeatures />
+                </AdminCollapsibleSection>
+              )}
             </TabsContent>
 
             {/* Content Tab */}
@@ -212,7 +207,7 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               <div className="bg-muted/30 rounded-lg p-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Utilisateurs & Sécurité</h3>
+                  <h3 className="font-semibold">{isSuperAdmin ? "Utilisateurs & Sécurité" : "Dossiers Clients"}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Cliquez sur une section pour la déplier.
@@ -221,38 +216,44 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               <AdminCollapsibleSection title="Dossiers Drive Clients" icon={FolderOpen} defaultOpen>
                 <AdminClientDrive />
               </AdminCollapsibleSection>
-              <AdminCollapsibleSection title="Gestion des Utilisateurs" icon={Users}>
-                <AdminUserManagement />
-              </AdminCollapsibleSection>
-              <AdminCollapsibleSection title="Activité & Sécurité" icon={Shield}>
-                <AdminActivitySecurity />
-              </AdminCollapsibleSection>
+              {isSuperAdmin && (
+                <>
+                  <AdminCollapsibleSection title="Gestion des Utilisateurs" icon={Users}>
+                    <AdminUserManagement />
+                  </AdminCollapsibleSection>
+                  <AdminCollapsibleSection title="Activité & Sécurité" icon={Shield}>
+                    <AdminActivitySecurity />
+                  </AdminCollapsibleSection>
+                </>
+              )}
             </TabsContent>
 
-            {/* Config Tab */}
-            <TabsContent value="config" className="mt-0 space-y-3">
-              <div className="bg-muted/30 rounded-lg p-4 mb-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Configuration</h3>
+            {/* Config Tab - Super Admin Only */}
+            {isSuperAdmin && (
+              <TabsContent value="config" className="mt-0 space-y-3">
+                <div className="bg-muted/30 rounded-lg p-4 mb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold">Configuration</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Cliquez sur une section pour la déplier.
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Cliquez sur une section pour la déplier.
-                </p>
-              </div>
-              <AdminCollapsibleSection title="Configuration Paiements" icon={CreditCard}>
-                <AdminPaymentConfig />
-              </AdminCollapsibleSection>
-              <AdminCollapsibleSection title="Configuration Chatbot" icon={Bot}>
-                <AdminChatbotConfig />
-              </AdminCollapsibleSection>
-              <AdminCollapsibleSection title="Configuration Emails" icon={Mail}>
-                <AdminEmailConfig />
-              </AdminCollapsibleSection>
-              <AdminCollapsibleSection title="Templates Emails" icon={FileText}>
-                <AdminEmailTemplates />
-              </AdminCollapsibleSection>
-            </TabsContent>
+                <AdminCollapsibleSection title="Configuration Paiements" icon={CreditCard}>
+                  <AdminPaymentConfig />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Configuration Chatbot" icon={Bot}>
+                  <AdminChatbotConfig />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Configuration Emails" icon={Mail}>
+                  <AdminEmailConfig />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Templates Emails" icon={FileText}>
+                  <AdminEmailTemplates />
+                </AdminCollapsibleSection>
+              </TabsContent>
+            )}
 
             <div className="pt-4 mt-4 border-t border-border">
               <p className="text-xs text-muted-foreground text-center">
