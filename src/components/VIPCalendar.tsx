@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, FolderOpen, Search, Mic2, Music, Radio, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, CheckCircle, X, MessageCircle, Plus, Trash2, FolderOpen, Search, Mic2, Music, Radio, Calendar, HardDrive } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -680,6 +680,23 @@ const VIPCalendar = ({
                 </div>
               </PopoverContent>
             </Popover>
+          )}
+
+          {/* Main Drive Button */}
+          {isAdminMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "gap-1",
+                isMobileView && "h-7 px-2 text-xs"
+              )}
+              onClick={() => window.open("https://drive.google.com/drive/folders/1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh", "_blank")}
+              title="Ouvrir le Drive principal"
+            >
+              <HardDrive className={cn(isMobileView ? "w-3 h-3" : "w-4 h-4")} />
+              {!isMobileView && <span>Drive</span>}
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-2">
