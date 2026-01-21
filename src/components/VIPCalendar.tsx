@@ -1027,70 +1027,42 @@ const VIPCalendar = ({
 
                 {/* Time slots grid with event blocks */}
                 <div id="calendar-scroll-container" className="max-h-[400px] overflow-y-auto">
-                  <div className="grid grid-cols-[40px_repeat(8,1fr)] gap-1">
+                  <div className="grid grid-cols-[40px_repeat(8,1fr)] gap-x-1">
                     {/* Hours column */}
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col">
                       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => (
                         <div
                           key={hour}
-                          className="h-[36px] flex items-center justify-center text-[10px] text-muted-foreground"
+                          className="h-[32px] flex items-center justify-center text-[10px] text-muted-foreground"
                         >
                           {formatHour(hour)}
                         </div>
                       ))}
                     </div>
 
-                    {/* Day columns with event blocks */}
+                    {/* Day columns with event blocks using absolute positioning */}
                     {displayDays.map((day) => {
                       const eventBlocks = getEventBlocksForDay(day.slots);
 
                       return (
-                        <div key={day.date} className="relative flex flex-col gap-1">
-                          {/* Hour slots background */}
+                        <div key={day.date} className="relative" style={{ height: `${24 * 32}px` }}>
+                          {/* Background grid for available slots */}
                           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((hour) => {
                             const displayStatus = getSlotDisplayStatus(day.slots, hour);
                             const slot = day.slots.find(s => s.hour === hour);
                             const isEventHour = slot?.eventId && slot?.status === "unavailable";
-                            const eventBlockStart = isEventHour && isEventBlockStart(day.slots, hour);
 
-                            // Skip rendering if this hour is part of an event block (not the start)
-                            if (isEventHour && !eventBlockStart) {
-                              return null;
-                            }
-
-                            // If this is the start of an event block, render the full block
-                            if (eventBlockStart) {
-                              const blockDuration = getEventBlockDuration(day.slots, hour);
-                              const eventName = slot?.eventName || "Réservé";
-                              const isMultiSelected = hasAdminFeatures && selectedSlots.some(
-                                s => s.date === day.date && s.hour >= hour && s.hour < hour + blockDuration
-                              );
-
+                            // Don't render background for event hours - they'll be covered by event blocks
+                            if (isEventHour) {
                               return (
-                                <button
-                                  key={`${day.date}-${hour}-block`}
-                                  onClick={() => hasAdminFeatures && handleSelectSlot(day.date, hour)}
-                                  className={cn(
-                                    "rounded text-[10px] transition-all duration-200 flex flex-col items-center justify-center cursor-pointer overflow-hidden",
-                                    isMultiSelected
-                                      ? "bg-blue-500 text-white ring-2 ring-blue-400"
-                                      : "bg-purple-500/30 text-purple-300 hover:bg-purple-500/50 border border-purple-500/50"
-                                  )}
-                                  style={{
-                                    height: `${blockDuration * 36 + (blockDuration - 1) * 4}px`, // 36px per hour + 4px gap
-                                  }}
-                                  title={`${eventName} (${formatHour(hour)} - ${formatHour(hour + blockDuration)})`}
-                                >
-                                  <span className="font-semibold text-xs">{eventName}</span>
-                                  <span className="text-[9px] opacity-80">
-                                    {formatHour(hour)} - {formatHour(hour + blockDuration)}
-                                  </span>
-                                  <span className="text-[9px] opacity-60">{blockDuration}h</span>
-                                </button>
+                                <div
+                                  key={`${day.date}-${hour}-bg`}
+                                  className="absolute left-0 right-0 h-[31px] bg-transparent"
+                                  style={{ top: `${hour * 32}px` }}
+                                />
                               );
                             }
 
-                            // Regular available/on-request slot
                             const hasSecondaryConflict = !!slot?.hasSecondaryCalendarConflict;
                             const hasTertiaryConflict = !!slot?.hasTertiaryCalendarConflict;
                             const hasAnySpecialConflict = hasSecondaryConflict || hasTertiaryConflict;
@@ -1108,7 +1080,7 @@ const VIPCalendar = ({
                                 onClick={() => isClickable && handleSelectSlot(day.date, hour)}
                                 disabled={!isClickable && !hasAdminFeatures}
                                 className={cn(
-                                  "h-[36px] rounded text-[10px] transition-all duration-200 flex items-center justify-center relative",
+                                  "absolute left-0 right-0 h-[31px] rounded text-[10px] transition-all duration-200 flex items-center justify-center",
                                   displayStatus === "available"
                                     ? hasAdminFeatures && hasAnySpecialConflict
                                       ? specialConflictColor
@@ -1121,10 +1093,10 @@ const VIPCalendar = ({
                                         : isSelected
                                           ? "bg-primary text-primary-foreground ring-2 ring-amber-500"
                                           : "bg-amber-500/20 text-amber-500 hover:bg-amber-500/40 cursor-pointer"
-                                      : "bg-muted/30 text-muted-foreground"
+                                      : "bg-muted/20 text-muted-foreground"
                                 )}
+                                style={{ top: `${hour * 32}px` }}
                               >
-                                {/* Secondary/Tertiary indicator - orange dot */}
                                 {hasAdminFeatures && hasAnySpecialConflict && displayStatus !== "unavailable" && (
                                   <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
                                 )}
@@ -1133,6 +1105,40 @@ const VIPCalendar = ({
                                 ) : displayStatus === "on-request" ? (
                                   <span className="opacity-50">?</span>
                                 ) : null}
+                              </button>
+                            );
+                          })}
+
+                          {/* Event blocks overlay */}
+                          {eventBlocks.map((block) => {
+                            const blockDuration = block.endHour - block.startHour;
+                            const isMultiSelected = hasAdminFeatures && selectedSlots.some(
+                              s => s.date === day.date && s.hour >= block.startHour && s.hour < block.endHour
+                            );
+
+                            return (
+                              <button
+                                key={`${day.date}-block-${block.startHour}`}
+                                onClick={() => hasAdminFeatures && handleSelectSlot(day.date, block.startHour)}
+                                className={cn(
+                                  "absolute left-0 right-0 rounded text-[10px] transition-all duration-200 flex flex-col items-center justify-center cursor-pointer overflow-hidden z-10",
+                                  isMultiSelected
+                                    ? "bg-blue-500 text-white ring-2 ring-blue-400"
+                                    : "bg-purple-500/40 text-purple-200 hover:bg-purple-500/60 border border-purple-400/60"
+                                )}
+                                style={{
+                                  top: `${block.startHour * 32}px`,
+                                  height: `${blockDuration * 32 - 1}px`,
+                                }}
+                                title={`${block.eventName} (${formatHour(block.startHour)} - ${formatHour(block.endHour)})`}
+                              >
+                                <span className="font-semibold text-xs truncate w-full px-1 text-center">{block.eventName}</span>
+                                <span className="text-[9px] opacity-80">
+                                  {formatHour(block.startHour)} - {formatHour(block.endHour)}
+                                </span>
+                                {blockDuration > 1 && (
+                                  <span className="text-[9px] opacity-60">{blockDuration}h</span>
+                                )}
                               </button>
                             );
                           })}
