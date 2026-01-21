@@ -1052,6 +1052,12 @@ const VIPCalendar = ({
                     {/* Day columns with event blocks using absolute positioning */}
                     {displayDays.map((day) => {
                       const eventBlocks = getEventBlocksForDay(day.slots);
+                      // Debug: log event blocks for first day with events
+                      if (eventBlocks.length > 0 && !window.__eventBlocksLogged) {
+                        console.log("Event blocks for", day.date, ":", eventBlocks);
+                        console.log("Sample slots:", day.slots.filter(s => s.eventName).slice(0, 3));
+                        window.__eventBlocksLogged = true;
+                      }
 
                       return (
                         <div key={day.date} className="relative" style={{ height: `${24 * 32}px` }}>
