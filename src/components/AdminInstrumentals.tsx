@@ -98,10 +98,38 @@ const AdminInstrumentals = () => {
       
       if (data.files) {
         setDriveFiles(data.files);
+        
+        // Build detailed description
+        const parts: string[] = [];
+        if (data.newFiles > 0) parts.push(`${data.newFiles} ajouté(s)`);
+        if (data.deletedFiles?.length > 0) parts.push(`${data.deletedFiles.length} supprimé(s)`);
+        if (data.updatedFiles?.length > 0) parts.push(`${data.updatedFiles.length} mis à jour`);
+        if (data.stemsFoldersFound > 0) parts.push(`${data.stemsFoldersFound} dossiers stems`);
+        
         toast({
-          title: "Scan terminé",
-          description: `${data.newFiles} nouveau(x) fichier(s), ${data.stemsFoldersFound || 0} dossier(s) stems trouvé(s).`
+          title: "🔄 Synchronisation terminée",
+          description: parts.length > 0 ? parts.join(" • ") : "Aucun changement détecté.",
         });
+        
+        // Show deleted files details if any
+        if (data.deletedFiles?.length > 0) {
+          toast({
+            title: "🗑️ Fichiers supprimés de Drive",
+            description: data.deletedFiles.slice(0, 3).join(", ") + (data.deletedFiles.length > 3 ? ` (+${data.deletedFiles.length - 3} autres)` : ""),
+            variant: "destructive"
+          });
+        }
+        
+        // Show updated files details if any
+        if (data.updatedFiles?.length > 0) {
+          toast({
+            title: "✏️ Fichiers mis à jour",
+            description: data.updatedFiles.slice(0, 3).join(", ") + (data.updatedFiles.length > 3 ? ` (+${data.updatedFiles.length - 3} autres)` : ""),
+          });
+        }
+        
+        // Refresh instrumentals list after sync
+        fetchInstrumentals();
       }
     } catch (err: any) {
       console.error("Drive scan error:", err);

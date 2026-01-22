@@ -136,8 +136,9 @@ serve(async (req) => {
     ]);
 
     // List all items in the folder (audio files AND folders for stems)
+    // Include modifiedTime to detect updated files
     const listResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q='${INSTRUMENTALS_FOLDER_ID}'+in+parents&fields=files(id,name,mimeType,createdTime,size)`,
+      `https://www.googleapis.com/drive/v3/files?q='${INSTRUMENTALS_FOLDER_ID}'+in+parents&fields=files(id,name,mimeType,createdTime,modifiedTime,size)`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -179,7 +180,7 @@ serve(async (req) => {
     // Get existing instrumentals from database
     const { data: existingInstrumentals, error: dbError } = await supabase
       .from("instrumentals")
-      .select("drive_file_id, title, has_stems, stems_folder_id");
+      .select("id, drive_file_id, title, has_stems, stems_folder_id, drive_modified_at");
 
     if (dbError) {
       console.error("DB error:", dbError);
@@ -187,6 +188,30 @@ serve(async (req) => {
     }
 
     const existingDriveIds = new Set(existingInstrumentals?.map(i => i.drive_file_id) || []);
+    
+    // Create a Set of all drive file IDs from Google Drive
+    const driveFileIds = new Set(audioFiles.map((f: any) => f.id));
+    
+    // ========== DELETION: Find instrumentals in DB that no longer exist in Drive ==========
+    const deletedFromDrive: string[] = [];
+    for (const instrumental of existingInstrumentals || []) {
+      if (instrumental.drive_file_id && !driveFileIds.has(instrumental.drive_file_id)) {
+        // This file no longer exists in Google Drive - DELETE from Supabase
+        console.log(`[DELETE] File removed from Drive: ${instrumental.title} (${instrumental.drive_file_id})`);
+        
+        const { error: deleteError } = await supabase
+          .from("instrumentals")
+          .delete()
+          .eq("id", instrumental.id);
+        
+        if (deleteError) {
+          console.error(`Failed to delete ${instrumental.title}:`, deleteError);
+        } else {
+          deletedFromDrive.push(instrumental.title);
+          console.log(`Deleted from database: ${instrumental.title}`);
+        }
+      }
+    }
 
     // Map audio files with stems folder info
     const driveFilesWithStatus = audioFiles.map((file: any) => {
@@ -198,6 +223,7 @@ serve(async (req) => {
         name: file.name,
         mimeType: file.mimeType,
         createdTime: file.createdTime,
+        modifiedTime: file.modifiedTime,
         size: file.size,
         isInDatabase: existingDriveIds.has(file.id),
         hasStemsFolder: !!stemsFolder,
@@ -206,21 +232,52 @@ serve(async (req) => {
       };
     });
 
-    // Update existing instrumentals with stems info if changed
+    // ========== UPDATE: Check for modified files and update stems info ==========
+    const updatedFiles: string[] = [];
     for (const instrumental of existingInstrumentals || []) {
       const driveFile = driveFilesWithStatus.find((f: any) => f.id === instrumental.drive_file_id);
-      if (driveFile && (
+      if (!driveFile) continue; // Already deleted above
+      
+      // Check if file was modified in Drive (date changed)
+      const driveModifiedAt = driveFile.modifiedTime ? new Date(driveFile.modifiedTime).toISOString() : null;
+      const dbModifiedAt = instrumental.drive_modified_at;
+      
+      const needsUpdate = 
         instrumental.has_stems !== driveFile.hasStemsFolder ||
-        instrumental.stems_folder_id !== driveFile.stemsFolderId
-      )) {
+        instrumental.stems_folder_id !== driveFile.stemsFolderId ||
+        (driveModifiedAt && driveModifiedAt !== dbModifiedAt);
+      
+      if (needsUpdate) {
+        // Re-parse title, BPM, key from new filename if file was replaced
+        const bpmMatch = driveFile.name.match(/(\d+)\s*bpm/i);
+        const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
+        
+        const keyMatch = driveFile.name.match(/([a-gA-G])\s*(min|maj|minor|major)?/i);
+        const key = keyMatch ? `${keyMatch[1].toUpperCase()} ${keyMatch[2]?.toLowerCase() || 'minor'}` : null;
+        
+        const title = driveFile.name.replace(/\.(mp3|wav|flac|m4a)$/i, '').trim();
+        
+        const updateData: any = {
+          has_stems: driveFile.hasStemsFolder,
+          stems_folder_id: driveFile.stemsFolderId,
+          drive_modified_at: driveModifiedAt,
+        };
+        
+        // Only update title/bpm/key if the file was actually modified (not just stems info)
+        if (driveModifiedAt && driveModifiedAt !== dbModifiedAt) {
+          updateData.title = title;
+          if (bpm) updateData.bpm = bpm;
+          if (key) updateData.key = key;
+          console.log(`[UPDATE] File was modified in Drive: ${instrumental.title} -> ${title}`);
+        }
+        
         await supabase
           .from("instrumentals")
-          .update({
-            has_stems: driveFile.hasStemsFolder,
-            stems_folder_id: driveFile.stemsFolderId
-          })
+          .update(updateData)
           .eq("drive_file_id", instrumental.drive_file_id);
-        console.log(`Updated stems info for: ${instrumental.title}`);
+        
+        updatedFiles.push(driveFile.name);
+        console.log(`Updated: ${driveFile.name}`);
       }
     }
 
@@ -251,6 +308,7 @@ serve(async (req) => {
           has_stems: file.hasStemsFolder,
           stems_folder_id: file.stemsFolderId,
           is_active: true,
+          drive_modified_at: file.modifiedTime,
         });
       
       if (insertError) {
@@ -268,6 +326,8 @@ serve(async (req) => {
         totalInDatabase: existingInstrumentals?.length || 0,
         newFiles: newFiles.length,
         insertedFiles,
+        deletedFiles: deletedFromDrive,
+        updatedFiles,
         stemsFoldersFound: stemsFolders.length,
       }),
       {
