@@ -20,7 +20,8 @@ import {
   Palette,
   UserCog,
   FolderOpen,
-  Receipt
+  Receipt,
+  User
 } from "lucide-react";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
@@ -39,6 +40,7 @@ import AdminCollapsibleSection from "./AdminCollapsibleSection";
 import AdminClientDrive from "./AdminClientDrive";
 import AdminClientAccounting from "./AdminClientAccounting";
 import AdminBackgroundImage from "./AdminBackgroundImage";
+import AdminProfileSettings from "./AdminProfileSettings";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
@@ -209,13 +211,16 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
               <div className="bg-muted/30 rounded-lg p-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">{isSuperAdmin ? "Utilisateurs & Sécurité" : "Dossiers Clients"}</h3>
+                  <h3 className="font-semibold">{isSuperAdmin ? "Utilisateurs & Sécurité" : "Mon Espace"}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Cliquez sur une section pour la déplier.
                 </p>
               </div>
-              <AdminCollapsibleSection title="Comptabilité Clients" icon={Receipt} defaultOpen>
+              <AdminCollapsibleSection title="Mon Profil Admin" icon={User} defaultOpen>
+                <AdminProfileSettings />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Comptabilité Clients" icon={Receipt}>
                 <AdminClientAccounting />
               </AdminCollapsibleSection>
               <AdminCollapsibleSection title="Dossiers Drive Clients" icon={FolderOpen}>
