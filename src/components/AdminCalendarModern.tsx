@@ -322,11 +322,17 @@ const AdminCalendarModern = ({
   // Calendar container height - compact to fit on screen
   const calendarHeight = isMobileView ? "h-[450px]" : "h-[500px]";
 
-  // Touch/swipe navigation handlers
+  // Touch/swipe navigation handlers with "elastic" effect
+  // User must swipe a VERY long distance (like pulling an elastic band)
+  const swipeProgressRef = useRef<number>(0);
+  const swipeDirectionRef = useRef<"left" | "right" | null>(null);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
     isSwipingRef.current = false;
+    swipeProgressRef.current = 0;
+    swipeDirectionRef.current = null;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -335,20 +341,26 @@ const AdminCalendarModern = ({
     const deltaX = e.touches[0].clientX - touchStartXRef.current;
     const deltaY = e.touches[0].clientY - touchStartYRef.current;
     
-    // Only consider horizontal swipes (deltaX > deltaY)
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+    // Only consider horizontal swipes (deltaX > deltaY * 2 for stricter detection)
+    if (Math.abs(deltaX) > Math.abs(deltaY) * 2 && Math.abs(deltaX) > 50) {
       isSwipingRef.current = true;
+      swipeDirectionRef.current = deltaX > 0 ? "right" : "left";
+      // Track progress (0 to 100%)
+      swipeProgressRef.current = Math.min(100, (Math.abs(deltaX) / 200) * 100);
     }
   }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!isSwipingRef.current || !touchStartXRef.current) {
       touchStartXRef.current = 0;
+      swipeProgressRef.current = 0;
+      swipeDirectionRef.current = null;
       return;
     }
     
     const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
-    const threshold = 80; // Minimum swipe distance
+    // VERY high threshold - user must swipe at least 200px (like pulling an elastic)
+    const threshold = 200;
     
     if (Math.abs(deltaX) > threshold) {
       if (deltaX > 0) {
@@ -362,49 +374,14 @@ const AdminCalendarModern = ({
     
     touchStartXRef.current = 0;
     isSwipingRef.current = false;
+    swipeProgressRef.current = 0;
+    swipeDirectionRef.current = null;
   }, [goToPrevious, goToNext]);
 
-  // Scroll edge detection for desktop
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const container = e.currentTarget;
-    const scrollLeft = container.scrollLeft;
-    const scrollWidth = container.scrollWidth;
-    const clientWidth = container.clientWidth;
-    
-    // Check if we're at the edge and continuing to scroll
-    const isAtLeftEdge = scrollLeft <= 0;
-    const isAtRightEdge = scrollLeft + clientWidth >= scrollWidth - 5;
-    
-    // Clear previous timeout
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    // If at edge and scroll position hasn't changed (user is trying to scroll beyond)
-    if (isAtLeftEdge && lastScrollLeftRef.current === 0) {
-      scrollTimeoutRef.current = setTimeout(() => {
-        goToPrevious();
-        // Reset scroll position to the right after navigation
-        setTimeout(() => {
-          if (container) {
-            container.scrollLeft = container.scrollWidth - container.clientWidth;
-          }
-        }, 100);
-      }, 300);
-    } else if (isAtRightEdge && lastScrollLeftRef.current >= scrollWidth - clientWidth - 5) {
-      scrollTimeoutRef.current = setTimeout(() => {
-        goToNext();
-        // Reset scroll position to the left after navigation
-        setTimeout(() => {
-          if (container) {
-            container.scrollLeft = 0;
-          }
-        }, 100);
-      }, 300);
-    }
-    
-    lastScrollLeftRef.current = scrollLeft;
-  }, [goToPrevious, goToNext]);
+  // Disabled scroll edge detection - too sensitive, removed
+  const handleScroll = useCallback(() => {
+    // Intentionally empty - scroll navigation disabled
+  }, []);
 
   // Render Month View
   const renderMonthView = () => {
