@@ -14,7 +14,8 @@ import {
   Mail,
   Clock,
   Check,
-  X
+  X,
+  Gift
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -76,6 +77,9 @@ const AdminEventEditPanel = ({
   const [includeStripeLink, setIncludeStripeLink] = useState(false);
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
 
+  // Session type
+  const [isFreeSession, setIsFreeSession] = useState(false);
+
   // Results
   const [createdDriveLink, setCreatedDriveLink] = useState<string | null>(existingDriveFolderLink || null);
   const [createdStripeLink, setCreatedStripeLink] = useState<string | null>(null);
@@ -120,13 +124,19 @@ const AdminEventEditPanel = ({
 
     try {
       if (mode === "create") {
+        // Build description with [FREE] tag if session is free
+        let eventDescription = notes;
+        if (isFreeSession) {
+          eventDescription = "[FREE]\n" + (notes || "");
+        }
+        
         // Create the event first
         const { data, error } = await supabase.functions.invoke("create-admin-event", {
           body: {
             title: title.trim(),
             clientName: clientName || title.trim(),
             clientEmail: clientEmail || undefined,
-            description: notes,
+            description: eventDescription,
             date,
             time: formatHour(currentStartHour),
             hours: duration,
@@ -373,6 +383,21 @@ const AdminEventEditPanel = ({
           placeholder="Notes internes ou message à inclure dans l'email..."
           rows={2}
           className="bg-background resize-none"
+        />
+      </div>
+
+      {/* Free session option */}
+      <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
+        <div className="flex items-center gap-2">
+          <Gift className="w-4 h-4 text-green-500" />
+          <div>
+            <span className="text-sm font-medium text-foreground">Session gratuite</span>
+            <p className="text-xs text-muted-foreground">Ne sera pas comptabilisée dans les revenus</p>
+          </div>
+        </div>
+        <Switch
+          checked={isFreeSession}
+          onCheckedChange={setIsFreeSession}
         />
       </div>
 
