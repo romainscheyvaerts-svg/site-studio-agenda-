@@ -124,7 +124,7 @@ async function createCalendarEvent(
       useDefault: false,
       overrides: [
         { method: "popup", minutes: 120 }, // 2 hours before
-        { method: "email", minutes: 120 }, // 2 hours before (email)
+        { method: "popup", minutes: 60 },  // 1 hour before
       ],
     },
   };
