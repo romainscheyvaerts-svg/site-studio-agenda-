@@ -9,17 +9,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, User, Palette, Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Colors for admin profiles - Red excluded (used for calendar events)
 const ADMIN_COLORS = [
   { value: "#00D9FF", name: "Cyan" },
-  { value: "#FF6B6B", name: "Rouge" },
   { value: "#4ECDC4", name: "Turquoise" },
   { value: "#FFE66D", name: "Jaune" },
   { value: "#95E1D3", name: "Menthe" },
-  { value: "#F38181", name: "Corail" },
   { value: "#AA96DA", name: "Violet" },
   { value: "#FCBAD3", name: "Rose" },
   { value: "#A8D8EA", name: "Bleu clair" },
   { value: "#FF9F45", name: "Orange" },
+  { value: "#7ED957", name: "Vert lime" },
+  { value: "#B4A7D6", name: "Lavande" },
 ];
 
 interface AdminProfile {
