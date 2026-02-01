@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -97,6 +97,14 @@ const AdminCalendarModern = ({
   const [selectedRange, setSelectedRange] = useState<{ date: string; startHour: number; endHour: number } | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [lastFetchWasSuperAdmin, setLastFetchWasSuperAdmin] = useState<boolean>(false);
+
+  // Swipe/scroll navigation refs
+  const calendarContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
+  const isSwipingRef = useRef<boolean>(false);
+  const lastScrollLeftRef = useRef<number>(0);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
@@ -314,6 +322,89 @@ const AdminCalendarModern = ({
   // Calendar container height - compact to fit on screen
   const calendarHeight = isMobileView ? "h-[450px]" : "h-[500px]";
 
+  // Touch/swipe navigation handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    isSwipingRef.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartXRef.current) return;
+    
+    const deltaX = e.touches[0].clientX - touchStartXRef.current;
+    const deltaY = e.touches[0].clientY - touchStartYRef.current;
+    
+    // Only consider horizontal swipes (deltaX > deltaY)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+      isSwipingRef.current = true;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!isSwipingRef.current || !touchStartXRef.current) {
+      touchStartXRef.current = 0;
+      return;
+    }
+    
+    const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const threshold = 80; // Minimum swipe distance
+    
+    if (Math.abs(deltaX) > threshold) {
+      if (deltaX > 0) {
+        // Swipe right -> go to previous
+        goToPrevious();
+      } else {
+        // Swipe left -> go to next
+        goToNext();
+      }
+    }
+    
+    touchStartXRef.current = 0;
+    isSwipingRef.current = false;
+  }, [goToPrevious, goToNext]);
+
+  // Scroll edge detection for desktop
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const scrollLeft = container.scrollLeft;
+    const scrollWidth = container.scrollWidth;
+    const clientWidth = container.clientWidth;
+    
+    // Check if we're at the edge and continuing to scroll
+    const isAtLeftEdge = scrollLeft <= 0;
+    const isAtRightEdge = scrollLeft + clientWidth >= scrollWidth - 5;
+    
+    // Clear previous timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // If at edge and scroll position hasn't changed (user is trying to scroll beyond)
+    if (isAtLeftEdge && lastScrollLeftRef.current === 0) {
+      scrollTimeoutRef.current = setTimeout(() => {
+        goToPrevious();
+        // Reset scroll position to the right after navigation
+        setTimeout(() => {
+          if (container) {
+            container.scrollLeft = container.scrollWidth - container.clientWidth;
+          }
+        }, 100);
+      }, 300);
+    } else if (isAtRightEdge && lastScrollLeftRef.current >= scrollWidth - clientWidth - 5) {
+      scrollTimeoutRef.current = setTimeout(() => {
+        goToNext();
+        // Reset scroll position to the left after navigation
+        setTimeout(() => {
+          if (container) {
+            container.scrollLeft = 0;
+          }
+        }, 100);
+      }, 300);
+    }
+    
+    lastScrollLeftRef.current = scrollLeft;
+  }, [goToPrevious, goToNext]);
 
   // Render Month View
   const renderMonthView = () => {
@@ -1084,7 +1175,13 @@ const AdminCalendarModern = ({
           <span className="ml-2 text-muted-foreground text-sm">Chargement...</span>
         </div>
       ) : (
-        <div>
+        <div
+          ref={calendarContainerRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="touch-pan-y"
+        >
           {viewMode === "month" && renderMonthView()}
           {viewMode === "week" && renderWeekView()}
           {viewMode === "day" && renderDayView()}
