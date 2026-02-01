@@ -17,12 +17,13 @@ import AdminCalendarModern from "./AdminCalendarModern";
 import AdminPanel from "./AdminPanel";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import AdminPriceCalculator from "./AdminPriceCalculator";
+import AdminQuickEventModal from "./AdminQuickEventModal";
 import StripeCheckoutButton from "./StripeCheckoutButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { usePricing } from "@/hooks/usePricing";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "custom" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 // Services qui ne nécessitent pas de calendrier ni de vérification d'identité
@@ -67,6 +68,7 @@ const BookingSection = () => {
   const [stripeEnabled, setStripeEnabled] = useState(true);
   const [paypalEnabled, setPaypalEnabled] = useState(true);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const [showQuickEventModal, setShowQuickEventModal] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -816,6 +818,14 @@ const BookingSection = () => {
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
+                    onClick={() => setShowQuickEventModal(true)}
+                    className="border-purple-500 text-purple-400 hover:bg-purple-500/10"
+                  >
+                    <Calculator className="w-4 h-4 mr-2" />
+                    {t("booking.add_event")}
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => setShowVIPCalendar(!showVIPCalendar)}
                     className="border-green-500 text-green-500 hover:bg-green-500/10"
                   >
@@ -829,6 +839,19 @@ const BookingSection = () => {
               </p>
               
               {/* Admin-only Calendar viewer with integrated price calculator */}
+              {/* Quick Event Modal */}
+              <AdminQuickEventModal
+                isOpen={showQuickEventModal}
+                onClose={() => setShowQuickEventModal(false)}
+                onEventCreated={() => {
+                  setCalendarRefreshKey(prev => prev + 1);
+                  toast({
+                    title: t("booking.event_created"),
+                    description: t("booking.event_created_desc"),
+                  });
+                }}
+              />
+
               {showVIPCalendar && (
                 <div className="mt-4 animate-in fade-in-0 slide-in-from-top-4 duration-500 space-y-6">
                   <AdminCalendarModern
