@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   Clock,
-  Euro,
   Calendar,
   User,
   Users,
@@ -45,6 +44,7 @@ const AdminClientAccounting = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string>("");
 
   useEffect(() => {
     fetchData();
@@ -53,22 +53,162 @@ const AdminClientAccounting = () => {
   const fetchData = async () => {
     setLoading(true);
     setError(null);
+    setProgress("Chargement des données...");
+    
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke("get-client-stats-from-calendar");
+      // Use the existing get-weekly-availability function with a large date range
+      // Fetch events for the last 2 years (730 days)
+      const startDate = new Date();
+      startDate.setFullYear(startDate.getFullYear() - 2);
+      const startDateStr = startDate.toISOString().split("T")[0];
+      
+      setProgress("Récupération des événements du calendrier (2 dernières années)...");
+      
+      // Fetch in chunks of 90 days to avoid timeout
+      const allSlots: Array<{ date: string; clientEmail?: string; eventName?: string; hour: number }> = [];
+      let currentStart = new Date(startDate);
+      const today = new Date();
+      
+      while (currentStart < today) {
+        const chunkStartStr = currentStart.toISOString().split("T")[0];
+        const daysToFetch = Math.min(90, Math.ceil((today.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24)));
+        
+        setProgress(`Chargement: ${chunkStartStr}...`);
+        
+        const { data, error: fetchError } = await supabase.functions.invoke("get-weekly-availability", {
+          body: {
+            startDate: chunkStartStr,
+            days: daysToFetch,
+            includeSuperadminCalendars: false
+          }
+        });
 
-      if (fetchError) {
-        console.error("Error fetching client stats:", fetchError);
-        setError(fetchError.message);
-        return;
+        if (fetchError) {
+          console.error("Error fetching availability:", fetchError);
+          // Continue with next chunk even if one fails
+        } else if (data?.availability) {
+          // Extract events with client emails
+          for (const day of data.availability) {
+            for (const slot of day.slots) {
+              if (slot.status === "unavailable" && slot.clientEmail) {
+                allSlots.push({
+                  date: day.date,
+                  clientEmail: slot.clientEmail,
+                  eventName: slot.eventName,
+                  hour: slot.hour
+                });
+              }
+            }
+          }
+        }
+        
+        // Move to next chunk
+        currentStart.setDate(currentStart.getDate() + daysToFetch);
       }
 
-      if (data?.error) {
-        console.error("Function error:", data.error);
-        setError(data.error);
-        return;
+      setProgress("Analyse des données clients...");
+
+      // Group events by client email and date to create sessions
+      const clientsMap = new Map<string, ClientFromCalendar>();
+      const sessionMap = new Map<string, CalendarSession>(); // key: email-date
+
+      for (const slot of allSlots) {
+        if (!slot.clientEmail) continue;
+
+        const email = slot.clientEmail.toLowerCase();
+        const sessionKey = `${email}-${slot.date}`;
+        
+        // Get or create session for this day
+        let session = sessionMap.get(sessionKey);
+        if (!session) {
+          session = {
+            id: sessionKey,
+            title: slot.eventName || "Session",
+            date: slot.date,
+            startHour: slot.hour,
+            endHour: slot.hour + 1,
+            duration: 1
+          };
+          sessionMap.set(sessionKey, session);
+        } else {
+          // Extend session
+          if (slot.hour < session.startHour) {
+            session.startHour = slot.hour;
+          }
+          if (slot.hour + 1 > session.endHour) {
+            session.endHour = slot.hour + 1;
+          }
+          session.duration = session.endHour - session.startHour;
+          // Update title if we have a better one
+          if (slot.eventName && !session.title.includes(slot.eventName)) {
+            session.title = slot.eventName;
+          }
+        }
+
+        // Get or create client
+        let client = clientsMap.get(email);
+        if (!client) {
+          // Extract name from event title if possible
+          let name: string | null = null;
+          if (slot.eventName) {
+            const cleanName = slot.eventName
+              .replace(/session|réservation|booking|rec|recording|enregistrement|avec ingénieur|sans ingénieur|location|mixage|mastering/gi, "")
+              .replace(/[-:]/g, " ")
+              .trim();
+            if (cleanName && !cleanName.includes("@") && cleanName.length > 2) {
+              name = cleanName;
+            }
+          }
+          
+          client = {
+            email,
+            name,
+            totalSessions: 0,
+            totalHours: 0,
+            firstSession: null,
+            lastSession: null,
+            sessions: []
+          };
+          clientsMap.set(email, client);
+        }
+
+        // Update first/last session
+        if (!client.firstSession || slot.date < client.firstSession) {
+          client.firstSession = slot.date;
+        }
+        if (!client.lastSession || slot.date > client.lastSession) {
+          client.lastSession = slot.date;
+        }
       }
 
-      setClients(data?.clients || []);
+      // Assign sessions to clients and calculate totals
+      for (const [sessionKey, session] of sessionMap) {
+        const email = sessionKey.split("-")[0];
+        const client = clientsMap.get(email);
+        if (client) {
+          // Check if session already added (avoid duplicates)
+          if (!client.sessions.find(s => s.id === session.id)) {
+            client.sessions.push(session);
+            client.totalHours += session.duration;
+          }
+        }
+      }
+
+      // Calculate total sessions (unique dates)
+      for (const client of clientsMap.values()) {
+        const uniqueDates = new Set(client.sessions.map(s => s.date));
+        client.totalSessions = uniqueDates.size;
+        // Sort sessions by date (newest first)
+        client.sessions.sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      // Convert to array and sort by last session
+      const clientsList = Array.from(clientsMap.values())
+        .filter(c => c.totalSessions > 0)
+        .sort((a, b) => (b.lastSession || "").localeCompare(a.lastSession || ""));
+
+      setClients(clientsList);
+      setProgress("");
     } catch (err) {
       console.error("Error:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -113,9 +253,9 @@ const AdminClientAccounting = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Chargement des données depuis l'agenda...</span>
+        <span className="text-muted-foreground text-center">{progress || "Chargement..."}</span>
       </div>
     );
   }
@@ -200,7 +340,7 @@ const AdminClientAccounting = () => {
       {/* Info */}
       <div className="text-xs text-muted-foreground bg-secondary/30 p-3 rounded-lg">
         📅 Données extraites automatiquement de votre Google Calendar (2 dernières années). 
-        Les emails sont détectés depuis les participants ou la description des événements.
+        Seuls les événements avec un email dans la description ou les participants sont listés.
       </div>
 
       {/* Client List */}
@@ -213,7 +353,7 @@ const AdminClientAccounting = () => {
                 {searchTerm ? t("admin.no_clients_found") : "Aucun client avec email trouvé dans l'agenda"}
               </p>
               <p className="text-xs text-muted-foreground mt-2">
-                Assurez-vous que vos événements contiennent l'email du client (dans les participants ou la description)
+                Pour qu'un client apparaisse, l'événement doit contenir son email (dans la description ou comme participant)
               </p>
             </CardContent>
           </Card>
@@ -291,12 +431,12 @@ const AdminClientAccounting = () => {
 
                     {/* Client Summary */}
                     <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/30">
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between text-sm flex-wrap gap-2">
                         <span className="text-muted-foreground">
                           {t("admin.first_session")}: {client.firstSession && formatDate(client.firstSession)}
                         </span>
                         <span className="text-muted-foreground">
-                          Dernière session: {client.lastSession && formatDate(client.lastSession)}
+                          Dernière: {client.lastSession && formatDate(client.lastSession)}
                         </span>
                         <span className="font-display text-lg text-primary">
                           {formatHours(client.totalHours)}h au total
