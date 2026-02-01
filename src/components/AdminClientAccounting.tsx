@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
+import { useAdmin } from "@/hooks/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +65,7 @@ interface YearlyStats {
 
 const AdminClientAccounting = () => {
   const { t } = useTranslation();
+  const { isSuperAdmin, user } = useAdmin();
   const [clients, setClients] = useState<ClientFromCalendar[]>([]);
   const [allSessions, setAllSessions] = useState<CalendarSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,9 @@ const AdminClientAccounting = () => {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("");
+  
+  // Current user email for filtering (admins can only see their own data)
+  const currentUserEmail = user?.email?.toLowerCase();
   
   // Filters
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -326,12 +331,17 @@ const AdminClientAccounting = () => {
     };
   }, [allSessions]);
 
-  // Filter clients by selected period
+  // Filter clients by selected period and user access
   const filteredClients = useMemo(() => {
     let filtered = clients;
 
-    // Filter by search term
-    if (searchTerm) {
+    // If not superadmin, only show the current user's data
+    if (!isSuperAdmin && currentUserEmail) {
+      filtered = filtered.filter(client => client.email === currentUserEmail);
+    }
+
+    // Filter by search term (only for superadmins)
+    if (isSuperAdmin && searchTerm) {
       filtered = filtered.filter(client => 
         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (client.name?.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -425,18 +435,28 @@ const AdminClientAccounting = () => {
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
+      {/* Header for non-superadmins */}
+      {!isSuperAdmin && (
+        <div className="text-center p-4 rounded-lg bg-primary/10 border border-primary/30">
+          <h3 className="text-lg font-display text-foreground">Ma Comptabilité</h3>
+          <p className="text-sm text-muted-foreground">Historique de vos sessions au studio</p>
+        </div>
+      )}
+
+      {/* Tabs - only show for superadmins */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="clients" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Par Client
-          </TabsTrigger>
-          <TabsTrigger value="general" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Comptabilité Générale
-          </TabsTrigger>
-        </TabsList>
+        {isSuperAdmin && (
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="clients" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Par Client
+            </TabsTrigger>
+            <TabsTrigger value="general" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Comptabilité Générale
+            </TabsTrigger>
+          </TabsList>
+        )}
 
         {/* Client Tab */}
         <TabsContent value="clients" className="space-y-6">
@@ -501,15 +521,20 @@ const AdminClientAccounting = () => {
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher un client..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+            {/* Search bar - only for superadmins */}
+            {isSuperAdmin ? (
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un client..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
             
             <div className="flex gap-2">
               <Select value={selectedYear} onValueChange={setSelectedYear}>
