@@ -101,12 +101,32 @@ const AdminEventEditPanel = ({
       
       if (!error && data) {
         setAdmins(data as any);
-        // Default to current user if available
+        const adminsList = data as any;
+        
+        // Priority order for default admin selection:
+        // 1. Current user if they have a profile
+        // 2. Admin named "Romain" (superadmin)
+        // 3. First admin in the list
         if (user?.id) {
-          const currentAdmin = (data as any).find((a: any) => a.user_id === user.id);
+          const currentAdmin = adminsList.find((a: any) => a.user_id === user.id);
           if (currentAdmin) {
             setSelectedAdminId(currentAdmin.user_id);
+            return;
           }
+        }
+        
+        // Look for "Romain" (superadmin) as default
+        const romainAdmin = adminsList.find((a: any) => 
+          a.display_name.toLowerCase().includes("romain")
+        );
+        if (romainAdmin) {
+          setSelectedAdminId(romainAdmin.user_id);
+          return;
+        }
+        
+        // Fallback to first admin
+        if (adminsList.length > 0) {
+          setSelectedAdminId(adminsList[0].user_id);
         }
       }
     };
