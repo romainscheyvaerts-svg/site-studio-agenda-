@@ -19,7 +19,8 @@ import {
   Bot,
   Palette,
   UserCog,
-  FolderOpen
+  FolderOpen,
+  Receipt
 } from "lucide-react";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
@@ -36,6 +37,7 @@ import AdminDawConfig from "./AdminDawConfig";
 import AdminPaymentConfig from "./AdminPaymentConfig";
 import AdminCollapsibleSection from "./AdminCollapsibleSection";
 import AdminClientDrive from "./AdminClientDrive";
+import AdminClientAccounting from "./AdminClientAccounting";
 import AdminBackgroundImage from "./AdminBackgroundImage";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -213,7 +215,10 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
                   Cliquez sur une section pour la déplier.
                 </p>
               </div>
-              <AdminCollapsibleSection title="Dossiers Drive Clients" icon={FolderOpen} defaultOpen>
+              <AdminCollapsibleSection title="Comptabilité Clients" icon={Receipt} defaultOpen>
+                <AdminClientAccounting />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Dossiers Drive Clients" icon={FolderOpen}>
                 <AdminClientDrive />
               </AdminCollapsibleSection>
               {isSuperAdmin && (
