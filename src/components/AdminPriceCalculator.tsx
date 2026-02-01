@@ -27,6 +27,7 @@ import {
   Send,
   Check,
   CheckCircle,
+  Plus,
 } from "lucide-react";
 import ModernCalendar from "./ModernCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -35,7 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | null;
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "custom" | null;
 
 interface AdminPriceCalculatorProps {
   selectedDate?: string;
@@ -79,6 +80,12 @@ const AdminPriceCalculator = ({
   const [includeDriveLink, setIncludeDriveLink] = useState(false);
   const [sendConfirmationEmail, setSendConfirmationEmail] = useState(false);
 
+  // Custom service states
+  const [customServiceName, setCustomServiceName] = useState("");
+  const [customServicePrice, setCustomServicePrice] = useState(0);
+  const [customServiceHours, setCustomServiceHours] = useState(1);
+  const [customServiceIsHourly, setCustomServiceIsHourly] = useState(false);
+
   // Sync with external date/time/duration from calendar
   useEffect(() => {
     if (externalDate) setSelectedDate(externalDate);
@@ -108,14 +115,22 @@ const AdminPriceCalculator = ({
     "mastering": "Mastering",
     "analog-mastering": "Mastering Analogique",
     "podcast": "Mixage Podcast",
+    "custom": customServiceName || "Autre service",
   };
 
   const isHourlyService =
     selectedService === "with-engineer" || selectedService === "without-engineer";
   const isPodcast = selectedService === "podcast";
+  const isCustomService = selectedService === "custom";
 
   const totalPrice = useMemo(() => {
     if (!selectedService) return 0;
+    // Custom service calculation
+    if (isCustomService) {
+      return customServiceIsHourly 
+        ? customServicePrice * customServiceHours 
+        : customServicePrice;
+    }
     if (isPodcast) {
       return podcastMinutes * unitPrice;
     }
@@ -123,7 +138,7 @@ const AdminPriceCalculator = ({
       return hours * unitPrice;
     }
     return unitPrice;
-  }, [selectedService, hours, podcastMinutes, isHourlyService, isPodcast, unitPrice]);
+  }, [selectedService, hours, podcastMinutes, isHourlyService, isPodcast, unitPrice, isCustomService, customServicePrice, customServiceHours, customServiceIsHourly]);
 
   const discountAmount = useMemo(() => {
     return Math.round(totalPrice * (discountPercent / 100));
@@ -186,6 +201,7 @@ const AdminPriceCalculator = ({
     { id: "mastering" as SessionType, icon: Headphones, label: "MASTERING", color: "primary" },
     { id: "analog-mastering" as SessionType, icon: Disc, label: "MASTERING ANALOGIQUE", color: "accent" },
     { id: "podcast" as SessionType, icon: Radio, label: "PODCAST", color: "primary" },
+    { id: "custom" as SessionType, icon: Plus, label: "AUTRE SERVICE", color: "secondary" },
   ] as const;
 
   return (
@@ -200,6 +216,7 @@ const AdminPriceCalculator = ({
           {services.map((service) => {
             const Icon = service.icon;
             const isSelected = selectedService === service.id;
+            const isCustom = service.id === "custom";
             return (
               <button
                 key={service.id}
@@ -208,17 +225,21 @@ const AdminPriceCalculator = ({
                 className={cn(
                   "p-4 rounded-xl border-2 text-left transition-all duration-300",
                   isSelected
-                    ? service.color === "accent"
-                      ? "border-accent bg-accent/10 box-glow-gold"
-                      : "border-primary bg-primary/10 box-glow-cyan"
-                    : "border-border bg-card hover:border-primary/50"
+                    ? isCustom
+                      ? "border-purple-500 bg-purple-500/10 box-glow-purple"
+                      : service.color === "accent"
+                        ? "border-accent bg-accent/10 box-glow-gold"
+                        : "border-primary bg-primary/10 box-glow-cyan"
+                    : isCustom 
+                      ? "border-dashed border-purple-500/50 bg-purple-500/5 hover:border-purple-500"
+                      : "border-border bg-card hover:border-primary/50"
                 )}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <Icon
                     className={cn(
                       "w-4 h-4",
-                      service.color === "accent" ? "text-accent" : "text-primary"
+                      isCustom ? "text-purple-500" : service.color === "accent" ? "text-accent" : "text-primary"
                     )}
                   />
                   <span className="font-display text-sm text-foreground">{service.label}</span>
@@ -226,10 +247,10 @@ const AdminPriceCalculator = ({
                 <span
                   className={cn(
                     "text-xs font-semibold",
-                    service.color === "accent" ? "text-accent" : "text-primary"
+                    isCustom ? "text-purple-500" : service.color === "accent" ? "text-accent" : "text-primary"
                   )}
                 >
-                  {formatServicePrice(service.id)}
+                  {isCustom ? "Prix manuel" : formatServicePrice(service.id)}
                 </span>
               </button>
             );
@@ -251,6 +272,125 @@ const AdminPriceCalculator = ({
             onChange={(e) => setPodcastMinutes(parseInt(e.target.value) || 1)}
             className="w-32"
           />
+        </div>
+      )}
+
+      {/* Custom service configuration */}
+      {isCustomService && (
+        <div className="p-5 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 space-y-4">
+          <h4 className="font-display text-base text-foreground flex items-center gap-2">
+            <Plus className="w-4 h-4 text-purple-500" />
+            CONFIGURER LE SERVICE PERSONNALISÉ
+          </h4>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Service name */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Nom du service</Label>
+              <Input
+                value={customServiceName}
+                onChange={(e) => setCustomServiceName(e.target.value)}
+                placeholder="Ex: Coaching vocal, Formation..."
+                className="bg-background/50 border-purple-500/30 focus:border-purple-500"
+              />
+            </div>
+
+            {/* Hourly toggle */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Type de tarification</Label>
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-background/50 border border-purple-500/30">
+                <button
+                  type="button"
+                  onClick={() => setCustomServiceIsHourly(false)}
+                  className={cn(
+                    "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                    !customServiceIsHourly
+                      ? "bg-purple-500 text-white"
+                      : "bg-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Prix fixe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomServiceIsHourly(true)}
+                  className={cn(
+                    "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                    customServiceIsHourly
+                      ? "bg-purple-500 text-white"
+                      : "bg-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Prix/heure
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Price */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">
+                {customServiceIsHourly ? "Prix par heure (€)" : "Prix total (€)"}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={customServicePrice}
+                  onChange={(e) => setCustomServicePrice(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="bg-background/50 border-purple-500/30 focus:border-purple-500"
+                />
+                <span className="text-purple-400 font-semibold">€{customServiceIsHourly ? "/h" : ""}</span>
+              </div>
+            </div>
+
+            {/* Hours (only for hourly pricing) */}
+            {customServiceIsHourly && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Nombre d'heures</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={customServiceHours}
+                    onChange={(e) => setCustomServiceHours(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
+                    className="bg-background/50 border-purple-500/30 focus:border-purple-500"
+                  />
+                  <Clock className="w-4 h-4 text-purple-400" />
+                </div>
+              </div>
+            )}
+
+            {/* Duration for calendar (only for fixed price) */}
+            {!customServiceIsHourly && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Durée sur le calendrier (heures)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={customServiceHours}
+                    onChange={(e) => setCustomServiceHours(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
+                    className="bg-background/50 border-purple-500/30 focus:border-purple-500"
+                  />
+                  <Clock className="w-4 h-4 text-purple-400" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Preview */}
+          <div className="mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Aperçu:</span>
+              <span className="text-purple-400 font-semibold">
+                {customServiceName || "Autre service"} - {customServiceHours}h = {customServiceIsHourly ? customServicePrice * customServiceHours : customServicePrice}€
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -445,20 +585,30 @@ const AdminPriceCalculator = ({
                     onClick={async () => {
                       setCreatingEvent(true);
                       try {
-                        const sessionLabels: Record<string, string> = {
+                        const sessionLabelsForTitle: Record<string, string> = {
                           "with-engineer": "Session avec ingénieur",
                           "without-engineer": "Location sèche",
                           "mixing": "Mixage",
                           "mastering": "Mastering",
                           "analog-mastering": "Mastering analogique",
-                          "podcast": "Podcast"
+                          "podcast": "Podcast",
+                          "custom": customServiceName || "Autre service"
                         };
+
+                        // Calculate hours for event
+                        const eventHours = isCustomService 
+                          ? customServiceHours 
+                          : isHourlyService 
+                            ? hours 
+                            : isPodcast 
+                              ? Math.ceil(podcastMinutes / 60) 
+                              : 1;
 
                         const title = customTitle.trim()
                           ? customTitle.trim()
                           : clientName
-                            ? `SESSION ${sessionLabels[selectedService!]} - ${clientName}`
-                            : `SESSION ${sessionLabels[selectedService!]}`;
+                            ? `${sessionLabelsForTitle[selectedService!]} - ${clientName}`
+                            : sessionLabelsForTitle[selectedService!];
 
                         // Create the calendar event
                         const { error } = await supabase.functions.invoke("create-admin-event", {
@@ -466,10 +616,10 @@ const AdminPriceCalculator = ({
                             title,
                             clientName: clientName || "",
                             clientEmail: clientEmail || undefined,
-                            description: `Prix: ${finalPrice}€${discountPercent > 0 ? ` (remise ${discountPercent}%)` : ''}\n${clientEmail ? `Email: ${clientEmail}` : ''}`,
+                            description: `Prix: ${finalPrice}€${discountPercent > 0 ? ` (remise ${discountPercent}%)` : ''}\nService: ${sessionLabelsForTitle[selectedService!]}\n${clientEmail ? `Email: ${clientEmail}` : ''}`,
                             date: selectedDate,
                             time: selectedTime,
-                            hours: isHourlyService ? hours : (isPodcast ? Math.ceil(podcastMinutes / 60) : 1),
+                            hours: eventHours,
                           },
                         });
 
