@@ -451,378 +451,532 @@ const AdminCalendarModern = ({
     );
   };
 
-  // Render Week View
+  // Render Week View - Google Calendar Style
   const renderWeekView = () => {
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     const days = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
-    const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h (24/7)
+    const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h
+    const hourHeight = 40; // pixels per hour
 
-    return (
-      <div className={cn(
-        "overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
-        calendarHeight
-      )}>
-        <div className={cn("min-w-[700px]", isMobileView && "min-w-[600px]")}>
-          {/* Header with days - sticky */}
-          <div className="grid grid-cols-8 gap-0.5 mb-1 sticky top-0 bg-card z-10 pb-1">
-            <div className="w-12"></div>
-            {days.map(day => {
-              const isToday = isSameDay(day, new Date());
-              return (
-                <div
-                  key={day.toISOString()}
-                  onClick={() => {
-                    setCurrentDate(day);
-                    setViewMode("day");
-                  }}
-                  className={cn(
-                    "text-center py-1 rounded cursor-pointer hover:bg-secondary/50",
-                    isToday && "bg-primary/20"
-                  )}
-                >
-                  <div className="text-[10px] text-muted-foreground">
-                    {format(day, "EEE", { locale: fr })}.
-                  </div>
-                  <div className={cn(
-                    "text-sm font-semibold",
-                    isToday ? "text-primary" : "text-foreground"
-                  )}>
-                    {format(day, "d")}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Time grid */}
-          <div className="relative">
-            {hours.map(hour => (
-              <div key={hour} className="grid grid-cols-8 gap-0.5 h-8 border-t border-border/20">
-                <div className="w-12 text-[10px] text-muted-foreground pr-1 text-right -mt-1.5">
-                  {hour}:00
-                </div>
-                {days.map(day => {
-                  const dateStr = format(day, "yyyy-MM-dd");
-                  const dayData = availability.find(d => d.date === dateStr);
-                  const slot = dayData?.slots.find(s => s.hour === hour);
-                  const status = slot?.status || "unavailable";
-                  const isBooked = status === "unavailable" && slot?.eventName;
-
-                  // Secondary/Tertiary calendar conflicts (superadmin only)
-                  const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
-                  const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
-                  
-                  // Check if this slot is part of a selected range
-                  const isInSelectedRange = selectedRange && 
-                    selectedRange.date === dateStr && 
-                    hour >= selectedRange.startHour && 
-                    hour < selectedRange.endHour;
-                  
-                  // Check if this is the selection start point
-                  const isSelectionStart = selectionStart && 
-                    selectionStart.date === dateStr && 
-                    selectionStart.hour === hour;
-
-                  const handleSlotClick = () => {
-                    // If clicking on a booked slot, open edit/view
-                    if (isBooked && slot?.eventId) {
-                      const events = getEventsForDay(dateStr);
-                      const event = events.find(e => e.id === slot.eventId);
-                      if (event) {
-                        handleEditEvent(event);
-                        return;
-                      }
-                    }
-
-                    if (status === "available" || status === "on-request") {
-                      if (!selectionStart) {
-                        // First click: set start
-                        setSelectionStart({ date: dateStr, hour });
-                        setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
-                      } else if (selectionStart.date === dateStr && hour >= selectionStart.hour) {
-                        // Second click on same day: set end and confirm
-                        const duration = hour - selectionStart.hour + 1;
-                        const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
-                        
-                        setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
-                        
-                        if (onSelectSlot) {
-                          onSelectSlot(dateStr, timeStr, duration);
-                          toast({
-                            title: "Créneau sélectionné",
-                            description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
-                          });
-                        }
-                        
-                        // Reset selection for next selection
-                        setSelectionStart(null);
-                      } else {
-                        // Different day or earlier hour: restart selection
-                        setSelectionStart({ date: dateStr, hour });
-                        setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
-                      }
-                    }
-                  };
-
-                  return (
-                    <div
-                      key={`${dateStr}-${hour}`}
-                      onClick={handleSlotClick}
-                      className={cn(
-                        "rounded-sm cursor-pointer transition-all relative group",
-                        status === "available" && !isInSelectedRange && "bg-green-500/10 hover:bg-green-500/30",
-                        status === "on-request" && !isInSelectedRange && "bg-amber-500/10 hover:bg-amber-500/30",
-                        isBooked && "bg-destructive/20 hover:bg-destructive/30",
-                        isInSelectedRange && "bg-primary/40 ring-1 ring-primary",
-                        isSelectionStart && "ring-1 ring-primary",
-                        // Highlight secondary/tertiary calendar conflicts
-                        (hasSecondaryConflict || hasTertiaryConflict) && !isBooked && "ring-1 ring-purple-500/50"
-                      )}
-                      title={
-                        hasSecondaryConflict || hasTertiaryConflict
-                          ? `${slot?.secondaryCalendarEventName || ""} ${slot?.tertiaryCalendarEventName || ""}`.trim()
-                          : undefined
-                      }
-                    >
-                      {/* Secondary/Tertiary calendar indicator */}
-                      {(hasSecondaryConflict || hasTertiaryConflict) && !isBooked && (
-                        <div className="absolute top-0 right-0 flex gap-0.5 p-0.5">
-                          {hasSecondaryConflict && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title={slot?.secondaryCalendarEventName} />
-                          )}
-                          {hasTertiaryConflict && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" title={slot?.tertiaryCalendarEventName} />
-                          )}
-                        </div>
-                      )}
-                      {isBooked && (
-                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                          <span className="text-[9px] text-destructive font-medium truncate px-0.5 leading-tight">
-                            {slot.eventName}
-                          </span>
-                        </div>
-                      )}
-                      {/* Show secondary/tertiary event names when not booked */}
-                      {!isBooked && (hasSecondaryConflict || hasTertiaryConflict) && (
-                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                          <span className="text-[8px] text-purple-400 font-medium truncate px-0.5 leading-tight">
-                            {slot?.secondaryCalendarEventName || slot?.tertiaryCalendarEventName}
-                          </span>
-                        </div>
-                      )}
-                      {isSelectionStart && !isInSelectedRange && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-[9px] text-primary font-medium">▶</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render Day View
-  const renderDayView = () => {
-    const dateStr = format(currentDate, "yyyy-MM-dd");
-    const dayData = availability.find(d => d.date === dateStr);
-    const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h (24/7)
-    const events = getEventsForDay(dateStr);
-
-    // Group consecutive slots into events for display
-    const getEventAtHour = (hour: number) => {
-      return events.find(e => hour >= e.startHour && hour < e.endHour);
-    };
-
-    // Check if this hour is the start of an event
-    const isEventStart = (hour: number) => {
-      return events.some(e => e.startHour === hour);
-    };
+    // Get events for all days in the week
+    const weekEvents: { [date: string]: CalendarEvent[] } = {};
+    days.forEach(day => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      weekEvents[dateStr] = getEventsForDay(dateStr);
+    });
 
     return (
       <div className={cn(
         "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
         calendarHeight
       )}>
-        <div className="space-y-0.5">
-          {hours.map(hour => {
-            const slot = dayData?.slots.find(s => s.hour === hour);
-            const status = slot?.status || "unavailable";
-            const isBooked = status === "unavailable" && slot?.eventName;
-            const event = getEventAtHour(hour);
-            const isStart = isEventStart(hour);
+        {/* Wrapper for horizontal scroll with sticky hour column */}
+        <div className="relative">
+          {/* Header with days - sticky top */}
+          <div className="sticky top-0 bg-card z-20 border-b border-border/30">
+            <div className="flex">
+              {/* Empty corner for hours column */}
+              <div className="w-14 shrink-0 bg-card sticky left-0 z-30 border-r border-border/30" />
+              
+              {/* Day headers */}
+              <div className="flex flex-1 min-w-0">
+                {days.map(day => {
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      onClick={() => {
+                        setCurrentDate(day);
+                        setViewMode("day");
+                      }}
+                      className={cn(
+                        "flex-1 min-w-[100px] text-center py-2 cursor-pointer hover:bg-secondary/50 border-r border-border/20",
+                        isToday && "bg-primary/10"
+                      )}
+                    >
+                      <div className="text-[10px] text-muted-foreground uppercase">
+                        {format(day, "EEE", { locale: fr })}.
+                      </div>
+                      <div className={cn(
+                        "text-lg font-display",
+                        isToday ? "text-primary bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center mx-auto" : "text-foreground"
+                      )}>
+                        {format(day, "d")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
-            // Secondary/Tertiary calendar conflicts (superadmin only)
-            const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
-            const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
+          {/* Scrollable content area */}
+          <div className="overflow-x-auto">
+            <div className="flex min-w-max">
+              {/* Sticky hour column */}
+              <div className="w-14 shrink-0 sticky left-0 bg-card z-10 border-r border-border/30">
+                {hours.map(hour => (
+                  <div
+                    key={hour}
+                    className="border-t border-border/20 text-[11px] text-muted-foreground text-right pr-2 font-medium"
+                    style={{ height: `${hourHeight}px` }}
+                  >
+                    <span className="-mt-2 block">{hour}:00</span>
+                  </div>
+                ))}
+              </div>
 
-            // Check if this slot is part of a selected range
-            const isInSelectedRange = selectedRange &&
-              selectedRange.date === dateStr &&
-              hour >= selectedRange.startHour &&
-              hour < selectedRange.endHour;
+              {/* Day columns with events */}
+              <div className="flex flex-1">
+                {days.map(day => {
+                  const dateStr = format(day, "yyyy-MM-dd");
+                  const dayData = availability.find(d => d.date === dateStr);
+                  const events = weekEvents[dateStr] || [];
+                  const isToday = isSameDay(day, new Date());
 
-            // Check if this is the selection start point
-            const isSelectionStart = selectionStart &&
-              selectionStart.date === dateStr &&
-              selectionStart.hour === hour;
+                  return (
+                    <div
+                      key={dateStr}
+                      className={cn(
+                        "flex-1 min-w-[100px] relative border-r border-border/20",
+                        isToday && "bg-primary/5"
+                      )}
+                    >
+                      {/* Hour grid lines */}
+                      {hours.map(hour => {
+                        const slot = dayData?.slots.find(s => s.hour === hour);
+                        const status = slot?.status || "unavailable";
+                        const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
+                        const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
+                        
+                        // Check if this slot is part of a selected range
+                        const isInSelectedRange = selectedRange && 
+                          selectedRange.date === dateStr && 
+                          hour >= selectedRange.startHour && 
+                          hour < selectedRange.endHour;
+                        
+                        const isSelectionStart = selectionStart && 
+                          selectionStart.date === dateStr && 
+                          selectionStart.hour === hour;
 
-            const handleSlotClick = () => {
-              // If clicking on a booked slot, open edit
-              if (isBooked && event) {
-                handleEditEvent(event);
-                return;
-              }
+                        const handleSlotClick = () => {
+                          if (status === "available" || status === "on-request") {
+                            if (!selectionStart) {
+                              setSelectionStart({ date: dateStr, hour });
+                              setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+                            } else if (selectionStart.date === dateStr && hour >= selectionStart.hour) {
+                              const duration = hour - selectionStart.hour + 1;
+                              const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
+                              setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
+                              if (onSelectSlot) {
+                                onSelectSlot(dateStr, timeStr, duration);
+                                toast({
+                                  title: "Créneau sélectionné",
+                                  description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
+                                });
+                              }
+                              setSelectionStart(null);
+                            } else {
+                              setSelectionStart({ date: dateStr, hour });
+                              setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+                            }
+                          }
+                        };
 
-              if (status === "available" || status === "on-request") {
-                if (!selectionStart) {
-                  // First click: set start
-                  setSelectionStart({ date: dateStr, hour });
-                  setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
-                } else if (selectionStart.date === dateStr && hour >= selectionStart.hour) {
-                  // Second click: set end and confirm
-                  const duration = hour - selectionStart.hour + 1;
-                  const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
+                        return (
+                          <div
+                            key={hour}
+                            onClick={handleSlotClick}
+                            className={cn(
+                              "border-t border-border/20 cursor-pointer transition-colors",
+                              status === "available" && !isInSelectedRange && "hover:bg-green-500/20",
+                              status === "on-request" && !isInSelectedRange && "hover:bg-amber-500/20",
+                              isInSelectedRange && "bg-primary/30",
+                              isSelectionStart && "bg-primary/20 ring-1 ring-inset ring-primary",
+                              (hasSecondaryConflict || hasTertiaryConflict) && !isInSelectedRange && "bg-purple-500/10"
+                            )}
+                            style={{ height: `${hourHeight}px` }}
+                          >
+                            {/* Secondary/Tertiary indicator dots */}
+                            {(hasSecondaryConflict || hasTertiaryConflict) && (
+                              <div className="absolute right-1 top-1 flex gap-0.5">
+                                {hasSecondaryConflict && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
+                                {hasTertiaryConflict && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
 
-                  setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
+                      {/* Event blocks - positioned absolutely */}
+                      {events.map(event => {
+                        const top = event.startHour * hourHeight;
+                        const height = (event.endHour - event.startHour) * hourHeight;
 
-                  if (onSelectSlot) {
-                    onSelectSlot(dateStr, timeStr, duration);
-                    toast({
-                      title: "Créneau sélectionné",
-                      description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
-                    });
-                  }
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditEvent(event);
+                            }}
+                            className={cn(
+                              "absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer transition-all",
+                              "bg-destructive/80 hover:bg-destructive/90 border-l-4 border-destructive",
+                              "shadow-md hover:shadow-lg overflow-hidden"
+                            )}
+                            style={{
+                              top: `${top}px`,
+                              height: `${height - 2}px`,
+                              minHeight: "24px"
+                            }}
+                          >
+                            <div className="text-[11px] font-semibold text-white truncate leading-tight">
+                              {event.title}
+                            </div>
+                            <div className="text-[9px] text-white/80 leading-tight">
+                              {event.startHour}h - {event.endHour}h
+                            </div>
+                            {height > 60 && event.clientEmail && (
+                              <div className="text-[9px] text-white/70 truncate mt-0.5">
+                                {event.clientEmail}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
 
-                  setSelectionStart(null);
-                } else {
-                  // Restart selection
-                  setSelectionStart({ date: dateStr, hour });
-                  setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
-                }
-              }
-            };
+                      {/* Secondary/Tertiary calendar events as blocks */}
+                      {isSuperAdmin && dayData?.slots.map((slot, idx) => {
+                        // Only render at start of secondary/tertiary events
+                        if (slot.hasSecondaryCalendarConflict && slot.secondaryCalendarEventName) {
+                          // Check if previous slot had same event
+                          const prevSlot = dayData.slots.find(s => s.hour === slot.hour - 1);
+                          if (prevSlot?.secondaryCalendarEventName === slot.secondaryCalendarEventName) {
+                            return null; // Skip, this is continuation
+                          }
+                          
+                          // Find duration
+                          let endHour = slot.hour + 1;
+                          for (let h = slot.hour + 1; h < 24; h++) {
+                            const nextSlot = dayData.slots.find(s => s.hour === h);
+                            if (nextSlot?.secondaryCalendarEventName === slot.secondaryCalendarEventName) {
+                              endHour = h + 1;
+                            } else {
+                              break;
+                            }
+                          }
+                          
+                          const top = slot.hour * hourHeight;
+                          const height = (endHour - slot.hour) * hourHeight;
 
-            return (
+                          return (
+                            <div
+                              key={`sec-${slot.hour}`}
+                              className="absolute left-1 right-1 rounded-lg px-2 py-1 bg-purple-500/60 border-l-4 border-purple-500 shadow-sm overflow-hidden pointer-events-none"
+                              style={{
+                                top: `${top}px`,
+                                height: `${height - 2}px`,
+                                minHeight: "20px"
+                              }}
+                            >
+                              <div className="text-[10px] font-medium text-white truncate leading-tight">
+                                {slot.secondaryCalendarEventName}
+                              </div>
+                              <div className="text-[8px] text-white/70">
+                                {slot.hour}h - {endHour}h
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
+                          const prevSlot = dayData.slots.find(s => s.hour === slot.hour - 1);
+                          if (prevSlot?.tertiaryCalendarEventName === slot.tertiaryCalendarEventName) {
+                            return null;
+                          }
+                          
+                          let endHour = slot.hour + 1;
+                          for (let h = slot.hour + 1; h < 24; h++) {
+                            const nextSlot = dayData.slots.find(s => s.hour === h);
+                            if (nextSlot?.tertiaryCalendarEventName === slot.tertiaryCalendarEventName) {
+                              endHour = h + 1;
+                            } else {
+                              break;
+                            }
+                          }
+                          
+                          const top = slot.hour * hourHeight;
+                          const height = (endHour - slot.hour) * hourHeight;
+
+                          return (
+                            <div
+                              key={`ter-${slot.hour}`}
+                              className="absolute left-1 right-1 rounded-lg px-2 py-1 bg-blue-500/60 border-l-4 border-blue-500 shadow-sm overflow-hidden pointer-events-none"
+                              style={{
+                                top: `${top}px`,
+                                height: `${height - 2}px`,
+                                minHeight: "20px"
+                              }}
+                            >
+                              <div className="text-[10px] font-medium text-white truncate leading-tight">
+                                {slot.tertiaryCalendarEventName}
+                              </div>
+                              <div className="text-[8px] text-white/70">
+                                {slot.hour}h - {endHour}h
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        return null;
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render Day View - Google Calendar Style
+  const renderDayView = () => {
+    const dateStr = format(currentDate, "yyyy-MM-dd");
+    const dayData = availability.find(d => d.date === dateStr);
+    const hours = Array.from({ length: 24 }, (_, i) => i); // 0h to 23h
+    const events = getEventsForDay(dateStr);
+    const hourHeight = 48; // pixels per hour (taller for day view)
+
+    return (
+      <div className={cn(
+        "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+        calendarHeight
+      )}>
+        <div className="flex min-w-max">
+          {/* Sticky hour column */}
+          <div className="w-14 shrink-0 sticky left-0 bg-card z-10 border-r border-border/30">
+            {hours.map(hour => (
               <div
                 key={hour}
-                onClick={handleSlotClick}
-                className={cn(
-                  "flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer transition-all relative",
-                  isMobileView ? "gap-1 px-1" : "gap-2 px-2",
-                  status === "available" && !isInSelectedRange && "bg-green-500/10 hover:bg-green-500/20",
-                  status === "on-request" && !isInSelectedRange && "bg-amber-500/10 hover:bg-amber-500/20",
-                  isBooked && "bg-destructive/10 hover:bg-destructive/20",
-                  isInSelectedRange && "bg-primary/40 ring-1 ring-primary",
-                  isSelectionStart && "ring-1 ring-primary",
-                  // Highlight secondary/tertiary calendar conflicts
-                  (hasSecondaryConflict || hasTertiaryConflict) && !isBooked && "ring-1 ring-purple-500/50"
-                )}
+                className="border-t border-border/20 text-[11px] text-muted-foreground text-right pr-2 font-medium"
+                style={{ height: `${hourHeight}px` }}
               >
-                <div className={cn(
-                  "text-xs font-medium text-muted-foreground shrink-0",
-                  isMobileView ? "w-10" : "w-14"
-                )}>
-                  {hour.toString().padStart(2, "0")}:00
-                </div>
-                <div className="flex-1 min-w-0">
-                  {isBooked && event ? (
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex-1 min-w-0">
-                        <span className={cn(
-                          "text-destructive font-medium truncate block",
-                          isMobileView ? "text-xs" : "text-sm"
-                        )}>
-                          {event.title}
-                        </span>
-                        {event.clientEmail && !isMobileView && (
-                          <span className="text-[10px] text-muted-foreground truncate block">
-                            {event.clientEmail}
-                          </span>
-                        )}
+                <span className="-mt-2 block">{hour}:00</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Day content with events */}
+          <div className="flex-1 relative min-w-[200px]">
+            {/* Hour grid lines */}
+            {hours.map(hour => {
+              const slot = dayData?.slots.find(s => s.hour === hour);
+              const status = slot?.status || "unavailable";
+              const hasSecondaryConflict = slot?.hasSecondaryCalendarConflict;
+              const hasTertiaryConflict = slot?.hasTertiaryCalendarConflict;
+              
+              const isInSelectedRange = selectedRange &&
+                selectedRange.date === dateStr &&
+                hour >= selectedRange.startHour &&
+                hour < selectedRange.endHour;
+              
+              const isSelectionStart = selectionStart &&
+                selectionStart.date === dateStr &&
+                selectionStart.hour === hour;
+
+              const handleSlotClick = () => {
+                if (status === "available" || status === "on-request") {
+                  if (!selectionStart) {
+                    setSelectionStart({ date: dateStr, hour });
+                    setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+                  } else if (selectionStart.date === dateStr && hour >= selectionStart.hour) {
+                    const duration = hour - selectionStart.hour + 1;
+                    const timeStr = `${selectionStart.hour.toString().padStart(2, "0")}:00`;
+                    setSelectedRange({ date: dateStr, startHour: selectionStart.hour, endHour: hour + 1 });
+                    if (onSelectSlot) {
+                      onSelectSlot(dateStr, timeStr, duration);
+                      toast({
+                        title: "Créneau sélectionné",
+                        description: `${dateStr} de ${selectionStart.hour}h à ${hour + 1}h (${duration}h)`,
+                      });
+                    }
+                    setSelectionStart(null);
+                  } else {
+                    setSelectionStart({ date: dateStr, hour });
+                    setSelectedRange({ date: dateStr, startHour: hour, endHour: hour + 1 });
+                  }
+                }
+              };
+
+              return (
+                <div
+                  key={hour}
+                  onClick={handleSlotClick}
+                  className={cn(
+                    "border-t border-border/20 cursor-pointer transition-colors",
+                    status === "available" && !isInSelectedRange && "hover:bg-green-500/20",
+                    status === "on-request" && !isInSelectedRange && "hover:bg-amber-500/20",
+                    isInSelectedRange && "bg-primary/30",
+                    isSelectionStart && "bg-primary/20 ring-1 ring-inset ring-primary",
+                    (hasSecondaryConflict || hasTertiaryConflict) && !isInSelectedRange && "bg-purple-500/10"
+                  )}
+                  style={{ height: `${hourHeight}px` }}
+                />
+              );
+            })}
+
+            {/* Event blocks - positioned absolutely */}
+            {events.map(event => {
+              const top = event.startHour * hourHeight;
+              const height = (event.endHour - event.startHour) * hourHeight;
+
+              return (
+                <div
+                  key={event.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditEvent(event);
+                  }}
+                  className={cn(
+                    "absolute left-2 right-2 rounded-lg px-3 py-2 cursor-pointer transition-all",
+                    "bg-destructive/80 hover:bg-destructive/90 border-l-4 border-destructive",
+                    "shadow-md hover:shadow-lg overflow-hidden"
+                  )}
+                  style={{
+                    top: `${top}px`,
+                    height: `${height - 4}px`,
+                    minHeight: "32px"
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white truncate leading-tight">
+                        {event.title}
                       </div>
-                      {/* Show controls only on first hour of event */}
-                      {isStart && (
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "text-primary hover:text-primary hover:bg-primary/20",
-                              isMobileView ? "h-6 w-6" : "h-7 w-7"
-                            )}
-                            onClick={(e) => handleEditEvent(event, e)}
-                          >
-                            <Edit className={isMobileView ? "w-3 h-3" : "w-3.5 h-3.5"} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "text-destructive hover:text-destructive hover:bg-destructive/20",
-                              isMobileView ? "h-6 w-6" : "h-7 w-7"
-                            )}
-                            onClick={(e) => handleDeleteEvent(event.id, e)}
-                            disabled={deletingEventId === event.id}
-                          >
-                            {deletingEventId === event.id ? (
-                              <Loader2 className={cn("animate-spin", isMobileView ? "w-3 h-3" : "w-3.5 h-3.5")} />
-                            ) : (
-                              <Trash2 className={isMobileView ? "w-3 h-3" : "w-3.5 h-3.5"} />
-                            )}
-                          </Button>
+                      <div className="text-xs text-white/80 leading-tight">
+                        {event.startHour}h - {event.endHour}h
+                      </div>
+                      {height > 80 && event.clientEmail && (
+                        <div className="text-xs text-white/70 truncate mt-1">
+                          {event.clientEmail}
                         </div>
                       )}
                     </div>
-                  ) : (hasSecondaryConflict || hasTertiaryConflict) ? (
-                    // Show secondary/tertiary calendar events
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        {hasSecondaryConflict && (
-                          <div className="w-2 h-2 rounded-full bg-purple-500" />
+                    {/* Edit and Delete buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/20"
+                        onClick={(e) => handleEditEvent(event, e)}
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/20"
+                        onClick={(e) => handleDeleteEvent(event.id, e)}
+                        disabled={deletingEventId === event.id}
+                      >
+                        {deletingEventId === event.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
                         )}
-                        {hasTertiaryConflict && (
-                          <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        )}
-                      </div>
-                      <span className={cn(
-                        "text-purple-400 font-medium truncate",
-                        isMobileView ? "text-xs" : "text-sm"
-                      )}>
-                        {slot?.secondaryCalendarEventName || slot?.tertiaryCalendarEventName || "Événement externe"}
-                      </span>
+                      </Button>
                     </div>
-                  ) : (
-                    <span className={cn(
-                      status === "available" ? "text-green-500" : "text-amber-500",
-                      isMobileView ? "text-xs" : "text-sm"
-                    )}>
-                      {status === "available" ? "Disponible" : "Sur demande"}
-                    </span>
-                  )}
-                </div>
-                {/* Secondary/Tertiary calendar indicator badges */}
-                {(hasSecondaryConflict || hasTertiaryConflict) && !isBooked && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {hasSecondaryConflict && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
-                        Agenda 2
-                      </span>
-                    )}
-                    {hasTertiaryConflict && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
-                        Agenda 3
-                      </span>
-                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
+
+            {/* Secondary/Tertiary calendar events as blocks */}
+            {isSuperAdmin && dayData?.slots.map((slot) => {
+              if (slot.hasSecondaryCalendarConflict && slot.secondaryCalendarEventName) {
+                const prevSlot = dayData.slots.find(s => s.hour === slot.hour - 1);
+                if (prevSlot?.secondaryCalendarEventName === slot.secondaryCalendarEventName) {
+                  return null;
+                }
+                
+                let endHour = slot.hour + 1;
+                for (let h = slot.hour + 1; h < 24; h++) {
+                  const nextSlot = dayData.slots.find(s => s.hour === h);
+                  if (nextSlot?.secondaryCalendarEventName === slot.secondaryCalendarEventName) {
+                    endHour = h + 1;
+                  } else {
+                    break;
+                  }
+                }
+                
+                const top = slot.hour * hourHeight;
+                const height = (endHour - slot.hour) * hourHeight;
+
+                return (
+                  <div
+                    key={`sec-${slot.hour}`}
+                    className="absolute left-2 right-2 rounded-lg px-3 py-2 bg-purple-500/60 border-l-4 border-purple-500 shadow-sm overflow-hidden pointer-events-none"
+                    style={{
+                      top: `${top}px`,
+                      height: `${height - 4}px`,
+                      minHeight: "28px"
+                    }}
+                  >
+                    <div className="text-xs font-medium text-white truncate leading-tight">
+                      {slot.secondaryCalendarEventName}
+                    </div>
+                    <div className="text-[10px] text-white/70">
+                      {slot.hour}h - {endHour}h • Agenda 2
+                    </div>
+                  </div>
+                );
+              }
+              
+              if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
+                const prevSlot = dayData.slots.find(s => s.hour === slot.hour - 1);
+                if (prevSlot?.tertiaryCalendarEventName === slot.tertiaryCalendarEventName) {
+                  return null;
+                }
+                
+                let endHour = slot.hour + 1;
+                for (let h = slot.hour + 1; h < 24; h++) {
+                  const nextSlot = dayData.slots.find(s => s.hour === h);
+                  if (nextSlot?.tertiaryCalendarEventName === slot.tertiaryCalendarEventName) {
+                    endHour = h + 1;
+                  } else {
+                    break;
+                  }
+                }
+                
+                const top = slot.hour * hourHeight;
+                const height = (endHour - slot.hour) * hourHeight;
+
+                return (
+                  <div
+                    key={`ter-${slot.hour}`}
+                    className="absolute left-2 right-2 rounded-lg px-3 py-2 bg-blue-500/60 border-l-4 border-blue-500 shadow-sm overflow-hidden pointer-events-none"
+                    style={{
+                      top: `${top}px`,
+                      height: `${height - 4}px`,
+                      minHeight: "28px"
+                    }}
+                  >
+                    <div className="text-xs font-medium text-white truncate leading-tight">
+                      {slot.tertiaryCalendarEventName}
+                    </div>
+                    <div className="text-[10px] text-white/70">
+                      {slot.hour}h - {endHour}h • Agenda 3
+                    </div>
+                  </div>
+                );
+              }
+              
+              return null;
+            })}
+          </div>
         </div>
       </div>
     );
