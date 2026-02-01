@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones, Music, CalendarDays, AudioLines, Euro } from "lucide-react";
+import { Mic, Headphones, Music, CalendarDays, AudioLines, Euro, Calculator } from "lucide-react";
+import AdminQuickEventModal from "./AdminQuickEventModal";
 import { usePricing } from "@/hooks/usePricing";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
@@ -18,6 +20,7 @@ const Hero = () => {
   const { getEffectivePrice, loading } = usePricing();
   const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
+  const [showQuickEventModal, setShowQuickEventModal] = useState(false);
 
   const goToBooking = () => {
     navigate('/reservation');
@@ -93,18 +96,20 @@ const Hero = () => {
             {t("hero.description")}
           </p>
           
-          {/* Mobile: Primary CTA buttons only (2 buttons) */}
+          {/* Mobile: Primary CTA buttons only (2 buttons) - Hide Book button for admins */}
           {isMobileView ? (
             <div className="space-y-3 mb-6">
-              <Button 
-                variant="hero" 
-                size="lg" 
-                onClick={goToBooking}
-                className="w-full h-14 text-base"
-              >
-                <Mic className="w-5 h-5" />
-                {t("hero.cta_book").toUpperCase()}
-              </Button>
+              {!isAdmin && (
+                <Button 
+                  variant="hero" 
+                  size="lg" 
+                  onClick={goToBooking}
+                  className="w-full h-14 text-base"
+                >
+                  <Mic className="w-5 h-5" />
+                  {t("hero.cta_book").toUpperCase()}
+                </Button>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Button 
                   variant="neon" 
@@ -157,16 +162,18 @@ const Hero = () => {
               </div>
             </div>
           ) : (
-            /* Desktop: All buttons in a row */
+            /* Desktop: All buttons in a row - Hide Book button for admins */
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
-              <Button 
-                variant="hero" 
-                size="xl" 
-                onClick={goToBooking}
-              >
-                <Mic className="w-5 h-5" />
-                {t("hero.cta_book").toUpperCase()}
-              </Button>
+              {!isAdmin && (
+                <Button 
+                  variant="hero" 
+                  size="xl" 
+                  onClick={goToBooking}
+                >
+                  <Mic className="w-5 h-5" />
+                  {t("hero.cta_book").toUpperCase()}
+                </Button>
+              )}
               <Button 
                 variant="neon" 
                 size="xl" 
@@ -215,11 +222,11 @@ const Hero = () => {
             </div>
           )}
 
-          {/* Admin: View Calendar Button */}
+          {/* Admin: View Calendar + Add Event Buttons */}
           {isAdmin && (
             <div className={cn(
-              "flex justify-center",
-              isMobileView ? "mb-6" : "mb-12"
+              "flex justify-center gap-3",
+              isMobileView ? "mb-6 flex-col" : "mb-12"
             )}>
               <Button 
                 variant="outline" 
@@ -233,7 +240,30 @@ const Hero = () => {
                 <CalendarDays className="w-5 h-5" />
                 {t("booking.view_calendar")}
               </Button>
+              <Button 
+                variant="outline" 
+                size={isMobileView ? "default" : "lg"}
+                onClick={() => setShowQuickEventModal(true)}
+                className={cn(
+                  "border-purple-500 text-purple-400 hover:bg-purple-500/10 hover:border-purple-400",
+                  isMobileView && "w-full h-12"
+                )}
+              >
+                <Calculator className="w-5 h-5" />
+                {t("booking.add_event")}
+              </Button>
             </div>
+          )}
+
+          {/* Admin Quick Event Modal */}
+          {isAdmin && (
+            <AdminQuickEventModal
+              isOpen={showQuickEventModal}
+              onClose={() => setShowQuickEventModal(false)}
+              onEventCreated={() => {
+                setShowQuickEventModal(false);
+              }}
+            />
           )}
 
           {!isAdmin && <div className={isMobileView ? "mb-4" : "mb-12"} />}

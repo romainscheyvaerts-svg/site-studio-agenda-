@@ -818,14 +818,6 @@ const BookingSection = () => {
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setShowQuickEventModal(true)}
-                    className="border-purple-500 text-purple-400 hover:bg-purple-500/10"
-                  >
-                    <Calculator className="w-4 h-4 mr-2" />
-                    {t("booking.add_event")}
-                  </Button>
-                  <Button
-                    variant="outline"
                     onClick={() => setShowVIPCalendar(!showVIPCalendar)}
                     className="border-green-500 text-green-500 hover:bg-green-500/10"
                   >
