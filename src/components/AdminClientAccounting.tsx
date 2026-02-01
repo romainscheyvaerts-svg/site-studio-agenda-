@@ -93,9 +93,9 @@ const AdminClientAccounting = () => {
     
     try {
       const startDate = new Date();
-      startDate.setFullYear(startDate.getFullYear() - 2);
+      startDate.setMonth(startDate.getMonth() - 6); // 6 months instead of 2 years to avoid timeouts
       
-      setProgress("Récupération des événements du calendrier (2 dernières années)...");
+      setProgress("Récupération des événements du calendrier (6 derniers mois)...");
       
       const allSlots: Array<{ 
         date: string; 
@@ -123,7 +123,16 @@ const AdminClientAccounting = () => {
 
         if (fetchError) {
           console.error("Error fetching availability:", fetchError);
-        } else if (data?.availability) {
+          // If first request fails, throw error to show user
+          if (allSlots.length === 0) {
+            throw new Error(`Impossible de charger les données: ${fetchError.message || "Erreur de connexion à la fonction Edge"}`);
+          }
+          // For subsequent requests, just skip this chunk
+          currentStart.setDate(currentStart.getDate() + daysToFetch);
+          continue;
+        }
+        
+        if (data?.availability) {
           for (const day of data.availability) {
             for (const slot of day.slots) {
               if (slot.status === "unavailable" && slot.eventName) {
