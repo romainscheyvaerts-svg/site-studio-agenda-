@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAdmin } from "@/hooks/useAdmin";
 import {
   Loader2,
   Send,
@@ -15,7 +17,8 @@ import {
   Clock,
   Check,
   X,
-  Gift
+  Gift,
+  UserCog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -83,6 +86,32 @@ const AdminEventEditPanel = ({
   // Results
   const [createdDriveLink, setCreatedDriveLink] = useState<string | null>(existingDriveFolderLink || null);
   const [createdStripeLink, setCreatedStripeLink] = useState<string | null>(null);
+
+  // Admin assignment
+  const { user } = useAdmin();
+  const [admins, setAdmins] = useState<Array<{ user_id: string; display_name: string; color: string }>>([]);
+  const [selectedAdminId, setSelectedAdminId] = useState<string>("");
+
+  // Load admin profiles
+  useEffect(() => {
+    const loadAdmins = async () => {
+      const { data, error } = await supabase
+        .from("admin_profiles" as any)
+        .select("user_id, display_name, color");
+      
+      if (!error && data) {
+        setAdmins(data as any);
+        // Default to current user if available
+        if (user?.id) {
+          const currentAdmin = (data as any).find((a: any) => a.user_id === user.id);
+          if (currentAdmin) {
+            setSelectedAdminId(currentAdmin.user_id);
+          }
+        }
+      }
+    };
+    loadAdmins();
+  }, [user?.id]);
 
   useEffect(() => {
     setTitle(eventTitle);
@@ -385,6 +414,37 @@ const AdminEventEditPanel = ({
           className="bg-background resize-none"
         />
       </div>
+
+      {/* Admin assignment */}
+      {admins.length > 0 && (
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <UserCog className="w-4 h-4 text-primary" />
+            Admin responsable
+          </Label>
+          <Select value={selectedAdminId} onValueChange={setSelectedAdminId}>
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="Sélectionner un admin..." />
+            </SelectTrigger>
+            <SelectContent>
+              {admins.map((admin) => (
+                <SelectItem key={admin.user_id} value={admin.user_id}>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: admin.color }}
+                    />
+                    {admin.display_name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            L'admin responsable sera affiché sur le calendrier avec sa couleur
+          </p>
+        </div>
+      )}
 
       {/* Free session option */}
       <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-green-500/10 border border-green-500/30">
