@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,8 @@ import {
   Clock,
   Trash2,
   Edit,
-  X
+  X,
+  User
 } from "lucide-react";
 import { 
   format, 
