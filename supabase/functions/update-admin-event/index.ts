@@ -208,9 +208,9 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { eventId, title, date, startTime, endTime, colorId, assignedAdminId } = body;
+    const { eventId, title, date, startTime, endTime, colorId, assignedAdminId, serviceType, totalPrice, clientName, notes } = body;
 
-    console.log("[UPDATE-ADMIN-EVENT] Request:", { eventId, title, date, startTime, endTime, assignedAdminId });
+    console.log("[UPDATE-ADMIN-EVENT] Request:", { eventId, title, date, startTime, endTime, assignedAdminId, serviceType, totalPrice });
 
     // Validate required fields
     if (!eventId) {
@@ -274,23 +274,43 @@ serve(async (req) => {
     // Update the event
     const updatedEvent = await updateCalendarEvent(accessToken, studioCalendarId, eventId, updates);
 
-    // Update session assignment if assignedAdminId is provided
-    if (assignedAdminId) {
+    // Update session assignment with all details
+    // Always upsert if any of these fields are provided
+    const hasSessionData = assignedAdminId || serviceType || totalPrice !== undefined || clientName || notes;
+    
+    if (hasSessionData) {
+      const sessionData: Record<string, unknown> = {
+        event_id: eventId,
+        updated_at: new Date().toISOString(),
+      };
+      
+      if (assignedAdminId) {
+        sessionData.assigned_to = assignedAdminId;
+      }
+      if (serviceType !== undefined) {
+        sessionData.service_type = serviceType;
+      }
+      if (totalPrice !== undefined) {
+        sessionData.total_price = totalPrice;
+      }
+      if (clientName !== undefined) {
+        sessionData.client_name = clientName;
+      }
+      if (notes !== undefined) {
+        sessionData.notes = notes;
+      }
+
       const { error: assignmentError } = await supabase
         .from("session_assignments")
-        .upsert({
-          event_id: eventId,
-          assigned_to: assignedAdminId,
-          updated_at: new Date().toISOString(),
-        }, {
+        .upsert(sessionData, {
           onConflict: "event_id"
         });
 
       if (assignmentError) {
-        console.error("[UPDATE-ADMIN-EVENT] Error saving session assignment:", assignmentError);
+        console.error("[UPDATE-ADMIN-EVENT] Error saving session data:", assignmentError);
         // Don't fail the whole request, event was updated successfully
       } else {
-        console.log(`[UPDATE-ADMIN-EVENT] Session assignment updated: assigned_to=${assignedAdminId}`);
+        console.log(`[UPDATE-ADMIN-EVENT] Session data updated:`, sessionData);
       }
     }
 

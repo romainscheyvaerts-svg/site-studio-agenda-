@@ -127,35 +127,61 @@ const AdminEventEditPanel = ({
     return defaultColors[colorIndex];
   };
 
-  // Load existing assignment for this event (when editing)
+  // Load existing assignment and session data for this event (when editing)
   useEffect(() => {
-    const loadExistingAssignment = async () => {
+    const loadExistingSessionData = async () => {
       if (mode !== "edit" || !eventId) return;
       
       try {
         const { data: assignment, error } = await supabase
           .from("session_assignments" as any)
-          .select("assigned_to")
+          .select("assigned_to, service_type, total_price, client_name, notes")
           .eq("event_id", eventId)
           .single();
         
         if (error) {
-          console.log("[EDIT-PANEL] No existing assignment for event:", eventId);
+          console.log("[EDIT-PANEL] No existing session data for event:", eventId);
           return;
         }
         
-        const assignmentData = assignment as unknown as { assigned_to: string | null } | null;
-        if (assignmentData?.assigned_to) {
-          console.log("[EDIT-PANEL] Found existing assignment:", assignmentData.assigned_to);
-          setSelectedAdminId(assignmentData.assigned_to);
-          hasUserSelectedAdmin.current = true; // Prevent overwriting with default
+        const assignmentData = assignment as unknown as { 
+          assigned_to: string | null;
+          service_type: string | null;
+          total_price: number | null;
+          client_name: string | null;
+          notes: string | null;
+        } | null;
+        
+        if (assignmentData) {
+          console.log("[EDIT-PANEL] Found existing session data:", assignmentData);
+          
+          if (assignmentData.assigned_to) {
+            setSelectedAdminId(assignmentData.assigned_to);
+            hasUserSelectedAdmin.current = true; // Prevent overwriting with default
+          }
+          
+          if (assignmentData.service_type) {
+            setSelectedServiceType(assignmentData.service_type);
+          }
+          
+          if (assignmentData.total_price !== null && assignmentData.total_price !== undefined) {
+            setTotalPrice(assignmentData.total_price);
+          }
+          
+          if (assignmentData.client_name) {
+            setClientName(assignmentData.client_name);
+          }
+          
+          if (assignmentData.notes) {
+            setNotes(assignmentData.notes);
+          }
         }
       } catch (err) {
-        console.error("Error loading existing assignment:", err);
+        console.error("Error loading existing session data:", err);
       }
     };
     
-    loadExistingAssignment();
+    loadExistingSessionData();
   }, [eventId, mode]);
 
   // Load all admins from user_roles + admin_profiles
@@ -383,6 +409,11 @@ const AdminEventEditPanel = ({
             startTime: formatHour(currentStartHour),
             endTime: formatHour(currentEndHour),
             assignedAdminId: selectedAdminId || undefined,
+            // Session details to persist
+            serviceType: selectedServiceType,
+            totalPrice: totalPrice,
+            clientName: clientName || undefined,
+            notes: notes || undefined,
           },
         });
 
