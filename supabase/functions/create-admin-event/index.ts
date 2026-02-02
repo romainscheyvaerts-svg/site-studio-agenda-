@@ -182,22 +182,25 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     console.log("[CREATE-ADMIN-EVENT] Token length:", token.length);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Try to validate the token with service role key
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    
+    console.log("[CREATE-ADMIN-EVENT] Auth result - user:", userData?.user?.email, "error:", authError?.message);
 
-    console.log("[CREATE-ADMIN-EVENT] Auth result - user:", user?.email, "error:", authError?.message);
-
-    if (authError || !user) {
+    if (authError || !userData?.user) {
       console.log("[CREATE-ADMIN-EVENT] Auth failed:", authError?.message || "No user");
       return new Response(
         JSON.stringify({
           error: "Unauthorized",
           details: authError?.message || "User not found",
-          hint: "Make sure you are logged in with a valid session"
+          hint: "Make sure you are logged in with a valid session",
+          tokenLength: token.length
         }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const user = userData.user;
     console.log("[CREATE-ADMIN-EVENT] User authenticated:", user.email, user.id);
 
     // Check if user is admin via database role check
@@ -457,8 +460,13 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error("[ADMIN-EVENT] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ 
+        error: errorMessage,
+        details: errorStack,
+        hint: "Check Edge Function logs in Supabase Dashboard"
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

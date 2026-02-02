@@ -610,8 +610,36 @@ const AdminPriceCalculator = ({
                             ? `${sessionLabelsForTitle[selectedService!]} - ${clientName}`
                             : sessionLabelsForTitle[selectedService!];
 
-                        // Create the calendar event
-                        const { error } = await supabase.functions.invoke("create-admin-event", {
+                        // Get current session and token
+                        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+                        console.log("[ADMIN-EVENT] Session check:", { 
+                          hasSession: !!sessionData?.session, 
+                          error: sessionError?.message,
+                          accessToken: sessionData?.session?.access_token?.substring(0, 20) + "..."
+                        });
+
+                        if (sessionError || !sessionData.session) {
+                          // Try to refresh
+                          console.log("[ADMIN-EVENT] Trying to refresh session...");
+                          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+                          if (refreshError || !refreshData.session) {
+                            console.error("[ADMIN-EVENT] Refresh failed:", refreshError);
+                            throw new Error("Session expirée. Veuillez vous reconnecter.");
+                          }
+                        }
+
+                        // Get fresh session after potential refresh
+                        const { data: freshSession } = await supabase.auth.getSession();
+                        const accessToken = freshSession?.session?.access_token;
+                        
+                        if (!accessToken) {
+                          throw new Error("Pas de token d'accès. Veuillez vous reconnecter.");
+                        }
+
+                        console.log("[ADMIN-EVENT] Calling function with token length:", accessToken.length);
+
+                        // Create the calendar event with explicit headers
+                        const { data, error } = await supabase.functions.invoke("create-admin-event", {
                           body: {
                             title,
                             clientName: clientName || "",
@@ -621,9 +649,16 @@ const AdminPriceCalculator = ({
                             time: selectedTime,
                             hours: eventHours,
                           },
+                          headers: {
+                            Authorization: `Bearer ${accessToken}`
+                          }
                         });
 
-                        if (error) throw error;
+                        console.log("[ADMIN-EVENT] Response:", { data, error });
+                        if (error) {
+                          console.error("[ADMIN-EVENT] Full error:", error);
+                          throw error;
+                        }
 
                         // Send email if option is enabled
                         if (sendConfirmationEmail && clientEmail) {

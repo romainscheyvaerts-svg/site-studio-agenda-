@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/useAdmin";
+import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import {
   Loader2,
   Send,
@@ -20,7 +21,14 @@ import {
   Gift,
   UserCog,
   Plus,
-  Users
+  Users,
+  Euro,
+  Mic,
+  Building2,
+  Music,
+  Headphones,
+  Calendar,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -68,6 +76,7 @@ const AdminEventEditPanel = ({
 
   // Form state
   const [title, setTitle] = useState(eventTitle);
+  const [currentDate, setCurrentDate] = useState(date);
   const [currentStartHour, setCurrentStartHour] = useState(startHour);
   const [currentEndHour, setCurrentEndHour] = useState(endHour);
 
@@ -76,6 +85,12 @@ const AdminEventEditPanel = ({
   const [clientEmail, setClientEmail] = useState(existingClientEmail);
   const [notes, setNotes] = useState("");
   const [totalPrice, setTotalPrice] = useState<number>(0);
+  
+  // Service type
+  const [selectedServiceType, setSelectedServiceType] = useState<string>("with-engineer");
+  
+  // Show invoice generator
+  const [showInvoiceGenerator, setShowInvoiceGenerator] = useState(false);
 
   // Email options
   const [sendEmail, setSendEmail] = useState(false);
@@ -219,8 +234,26 @@ const AdminEventEditPanel = ({
 
         // Only set default admin if user hasn't manually selected one and admins haven't been loaded yet
         if (!hasUserSelectedAdmin.current && !adminsLoadedRef.current) {
+          // Special rule: if current user is prod.makemusic@gmail.com or romain.scheyvaerts@gmail.com
+          // set LENNON as default responsible (if available)
+          const studioEmails = ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'];
+          const currentUserEmail = Object.entries(userEmails).find(([id]) => id === user?.id)?.[1]?.toLowerCase();
+          
+          if (currentUserEmail && studioEmails.includes(currentUserEmail)) {
+            // Find Lennon in the list (by display_name containing LENNON)
+            const lennonAdmin = adminsList.find(a => 
+              a.display_name.toUpperCase().includes('LENNON')
+            );
+            if (lennonAdmin) {
+              console.log("[ADMINS] Studio email detected, defaulting to LENNON:", lennonAdmin.user_id);
+              setSelectedAdminId(lennonAdmin.user_id);
+              adminsLoadedRef.current = true;
+              return;
+            }
+          }
+          
           // Priority order for default admin selection:
-          // 1. Current user if they are in the list
+          // 1. Current user if they are in the list (and not studio email)
           // 2. First admin in the list
           if (user?.id) {
             const currentAdmin = adminsList.find(a => a.user_id === user.id);
@@ -259,7 +292,10 @@ const AdminEventEditPanel = ({
   const sessionType = "with-engineer";
 
   const handleSaveAndSendEmail = async () => {
-    console.log("[EDIT-PANEL] handleSaveAndSendEmail called with:", { mode, eventId, title, date, currentStartHour, currentEndHour });
+    // Use currentDate for edit mode (can be changed), date for create mode
+    const effectiveDate = mode === "edit" ? currentDate : date;
+    
+    console.log("[EDIT-PANEL] handleSaveAndSendEmail called with:", { mode, eventId, title, effectiveDate, currentStartHour, currentEndHour });
     
     if (!title.trim()) {
       toast({
@@ -297,7 +333,7 @@ const AdminEventEditPanel = ({
             clientName: clientName || title.trim(),
             clientEmail: clientEmail || undefined,
             description: eventDescription,
-            date,
+            date: effectiveDate,
             time: formatHour(currentStartHour),
             hours: duration,
             assignedAdminId: selectedAdminId || undefined,
@@ -321,7 +357,7 @@ const AdminEventEditPanel = ({
         console.log("[EDIT-PANEL] Updating event with data:", {
           eventId,
           title: title.trim(),
-          date,
+          date: effectiveDate,
           startTime: formatHour(currentStartHour),
           endTime: formatHour(currentEndHour),
           assignedAdminId: selectedAdminId,
@@ -331,7 +367,7 @@ const AdminEventEditPanel = ({
           body: {
             eventId,
             title: title.trim(),
-            date,
+            date: effectiveDate,
             startTime: formatHour(currentStartHour),
             endTime: formatHour(currentEndHour),
             assignedAdminId: selectedAdminId || undefined,
@@ -349,8 +385,8 @@ const AdminEventEditPanel = ({
           body: {
             clientEmail,
             clientName: clientName || clientEmail.split("@")[0],
-            sessionType,
-            sessionDate: format(new Date(date), "EEEE d MMMM yyyy", { locale: fr }),
+            sessionType: selectedServiceType,
+            sessionDate: format(new Date(effectiveDate), "EEEE d MMMM yyyy", { locale: fr }),
             sessionTime: formatHour(currentStartHour),
             hours: duration,
             totalPrice,
@@ -495,6 +531,22 @@ const AdminEventEditPanel = ({
         </div>
       </div>
 
+      {/* Date selection (only in edit mode) */}
+      {mode === "edit" && (
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            Date de l'événement
+          </Label>
+          <Input
+            type="date"
+            value={currentDate}
+            onChange={(e) => setCurrentDate(e.target.value)}
+            className="bg-background w-auto"
+          />
+        </div>
+      )}
+
       {/* Time selection */}
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-2">
@@ -534,6 +586,90 @@ const AdminEventEditPanel = ({
             {duration}h
           </div>
         </div>
+      </div>
+
+      {/* Service type and Price */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Mic className="w-4 h-4 text-primary" />
+            Type de service
+          </Label>
+          <Select value={selectedServiceType} onValueChange={setSelectedServiceType}>
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="Sélectionner un service..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="with-engineer">
+                <div className="flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-primary" />
+                  Session avec ingénieur
+                </div>
+              </SelectItem>
+              <SelectItem value="without-engineer">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-accent" />
+                  Location sèche
+                </div>
+              </SelectItem>
+              <SelectItem value="mixing">
+                <div className="flex items-center gap-2">
+                  <Music className="w-4 h-4 text-primary" />
+                  Mixage
+                </div>
+              </SelectItem>
+              <SelectItem value="mastering">
+                <div className="flex items-center gap-2">
+                  <Headphones className="w-4 h-4 text-primary" />
+                  Mastering
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Euro className="w-4 h-4 text-green-500" />
+            Prix total (€)
+          </Label>
+          <Input
+            type="number"
+            min={0}
+            step={1}
+            value={totalPrice}
+            onChange={(e) => setTotalPrice(Number(e.target.value))}
+            placeholder="0"
+            className="bg-background"
+          />
+        </div>
+      </div>
+
+      {/* Invoice generator button */}
+      <div className="space-y-2">
+        <Button 
+          type="button"
+          variant="outline"
+          onClick={() => setShowInvoiceGenerator(!showInvoiceGenerator)}
+          className="w-full border-amber-500/30 hover:bg-amber-500/10"
+        >
+          <FileText className="w-4 h-4 mr-2 text-amber-500" />
+          {showInvoiceGenerator ? "Masquer" : "Générer une facture"}
+        </Button>
+        
+        {showInvoiceGenerator && (
+          <div className="pt-2">
+            <AdminInvoiceGenerator
+              prefilledData={{
+                clientName: clientName || title,
+                clientEmail: clientEmail,
+                sessionType: selectedServiceType as any,
+                hours: duration,
+                totalPrice: totalPrice,
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Notes */}
