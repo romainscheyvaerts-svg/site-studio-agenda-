@@ -86,8 +86,8 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
     stripePaymentUrl: "",
     // Bank details
     includeBankDetails: true,
-    bankIban: "BE00 0000 0000 0000",
-    bankBic: "GEBABEBB",
+    bankIban: "BE28 6506 1537 7020",
+    bankBic: "REVOBEB2",
   });
   const [items, setItems] = useState<InvoiceItem[]>(getInitialItems());
 
