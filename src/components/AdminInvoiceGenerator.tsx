@@ -48,18 +48,27 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  // Calculate due date (+15 days from today)
+  const getDefaultDueDate = () => {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 15);
+    return dueDate.toISOString().split("T")[0];
+  };
+
+  // Service type descriptions
+  const serviceDescriptions: Record<string, string> = {
+    "with-engineer": "Session d'enregistrement avec ingénieur son",
+    "without-engineer": "Location studio (autonomie)",
+    "mixing": "Mixage + Mastering projet",
+    "mastering": "Mastering digital",
+    "analog-mastering": "Mastering analogique premium",
+    "podcast": "Mixage podcast",
+  };
+  
   const getInitialItems = (): InvoiceItem[] => {
     if (prefilledData?.sessionType && prefilledData.totalPrice) {
-      const descriptions: Record<string, string> = {
-        "with-engineer": "Session d'enregistrement avec ingénieur son",
-        "without-engineer": "Location studio (autonomie)",
-        "mixing": "Mixage + Mastering projet",
-        "mastering": "Mastering digital",
-        "analog-mastering": "Mastering analogique premium",
-        "podcast": "Mixage podcast",
-      };
       return [{
-        description: descriptions[prefilledData.sessionType] || "Service studio",
+        description: serviceDescriptions[prefilledData.sessionType] || "Service studio",
         quantity: prefilledData.hours || 1,
         unitPrice: Math.round(prefilledData.totalPrice / (prefilledData.hours || 1)),
       }];
@@ -73,10 +82,10 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
     clientAddress: "",
     invoiceNumber: `FAC-${Date.now().toString().slice(-6)}`,
     date: new Date().toISOString().split("T")[0],
-    dueDate: "",
+    dueDate: getDefaultDueDate(), // Auto +15 days
     notes: "",
     sessionType: prefilledData?.sessionType || "",
-    // New fields
+    // Session fields - pre-filled from session data
     sessionDate: prefilledData?.sessionDate || "",
     sessionStartTime: prefilledData?.sessionStartTime || "",
     sessionEndTime: prefilledData?.sessionEndTime || "",
