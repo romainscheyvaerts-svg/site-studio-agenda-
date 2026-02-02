@@ -188,13 +188,24 @@ const AdminCalendarModern = ({
     fetchAvailability();
   }, [fetchAvailability]);
 
+  // Default colors for admins without a profile
+  const defaultAdminColors = ['#00D9FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'];
+
   // Helper function to get admin color for an event
   const getEventAdminColor = (eventId: string): string | null => {
     const assignment = sessionAssignments.find(a => a.event_id === eventId);
     if (!assignment?.assigned_to) return null;
     
     const profile = adminProfiles.find(p => p.user_id === assignment.assigned_to);
-    return profile?.color || null;
+    if (profile?.color) return profile.color;
+    
+    // Generate a consistent color based on user_id if no profile
+    // Use hash of user_id to pick a color from defaults
+    const hashCode = assignment.assigned_to.split('').reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    const colorIndex = Math.abs(hashCode) % defaultAdminColors.length;
+    return defaultAdminColors[colorIndex];
   };
 
   // Force refetch when isSuperAdmin becomes true but last fetch wasn't with super admin calendars
