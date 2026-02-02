@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,9 @@ import {
   Check,
   X,
   Gift,
-  UserCog
+  UserCog,
+  Plus,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -91,6 +93,12 @@ const AdminEventEditPanel = ({
   const { user } = useAdmin();
   const [admins, setAdmins] = useState<Array<{ user_id: string; display_name: string; color: string; email?: string }>>([]);
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
+  const hasUserSelectedAdmin = useRef(false); // Track if user manually selected an admin
+  const adminsLoadedRef = useRef(false); // Track if admins have been loaded
+
+  // Multiple client emails support
+  const [clientEmails, setClientEmails] = useState<string[]>(existingClientEmail ? existingClientEmail.split(',').map(e => e.trim()).filter(Boolean) : []);
+  const [newEmailInput, setNewEmailInput] = useState("");
 
   // Default colors for admins without profile
   const defaultColors = ['#00D9FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'];
@@ -115,6 +123,9 @@ const AdminEventEditPanel = ({
           return;
         }
 
+        // Emails to exclude from session assignment (studio emails, not engineers)
+        const excludedEmails = ['prod.makemusic@gmail.com'];
+
         const adminUserIds = roleData.map(r => r.user_id);
 
         // 2. Get admin profiles for those who have one
@@ -125,77 +136,70 @@ const AdminEventEditPanel = ({
 
         const profiles = (profilesData || []) as any[];
 
-        // 3. Get emails from list-users function for admins without profiles
-        const adminsWithoutProfile = adminUserIds.filter(
-          uid => !profiles.find(p => p.user_id === uid)
-        );
-
+        // 3. Get emails from list-users function for ALL admins (to filter excluded emails)
         let userEmails: Record<string, string> = {};
-        if (adminsWithoutProfile.length > 0) {
-          // Try to get user emails via admin function
-          try {
-            const { data: usersData } = await supabase.functions.invoke("list-users");
-            if (usersData?.users) {
-              usersData.users.forEach((u: any) => {
-                if (adminsWithoutProfile.includes(u.id)) {
-                  userEmails[u.id] = u.email;
-                }
-              });
-            }
-          } catch (e) {
-            console.log("Could not fetch user emails:", e);
+        try {
+          const { data: usersData } = await supabase.functions.invoke("list-users");
+          if (usersData?.users) {
+            usersData.users.forEach((u: any) => {
+              if (adminUserIds.includes(u.id)) {
+                userEmails[u.id] = u.email;
+              }
+            });
           }
+        } catch (e) {
+          console.log("Could not fetch user emails:", e);
         }
 
-        // 4. Build combined admin list
+        // 4. Build combined admin list and filter excluded emails
         const adminsList = adminUserIds.map((userId, index) => {
           const profile = profiles.find(p => p.user_id === userId);
+          const email = profile?.email || userEmails[userId] || '';
+          
           if (profile) {
             return {
               user_id: profile.user_id,
               display_name: profile.display_name,
               color: profile.color,
-              email: profile.email
+              email: email
             };
           } else {
             // Admin without profile - use email as name
-            const email = userEmails[userId] || `Admin ${index + 1}`;
-            const displayName = email.split('@')[0].toUpperCase();
+            const fallbackEmail = userEmails[userId] || `Admin ${index + 1}`;
+            const displayName = fallbackEmail.split('@')[0].toUpperCase();
             return {
               user_id: userId,
               display_name: displayName,
               color: defaultColors[index % defaultColors.length],
-              email: email
+              email: fallbackEmail
             };
           }
+        }).filter(admin => {
+          // Filter out excluded emails (studio emails, not engineers)
+          return !excludedEmails.includes(admin.email?.toLowerCase() || '');
         });
 
         setAdmins(adminsList);
 
-        // Priority order for default admin selection:
-        // 1. Current user if they are in the list
-        // 2. Admin named "Romain" (superadmin)
-        // 3. First admin in the list
-        if (user?.id) {
-          const currentAdmin = adminsList.find(a => a.user_id === user.id);
-          if (currentAdmin) {
-            setSelectedAdminId(currentAdmin.user_id);
-            return;
+        // Only set default admin if user hasn't manually selected one and admins haven't been loaded yet
+        if (!hasUserSelectedAdmin.current && !adminsLoadedRef.current) {
+          // Priority order for default admin selection:
+          // 1. Current user if they are in the list
+          // 2. First admin in the list
+          if (user?.id) {
+            const currentAdmin = adminsList.find(a => a.user_id === user.id);
+            if (currentAdmin) {
+              setSelectedAdminId(currentAdmin.user_id);
+              adminsLoadedRef.current = true;
+              return;
+            }
           }
-        }
 
-        // Look for "Romain" (superadmin) as default
-        const romainAdmin = adminsList.find(a => 
-          a.display_name.toLowerCase().includes("romain")
-        );
-        if (romainAdmin) {
-          setSelectedAdminId(romainAdmin.user_id);
-          return;
-        }
-
-        // Fallback to first admin
-        if (adminsList.length > 0) {
-          setSelectedAdminId(adminsList[0].user_id);
+          // Fallback to first admin
+          if (adminsList.length > 0) {
+            setSelectedAdminId(adminsList[0].user_id);
+          }
+          adminsLoadedRef.current = true;
         }
       } catch (err) {
         console.error("Error loading admins:", err);
@@ -514,7 +518,10 @@ const AdminEventEditPanel = ({
             <UserCog className="w-4 h-4 text-primary" />
             Admin responsable
           </Label>
-          <Select value={selectedAdminId} onValueChange={setSelectedAdminId}>
+          <Select value={selectedAdminId} onValueChange={(value) => {
+            setSelectedAdminId(value);
+            hasUserSelectedAdmin.current = true; // Mark that user manually selected an admin
+          }}>
             <SelectTrigger className="bg-background">
               <SelectValue placeholder="Sélectionner un admin..." />
             </SelectTrigger>
@@ -568,30 +575,93 @@ const AdminEventEditPanel = ({
 
         {sendEmail && (
           <div className="space-y-4 pt-2">
-            <div className="grid md:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="client-email">Email du client *</Label>
+            {/* Multiple client emails */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Emails des participants
+              </Label>
+              
+              {/* Display existing emails as tags */}
+              {clientEmails.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {clientEmails.map((email, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/20 border border-primary/30 text-sm"
+                    >
+                      <span className="text-foreground">{email}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newEmails = clientEmails.filter((_, i) => i !== index);
+                          setClientEmails(newEmails);
+                          setClientEmail(newEmails.join(', '));
+                        }}
+                        className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Add new email input */}
+              <div className="flex gap-2">
                 <Input
-                  id="client-email"
                   type="email"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  placeholder="client@email.com"
-                  className="bg-background"
+                  value={newEmailInput}
+                  onChange={(e) => setNewEmailInput(e.target.value)}
+                  placeholder="Ajouter un email..."
+                  className="bg-background flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newEmailInput.trim()) {
+                      e.preventDefault();
+                      const email = newEmailInput.trim().toLowerCase();
+                      if (email.includes('@') && !clientEmails.includes(email)) {
+                        const newEmails = [...clientEmails, email];
+                        setClientEmails(newEmails);
+                        setClientEmail(newEmails.join(', '));
+                        setNewEmailInput('');
+                      }
+                    }
+                  }}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const email = newEmailInput.trim().toLowerCase();
+                    if (email && email.includes('@') && !clientEmails.includes(email)) {
+                      const newEmails = [...clientEmails, email];
+                      setClientEmails(newEmails);
+                      setClientEmail(newEmails.join(', '));
+                      setNewEmailInput('');
+                    }
+                  }}
+                  disabled={!newEmailInput.trim() || !newEmailInput.includes('@')}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="total-price">Montant (€)</Label>
-                <Input
-                  id="total-price"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={totalPrice}
-                  onChange={(e) => setTotalPrice(Number(e.target.value))}
-                  className="bg-background"
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Ajoutez plusieurs emails pour envoyer à tous les participants
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="total-price">Montant (€)</Label>
+              <Input
+                id="total-price"
+                type="number"
+                min={0}
+                step={1}
+                value={totalPrice}
+                onChange={(e) => setTotalPrice(Number(e.target.value))}
+                className="bg-background"
+              />
             </div>
 
             {/* Link options */}

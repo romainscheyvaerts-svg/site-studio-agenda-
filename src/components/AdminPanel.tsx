@@ -47,13 +47,21 @@ import { cn } from "@/lib/utils";
 
 interface AdminPanelProps {
   inline?: boolean;
+  onClose?: () => void;
+  externalOpen?: boolean;
 }
 
-const AdminPanel = ({ inline = false }: AdminPanelProps) => {
+const AdminPanel = ({ inline = false, onClose, externalOpen }: AdminPanelProps) => {
   const { isMobileView } = useViewMode();
   const { isSuperAdmin } = useAdmin();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(externalOpen ?? false);
   const [activeTab, setActiveTab] = useState("pricing");
+
+  useEffect(() => {
+    if (externalOpen !== undefined) {
+      setIsOpen(externalOpen);
+    }
+  }, [externalOpen]);
 
   useEffect(() => {
     if (isOpen && isSuperAdmin) {
@@ -61,13 +69,18 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
     }
   }, [isOpen, isSuperAdmin]);
 
+  const handleClose = () => {
+    setIsOpen(false);
+    onClose?.();
+  };
+
   // Inline mode - renders nothing (removed from admin banner)
   if (inline) {
     return null;
   }
 
-  // Floating panel mode
-  if (!isOpen) {
+  // If controlled externally, don't show the button
+  if (externalOpen === undefined && !isOpen) {
     return (
       <Button
         variant="outline"
@@ -79,6 +92,11 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
         <Settings className="w-5 h-5 text-primary" />
       </Button>
     );
+  }
+
+  // If controlled externally and not open, render nothing
+  if (externalOpen === false) {
+    return null;
   }
 
   return (
@@ -96,7 +114,7 @@ const AdminPanel = ({ inline = false }: AdminPanelProps) => {
             <Settings className={cn("text-primary", isMobileView ? "w-4 h-4" : "w-5 h-5")} />
             <h2 className={cn("font-semibold", isMobileView ? "text-sm" : "text-lg")}>Admin</h2>
           </div>
-          <Button variant="ghost" size="icon" className={isMobileView ? "h-8 w-8" : ""} onClick={() => setIsOpen(false)}>
+          <Button variant="ghost" size="icon" className={isMobileView ? "h-8 w-8" : ""} onClick={handleClose}>
             <X className={isMobileView ? "w-4 h-4" : "w-5 h-5"} />
           </Button>
         </div>

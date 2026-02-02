@@ -26,6 +26,7 @@ import Offres from "./pages/Offres";
 import Reservation from "./pages/Reservation";
 import MyPurchases from "./pages/MyPurchases";
 import MyAccount from "./pages/MyAccount";
+import AdminFloatingButton from "./components/AdminFloatingButton";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <AdminFloatingButton />
           </BrowserRouter>
         </ViewModeProvider>
       </AuthProvider>
