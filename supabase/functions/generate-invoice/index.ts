@@ -35,7 +35,21 @@ const InvoiceRequestSchema = z.object({
 
 type InvoiceRequest = z.infer<typeof InvoiceRequestSchema>;
 
-const LOGO_BASE64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCAyMDAgNTAiPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iNTAiIGZpbGw9IiMwYTBhMGEiLz48dGV4dCB4PSIxMCIgeT0iMzUiIGZvbnQtZmFtaWx5PSJBcmlhbCBCbGFjayIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzIyZDNlZSI+TUFLRSBNU1VTSUMgwq48L3RleHQ+PC9zdmc+";
+// Check if user has admin or superadmin role in database
+async function isUserAdmin(supabase: ReturnType<typeof createClient>, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "superadmin"]);
+  
+  if (error) {
+    console.error("[INVOICE] Error checking admin role:", error);
+    return false;
+  }
+  
+  return data && data.length > 0;
+}
 
 function generateInvoiceHtml(data: InvoiceRequest): string {
   const total = data.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
@@ -174,7 +188,9 @@ serve(async (req) => {
 
   try {
     // Verify authentication - only admin can generate invoices
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    console.log("[INVOICE] Auth header present:", !!authHeader);
+    
     if (!authHeader) {
       console.error("[INVOICE] No authorization header");
       return new Response(
@@ -187,9 +203,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const token = authHeader.replace("Bearer ", "");
+    console.log("[INVOICE] Token length:", token.length);
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    console.log("[INVOICE] Auth result - user:", user?.email, "error:", authError?.message);
+    
     if (authError || !user) {
       console.error("[INVOICE] Auth error:", authError?.message);
       return new Response(
@@ -198,21 +218,18 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin via database role check
-    const { data: roleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
+    // Check if user is admin via database role check (accept both admin and superadmin)
+    const hasAdminRole = await isUserAdmin(supabase, user.id);
     
-    if (roleError || !roleData) {
-      console.error("[INVOICE] Non-admin user attempted to generate invoice:", user.email);
+    if (!hasAdminRole) {
+      console.error("[INVOICE] Non-admin user attempted to generate invoice:", user.email, user.id);
       return new Response(
         JSON.stringify({ error: "Forbidden - Admin access required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("[INVOICE] User has admin role, proceeding...");
 
     // Parse and validate input
     const rawBody = await req.json();
