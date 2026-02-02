@@ -76,6 +76,14 @@ const CATEGORIES: CategoryInfo[] = [
     bgColor: "bg-purple-500/20",
   },
   {
+    key: "notifications_admin_interne",
+    label: "👥 NOTIFICATIONS ADMIN INTERNE",
+    description: "Emails envoyés entre admins (assignation de session, rappels internes)",
+    icon: UserCog,
+    color: "text-emerald-500",
+    bgColor: "bg-emerald-500/20",
+  },
+  {
     key: "paiements",
     label: "💳 PAIEMENTS & FACTURES",
     description: "Emails liés aux transactions financières et factures",
@@ -155,6 +163,14 @@ const templateMeta: Record<string, { icon: React.ElementType; color: string; cat
     color: "text-purple-500",
     category: "notifications_admin",
     shortDesc: "Reçu par l'admin quand demande de devis"
+  },
+
+  // Notifications Admin Interne
+  admin_session_assignment: {
+    icon: Calendar,
+    color: "text-emerald-500",
+    category: "notifications_admin_interne",
+    shortDesc: "Email envoyé à l'admin assigné à une session"
   },
 
   // Paiements & Factures

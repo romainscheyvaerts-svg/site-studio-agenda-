@@ -211,9 +211,9 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { title, clientName, description, date, time, hours, colorId } = body;
+    const { title, clientName, description, date, time, hours, colorId, assignedAdminId } = body;
 
-    console.log("[ADMIN-EVENT] Creating event:", { title, clientName, date, time, hours, colorId });
+    console.log("[ADMIN-EVENT] Creating event:", { title, clientName, date, time, hours, colorId, assignedAdminId });
 
     // Validate required fields
     if (!title || !date || !time) {
@@ -271,11 +271,161 @@ serve(async (req) => {
       colorId: colorId || undefined,
     });
 
+    // Send notification email to assigned admin if specified
+    let adminNotificationSent = false;
+    if (assignedAdminId) {
+      try {
+        // Get admin profile with email
+        const { data: adminProfile, error: profileError } = await supabase
+          .from("admin_profiles")
+          .select("display_name, email, user_id")
+          .eq("user_id", assignedAdminId)
+          .single();
+
+        if (profileError) {
+          console.error("[ADMIN-EVENT] Error fetching admin profile:", profileError);
+        } else if (adminProfile) {
+          // Get admin email from profile or auth.users
+          let adminEmail = adminProfile.email;
+          
+          if (!adminEmail) {
+            // Fallback: get email from auth.users
+            const { data: authUser } = await supabase.auth.admin.getUserById(assignedAdminId);
+            adminEmail = authUser?.user?.email;
+          }
+
+          if (adminEmail) {
+            // Get email template
+            const { data: template } = await supabase
+              .from("email_templates")
+              .select("*")
+              .eq("template_key", "admin_session_assignment")
+              .eq("is_active", true)
+              .single();
+
+            if (template) {
+              // Format date for display
+              const options: Intl.DateTimeFormatOptions = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              };
+              const formattedDate = startDate.toLocaleDateString('fr-BE', options);
+              const startTimeStr = `${hour.toString().padStart(2, '0')}:${(minute || 0).toString().padStart(2, '0')}`;
+              const endHour = hour + (hours || 2);
+              const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
+
+              // Generate Google Calendar add link
+              const calendarAddUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventSummary)}&dates=${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=${encodeURIComponent(eventDescription)}&location=Make%20Music%20Studio`;
+
+              // Replace template variables
+              const replaceVars = (text: string | null) => {
+                if (!text) return '';
+                return text
+                  .replace(/\{\{admin_name\}\}/g, adminProfile.display_name || 'Admin')
+                  .replace(/\{\{session_date\}\}/g, formattedDate)
+                  .replace(/\{\{start_time\}\}/g, startTimeStr)
+                  .replace(/\{\{end_time\}\}/g, endTimeStr)
+                  .replace(/\{\{duration\}\}/g, String(hours || 2))
+                  .replace(/\{\{session_title\}\}/g, eventSummary)
+                  .replace(/\{\{client_name\}\}/g, clientName || '')
+                  .replace(/\{\{notes\}\}/g, description || '')
+                  .replace(/\{\{calendar_add_url\}\}/g, calendarAddUrl)
+                  .replace(/\{\{#if client_name\}\}([\s\S]*?)\{\{\/if\}\}/g, clientName ? '$1' : '')
+                  .replace(/\{\{#if notes\}\}([\s\S]*?)\{\{\/if\}\}/g, description ? '$1' : '');
+              };
+
+              const subject = replaceVars(template.subject_template);
+              const heading = replaceVars(template.heading_text);
+              const subheading = replaceVars(template.subheading_text);
+              const bodyContent = replaceVars(template.body_template);
+              const ctaText = template.cta_button_text;
+
+              // Build HTML email
+              const htmlEmail = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;font-family:Arial,sans-serif;">
+  <div style="max-width:500px;margin:40px auto;background-color:#1a1a1a;border-radius:12px;border:1px solid #262626;overflow:hidden;">
+    <div style="background:linear-gradient(135deg, rgba(16,185,129,0.2), rgba(34,211,238,0.2));padding:20px;text-align:center;border-bottom:1px solid #262626;">
+      ${template.show_logo ? '<img src="https://www.studiomakemusic.com/favicon.png" alt="Logo" style="width:50px;height:50px;margin:0 auto 10px;border-radius:8px;display:block;" />' : ''}
+      <h1 style="color:#ffffff;font-size:18px;font-weight:bold;margin:0;">Make Music Studio</h1>
+    </div>
+    <div style="padding:24px;">
+      ${heading ? `<h2 style="color:#ffffff;font-size:20px;margin:0 0 8px;">${heading}</h2>` : ''}
+      ${subheading ? `<p style="color:#a1a1aa;font-size:14px;margin:0 0 20px;">${subheading}</p>` : ''}
+      <div style="color:#d4d4d8;font-size:14px;line-height:1.7;white-space:pre-wrap;">${bodyContent}</div>
+      ${template.show_session_details ? `
+        <div style="background-color:#0a0a0a;border-radius:8px;padding:16px;margin-top:20px;border:1px solid #262626;">
+          <p style="color:#10b981;font-size:12px;margin:0 0 8px;text-transform:uppercase;">📅 Détails de la session</p>
+          <p style="color:#ffffff;font-size:14px;margin:0;"><strong>${formattedDate}</strong></p>
+          <p style="color:#a1a1aa;font-size:13px;margin:4px 0 0;">${startTimeStr} - ${endTimeStr} (${hours || 2}h)</p>
+        </div>
+      ` : ''}
+      ${ctaText && template.show_calendar_button ? `
+        <div style="margin-top:24px;text-align:center;">
+          <a href="${calendarAddUrl}" target="_blank" style="display:inline-block;background-color:#10b981;color:#0a0a0a;padding:12px 24px;border-radius:8px;font-weight:bold;font-size:14px;text-decoration:none;">${ctaText}</a>
+        </div>
+      ` : ''}
+    </div>
+    <div style="background-color:#0a0a0a;padding:16px;border-top:1px solid #262626;text-align:center;">
+      <p style="color:#71717a;font-size:11px;margin:0;">${template.footer_text || "Make Music Studio - Studio d'enregistrement à Bruxelles"}</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+              // Send email via Resend
+              const resendApiKey = Deno.env.get("RESEND_API_KEY");
+              if (resendApiKey) {
+                const resendResponse = await fetch("https://api.resend.com/emails", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${resendApiKey}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    from: "Make Music Studio <noreply@studiomakemusic.com>",
+                    to: [adminEmail],
+                    subject: subject,
+                    html: htmlEmail,
+                  }),
+                });
+
+                if (resendResponse.ok) {
+                  console.log(`[ADMIN-EVENT] Notification email sent to ${adminEmail}`);
+                  adminNotificationSent = true;
+                } else {
+                  const resendError = await resendResponse.text();
+                  console.error("[ADMIN-EVENT] Failed to send notification email:", resendError);
+                }
+              } else {
+                console.log("[ADMIN-EVENT] RESEND_API_KEY not configured, skipping email");
+              }
+            } else {
+              console.log("[ADMIN-EVENT] admin_session_assignment template not found or inactive");
+            }
+          } else {
+            console.log("[ADMIN-EVENT] No email found for admin:", assignedAdminId);
+          }
+        }
+      } catch (emailError) {
+        console.error("[ADMIN-EVENT] Error sending admin notification:", emailError);
+        // Don't fail the whole request if email fails
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         eventId: createdEvent.id,
         eventLink: createdEvent.htmlLink,
+        adminNotificationSent,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -101,6 +101,8 @@ const AdminCalendarModern = ({
 
   // Swipe/scroll navigation refs
   const calendarContainerRef = useRef<HTMLDivElement>(null);
+  const weekScrollContainerRef = useRef<HTMLDivElement>(null);
+  const dayScrollContainerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number>(0);
   const touchStartYRef = useRef<number>(0);
   const isSwipingRef = useRef<boolean>(false);
@@ -158,6 +160,25 @@ const AdminCalendarModern = ({
       fetchAvailability();
     }
   }, [isSuperAdmin, lastFetchWasSuperAdmin, loading, fetchAvailability]);
+
+  // Auto-scroll to 9h when week or day view loads
+  useEffect(() => {
+    if (!loading) {
+      // Small delay to ensure DOM is rendered
+      const timer = setTimeout(() => {
+        if (viewMode === "week" && weekScrollContainerRef.current) {
+          const hourHeight = 40; // Same as in renderWeekView
+          const scrollTo = 9 * hourHeight; // 9h = 360px
+          weekScrollContainerRef.current.scrollTop = scrollTo;
+        } else if (viewMode === "day" && dayScrollContainerRef.current) {
+          const hourHeight = 48; // Same as in renderDayView
+          const scrollTo = 9 * hourHeight; // 9h = 432px
+          dayScrollContainerRef.current.scrollTop = scrollTo;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, viewMode]);
 
   // Navigation
   const goToPrevious = () => {
@@ -535,10 +556,13 @@ const AdminCalendarModern = ({
     });
 
     return (
-      <div className={cn(
-        "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
-        calendarHeight
-      )}>
+      <div 
+        ref={weekScrollContainerRef}
+        className={cn(
+          "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+          calendarHeight
+        )}
+      >
         {/* Wrapper for horizontal scroll with sticky hour column */}
         <div className="relative">
           {/* Header with days - sticky top */}
@@ -820,10 +844,13 @@ const AdminCalendarModern = ({
     const hourHeight = 48; // pixels per hour (taller for day view)
 
     return (
-      <div className={cn(
-        "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
-        calendarHeight
-      )}>
+      <div 
+        ref={dayScrollContainerRef}
+        className={cn(
+          "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+          calendarHeight
+        )}
+      >
         <div className="flex min-w-max">
           {/* Sticky hour column */}
           <div className="w-14 shrink-0 sticky left-0 bg-card z-10 border-r border-border/30">

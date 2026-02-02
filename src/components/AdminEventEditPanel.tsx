@@ -89,45 +89,116 @@ const AdminEventEditPanel = ({
 
   // Admin assignment
   const { user } = useAdmin();
-  const [admins, setAdmins] = useState<Array<{ user_id: string; display_name: string; color: string }>>([]);
+  const [admins, setAdmins] = useState<Array<{ user_id: string; display_name: string; color: string; email?: string }>>([]);
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
 
-  // Load admin profiles
+  // Default colors for admins without profile
+  const defaultColors = ['#00D9FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'];
+
+  // Load all admins from user_roles + admin_profiles
   useEffect(() => {
     const loadAdmins = async () => {
-      const { data, error } = await supabase
-        .from("admin_profiles" as any)
-        .select("user_id, display_name, color");
-      
-      if (!error && data) {
-        setAdmins(data as any);
-        const adminsList = data as any;
-        
+      try {
+        // 1. Get all admin/superadmin users from user_roles
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("role", ["admin", "superadmin"]);
+
+        if (roleError) {
+          console.error("Error loading admin roles:", roleError);
+          return;
+        }
+
+        if (!roleData || roleData.length === 0) {
+          console.log("No admins found in user_roles");
+          return;
+        }
+
+        const adminUserIds = roleData.map(r => r.user_id);
+
+        // 2. Get admin profiles for those who have one
+        const { data: profilesData } = await supabase
+          .from("admin_profiles" as any)
+          .select("user_id, display_name, color, email")
+          .in("user_id", adminUserIds);
+
+        const profiles = (profilesData || []) as any[];
+
+        // 3. Get emails from list-users function for admins without profiles
+        const adminsWithoutProfile = adminUserIds.filter(
+          uid => !profiles.find(p => p.user_id === uid)
+        );
+
+        let userEmails: Record<string, string> = {};
+        if (adminsWithoutProfile.length > 0) {
+          // Try to get user emails via admin function
+          try {
+            const { data: usersData } = await supabase.functions.invoke("list-users");
+            if (usersData?.users) {
+              usersData.users.forEach((u: any) => {
+                if (adminsWithoutProfile.includes(u.id)) {
+                  userEmails[u.id] = u.email;
+                }
+              });
+            }
+          } catch (e) {
+            console.log("Could not fetch user emails:", e);
+          }
+        }
+
+        // 4. Build combined admin list
+        const adminsList = adminUserIds.map((userId, index) => {
+          const profile = profiles.find(p => p.user_id === userId);
+          if (profile) {
+            return {
+              user_id: profile.user_id,
+              display_name: profile.display_name,
+              color: profile.color,
+              email: profile.email
+            };
+          } else {
+            // Admin without profile - use email as name
+            const email = userEmails[userId] || `Admin ${index + 1}`;
+            const displayName = email.split('@')[0].toUpperCase();
+            return {
+              user_id: userId,
+              display_name: displayName,
+              color: defaultColors[index % defaultColors.length],
+              email: email
+            };
+          }
+        });
+
+        setAdmins(adminsList);
+
         // Priority order for default admin selection:
-        // 1. Current user if they have a profile
+        // 1. Current user if they are in the list
         // 2. Admin named "Romain" (superadmin)
         // 3. First admin in the list
         if (user?.id) {
-          const currentAdmin = adminsList.find((a: any) => a.user_id === user.id);
+          const currentAdmin = adminsList.find(a => a.user_id === user.id);
           if (currentAdmin) {
             setSelectedAdminId(currentAdmin.user_id);
             return;
           }
         }
-        
+
         // Look for "Romain" (superadmin) as default
-        const romainAdmin = adminsList.find((a: any) => 
+        const romainAdmin = adminsList.find(a => 
           a.display_name.toLowerCase().includes("romain")
         );
         if (romainAdmin) {
           setSelectedAdminId(romainAdmin.user_id);
           return;
         }
-        
+
         // Fallback to first admin
         if (adminsList.length > 0) {
           setSelectedAdminId(adminsList[0].user_id);
         }
+      } catch (err) {
+        console.error("Error loading admins:", err);
       }
     };
     loadAdmins();
@@ -189,6 +260,7 @@ const AdminEventEditPanel = ({
             date,
             time: formatHour(currentStartHour),
             hours: duration,
+            assignedAdminId: selectedAdminId || undefined,
           },
         });
 
