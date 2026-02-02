@@ -115,8 +115,17 @@ const AdminEventEditPanel = ({
   const [clientEmails, setClientEmails] = useState<string[]>(existingClientEmail ? existingClientEmail.split(',').map(e => e.trim()).filter(Boolean) : []);
   const [newEmailInput, setNewEmailInput] = useState("");
 
-  // Default colors for admins without profile
+  // Default colors for admins without profile - MUST MATCH AdminCalendarModern
   const defaultColors = ['#00D9FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'];
+
+  // Consistent color generation based on user_id hash (same as AdminCalendarModern)
+  const getColorFromUserId = (userId: string): string => {
+    const hashCode = userId.split('').reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc);
+    }, 0);
+    const colorIndex = Math.abs(hashCode) % defaultColors.length;
+    return defaultColors[colorIndex];
+  };
 
   // Load existing assignment for this event (when editing)
   useEffect(() => {
@@ -207,7 +216,8 @@ const AdminEventEditPanel = ({
           const profile = profiles.find(p => p.user_id === userId);
           const email = profile?.email || userEmails[userId] || '';
           
-          if (profile) {
+          if (profile && profile.color) {
+            // Admin with profile and color defined
             return {
               user_id: profile.user_id,
               display_name: profile.display_name,
@@ -215,13 +225,15 @@ const AdminEventEditPanel = ({
               email: email
             };
           } else {
-            // Admin without profile - use email as name
+            // Admin without profile OR without color - use consistent hash-based color
             const fallbackEmail = userEmails[userId] || `Admin ${index + 1}`;
-            const displayName = fallbackEmail.split('@')[0].toUpperCase();
+            const displayName = profile?.display_name || fallbackEmail.split('@')[0].toUpperCase();
+            // Use hash-based color for consistency with AdminCalendarModern
+            const fallbackColor = getColorFromUserId(userId);
             return {
               user_id: userId,
               display_name: displayName,
-              color: defaultColors[index % defaultColors.length],
+              color: fallbackColor,
               email: fallbackEmail
             };
           }
