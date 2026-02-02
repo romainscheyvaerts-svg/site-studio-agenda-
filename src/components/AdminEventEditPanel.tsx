@@ -666,6 +666,9 @@ const AdminEventEditPanel = ({
                 sessionType: selectedServiceType as any,
                 hours: duration,
                 totalPrice: totalPrice,
+                sessionDate: mode === "edit" ? currentDate : date,
+                sessionStartTime: formatHour(currentStartHour),
+                sessionEndTime: formatHour(currentEndHour),
               }}
             />
           </div>

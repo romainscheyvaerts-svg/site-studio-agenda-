@@ -28,7 +28,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-admin-event]
-verify_jwt = true
+verify_jwt = false
+
+[functions.update-admin-event]
+verify_jwt = false
 
 [functions.delete-admin-event]
 verify_jwt = true

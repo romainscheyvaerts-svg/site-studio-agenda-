@@ -30,6 +30,7 @@ import AdminUserManagement from "./AdminUserManagement";
 import AdminChatbotConfig from "./AdminChatbotConfig";
 import AdminEmailConfig from "./AdminEmailConfig";
 import AdminEmailTemplates from "./AdminEmailTemplates";
+import AdminInvoiceTemplates from "./AdminInvoiceTemplates";
 import AdminActivitySecurity from "./AdminActivitySecurity";
 import AdminGallery from "./AdminGallery";
 import AdminPromoCodeManager from "./AdminPromoCodeManager";
@@ -279,6 +280,9 @@ const AdminPanel = ({ inline = false, onClose, externalOpen }: AdminPanelProps) 
                 </AdminCollapsibleSection>
                 <AdminCollapsibleSection title="Templates Emails" icon={FileText}>
                   <AdminEmailTemplates />
+                </AdminCollapsibleSection>
+                <AdminCollapsibleSection title="Template Facture" icon={Receipt}>
+                  <AdminInvoiceTemplates />
                 </AdminCollapsibleSection>
               </TabsContent>
             )}

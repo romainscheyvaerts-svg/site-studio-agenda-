@@ -100,22 +100,60 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
   });
   const [items, setItems] = useState<InvoiceItem[]>(getInitialItems());
 
-  // Update data when prefilledData changes or dialog opens
+  // Initialize data from prefilledData immediately on mount (before dialog opens)
+  useEffect(() => {
+    if (prefilledData) {
+      console.log("[INVOICE] Component mounted - Initializing from prefilledData:", prefilledData);
+      
+      // Update invoice data with prefilled values
+      setInvoiceData(prev => ({
+        ...prev,
+        clientName: prefilledData.clientName || prev.clientName,
+        clientEmail: prefilledData.clientEmail || prev.clientEmail,
+        sessionType: prefilledData.sessionType || prev.sessionType,
+        sessionDate: prefilledData.sessionDate || prev.sessionDate,
+        sessionStartTime: prefilledData.sessionStartTime || prev.sessionStartTime,
+        sessionEndTime: prefilledData.sessionEndTime || prev.sessionEndTime,
+        hours: prefilledData.hours ?? prev.hours,
+      }));
+      
+      // Update items
+      if (prefilledData.sessionType || prefilledData.totalPrice || prefilledData.hours) {
+        const hours = prefilledData.hours || 1;
+        const totalPrice = prefilledData.totalPrice || 0;
+        const unitPrice = totalPrice > 0 ? Math.round(totalPrice / hours) : 0;
+        
+        setItems([{
+          description: serviceDescriptions[prefilledData.sessionType || ""] || "Service studio",
+          quantity: hours,
+          unitPrice: unitPrice,
+        }]);
+      }
+    }
+  }, []); // Run only once on mount
+
+  // Update data when dialog opens (in case prefilledData changed since mount)
   useEffect(() => {
     if (open && prefilledData) {
-      console.log("[INVOICE] Updating from prefilledData:", prefilledData);
+      console.log("[INVOICE] Dialog opened - Syncing from prefilledData:", prefilledData);
+      console.log("[INVOICE] Session details:", {
+        sessionDate: prefilledData.sessionDate,
+        sessionStartTime: prefilledData.sessionStartTime,
+        sessionEndTime: prefilledData.sessionEndTime,
+        hours: prefilledData.hours,
+      });
       
       // FORCE update all session data from prefilledData (don't keep old values)
       setInvoiceData(prev => ({
         ...prev,
-        clientName: prefilledData.clientName ?? prev.clientName,
-        clientEmail: prefilledData.clientEmail ?? prev.clientEmail,
-        sessionType: prefilledData.sessionType ?? prev.sessionType,
+        clientName: prefilledData.clientName || prev.clientName,
+        clientEmail: prefilledData.clientEmail || prev.clientEmail,
+        sessionType: prefilledData.sessionType || prev.sessionType,
         // Always update session details from prefilledData
-        sessionDate: prefilledData.sessionDate || "",
-        sessionStartTime: prefilledData.sessionStartTime || "",
-        sessionEndTime: prefilledData.sessionEndTime || "",
-        hours: prefilledData.hours ?? 0,
+        sessionDate: prefilledData.sessionDate || prev.sessionDate,
+        sessionStartTime: prefilledData.sessionStartTime || prev.sessionStartTime,
+        sessionEndTime: prefilledData.sessionEndTime || prev.sessionEndTime,
+        hours: prefilledData.hours ?? prev.hours,
       }));
       
       // Update items based on session type and price
@@ -131,7 +169,37 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
         }]);
       }
     }
-  }, [open, prefilledData?.clientName, prefilledData?.clientEmail, prefilledData?.sessionType, prefilledData?.hours, prefilledData?.totalPrice, prefilledData?.sessionDate, prefilledData?.sessionStartTime, prefilledData?.sessionEndTime]);
+  }, [open]);
+
+  // Also update when prefilledData changes (props update)
+  useEffect(() => {
+    if (prefilledData) {
+      console.log("[INVOICE] prefilledData props changed:", prefilledData);
+      setInvoiceData(prev => ({
+        ...prev,
+        clientName: prefilledData.clientName || prev.clientName,
+        clientEmail: prefilledData.clientEmail || prev.clientEmail,
+        sessionType: prefilledData.sessionType || prev.sessionType,
+        sessionDate: prefilledData.sessionDate || prev.sessionDate,
+        sessionStartTime: prefilledData.sessionStartTime || prev.sessionStartTime,
+        sessionEndTime: prefilledData.sessionEndTime || prev.sessionEndTime,
+        hours: prefilledData.hours ?? prev.hours,
+      }));
+      
+      // Update items too
+      if (prefilledData.sessionType || prefilledData.totalPrice || prefilledData.hours) {
+        const hours = prefilledData.hours || 1;
+        const totalPrice = prefilledData.totalPrice || 0;
+        const unitPrice = totalPrice > 0 ? Math.round(totalPrice / hours) : 0;
+        
+        setItems([{
+          description: serviceDescriptions[prefilledData.sessionType || ""] || "Service studio",
+          quantity: hours,
+          unitPrice: unitPrice,
+        }]);
+      }
+    }
+  }, [prefilledData?.sessionDate, prefilledData?.sessionStartTime, prefilledData?.sessionEndTime, prefilledData?.hours, prefilledData?.clientName, prefilledData?.clientEmail, prefilledData?.sessionType, prefilledData?.totalPrice]);
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: 1, unitPrice: 0 }]);
