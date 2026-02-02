@@ -47,6 +47,7 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [generatingStripeLink, setGeneratingStripeLink] = useState(false);
   
   // Calculate due date (+15 days from today)
   const getDefaultDueDate = () => {
@@ -222,17 +223,21 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
   };
 
   // Generate Stripe payment link for invoice
-  const generateStripeLink = async () => {
+  const generateStripeLink = async (showToast: boolean = true) => {
     const total = calculateTotal();
     if (total <= 0) {
-      toast({
-        title: "Erreur",
-        description: "Le montant doit être supérieur à 0",
-        variant: "destructive",
-      });
+      if (showToast) {
+        toast({
+          title: "Erreur",
+          description: "Le montant doit être supérieur à 0 pour générer un lien de paiement",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
+    setGeneratingStripeLink(true);
+    
     try {
       // Create a Stripe Checkout Session specifically for invoice payment
       const { data, error } = await supabase.functions.invoke("create-stripe-payment", {
@@ -255,22 +260,39 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
 
       if (data?.url) {
         setInvoiceData(prev => ({ ...prev, stripePaymentUrl: data.url, includePaymentLink: true }));
-        toast({
-          title: "Lien de paiement créé !",
-          description: "Le lien Stripe a été ajouté à la facture. Il expirera dans 24h.",
-        });
+        if (showToast) {
+          toast({
+            title: "Lien de paiement créé !",
+            description: "Le lien Stripe a été ajouté à la facture. Il expirera dans 24h.",
+          });
+        }
       } else {
         throw new Error("Aucune URL de paiement reçue");
       }
     } catch (err) {
       console.error("Error creating Stripe link:", err);
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer le lien de paiement. Vérifiez la configuration Stripe.",
-        variant: "destructive",
-      });
+      if (showToast) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer le lien de paiement. Vérifiez la configuration Stripe.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setGeneratingStripeLink(false);
     }
   };
+
+  // Auto-generate Stripe link when switch is turned on and no link exists
+  useEffect(() => {
+    if (invoiceData.includePaymentLink && !invoiceData.stripePaymentUrl && !generatingStripeLink) {
+      const total = calculateTotal();
+      if (total > 0) {
+        console.log("[INVOICE] Auto-generating Stripe link...");
+        generateStripeLink(true);
+      }
+    }
+  }, [invoiceData.includePaymentLink]);
 
   const handleGenerateInvoice = async () => {
     if (!invoiceData.clientName || !invoiceData.clientEmail || items.some(i => !i.description || i.unitPrice <= 0)) {
@@ -661,8 +683,11 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
                   checked={invoiceData.includePaymentLink}
                   onCheckedChange={(v) => setInvoiceData({ ...invoiceData, includePaymentLink: v })}
                 />
-                {!invoiceData.stripePaymentUrl && invoiceData.includePaymentLink && (
-                  <Button type="button" size="sm" variant="outline" onClick={generateStripeLink}>
+                {generatingStripeLink && (
+                  <Loader2 className="w-4 h-4 animate-spin text-green-400" />
+                )}
+                {!invoiceData.stripePaymentUrl && invoiceData.includePaymentLink && !generatingStripeLink && (
+                  <Button type="button" size="sm" variant="outline" onClick={() => generateStripeLink(true)}>
                     Générer
                   </Button>
                 )}
