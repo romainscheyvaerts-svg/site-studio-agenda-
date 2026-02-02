@@ -150,8 +150,25 @@ const createGoogleCalendarEvent = async (booking: any) => {
     // Otherwise return with seconds
     return `${time}:00`;
   };
-  const start = `${date}T${formatTime(booking.start_time)}`;
-  const end = `${date}T${formatTime(booking.end_time)}`;
+  
+  // Parse start and end times to check if session crosses midnight
+  const startTimeStr = formatTime(booking.start_time);
+  const endTimeStr = formatTime(booking.end_time);
+  const [startHour] = startTimeStr.split(':').map(Number);
+  const [endHour] = endTimeStr.split(':').map(Number);
+  
+  // If end hour is less than start hour, the session crosses midnight
+  // Add one day to the end date
+  let endDate = date;
+  if (endHour < startHour) {
+    const startDateObj = new Date(date);
+    startDateObj.setDate(startDateObj.getDate() + 1);
+    endDate = startDateObj.toISOString().split('T')[0];
+    logStep("Session crosses midnight, adjusting end date", { startDate: date, endDate });
+  }
+  
+  const start = `${date}T${startTimeStr}`;
+  const end = `${endDate}T${endTimeStr}`;
 
   const summaryPrefix = booking.status === "pending_validation" ? "[PENDING] " : "";
 

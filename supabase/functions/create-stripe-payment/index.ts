@@ -118,18 +118,23 @@ serve(async (req) => {
       "mastering": "Mastering",
       "analog-mastering": "Mastering Analogique",
       "podcast": "Mixage Podcast",
+      "invoice": "Paiement Facture",
     };
 
+    const isInvoicePayment = sessionType === "invoice";
     const sessionLabel = sessionLabels[sessionType] || sessionType;
     let description = `Make Music Studio - ${sessionLabel}`;
     
     if (sessionType === "podcast") {
       description += ` (${podcastMinutes} min)`;
+    } else if (sessionType === "invoice" && message) {
+      // For invoices, use the message field for invoice number
+      description = message;
     } else if (hours && sessionType !== "mixing" && sessionType !== "mastering" && sessionType !== "analog-mastering") {
       description += ` (${hours}h)`;
     }
     
-    if (date && time) {
+    if (date && time && !isInvoicePayment) {
       description += ` - ${date} à ${time}`;
     }
     

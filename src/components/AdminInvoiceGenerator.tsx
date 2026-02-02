@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Loader2, Download, Plus, Trash2 } from "lucide-react";
+import { FileText, Loader2, Download, Plus, Trash2, CreditCard, Building2 } from "lucide-react";
 
 interface InvoiceItem {
   description: string;
@@ -36,6 +37,9 @@ interface AdminInvoiceGeneratorProps {
     sessionType?: string | null;
     hours?: number;
     totalPrice?: number;
+    sessionDate?: string;
+    sessionStartTime?: string;
+    sessionEndTime?: string;
   };
 }
 
@@ -72,6 +76,18 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
     dueDate: "",
     notes: "",
     sessionType: prefilledData?.sessionType || "",
+    // New fields
+    sessionDate: prefilledData?.sessionDate || "",
+    sessionStartTime: prefilledData?.sessionStartTime || "",
+    sessionEndTime: prefilledData?.sessionEndTime || "",
+    hours: prefilledData?.hours || 0,
+    // Payment options
+    includePaymentLink: false,
+    stripePaymentUrl: "",
+    // Bank details
+    includeBankDetails: true,
+    bankIban: "BE00 0000 0000 0000",
+    bankBic: "GEBABEBB",
   });
   const [items, setItems] = useState<InvoiceItem[]>(getInitialItems());
 
@@ -86,6 +102,10 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
         clientName: prefilledData.clientName || prev.clientName,
         clientEmail: prefilledData.clientEmail || prev.clientEmail,
         sessionType: prefilledData.sessionType || prev.sessionType,
+        sessionDate: prefilledData.sessionDate || prev.sessionDate,
+        sessionStartTime: prefilledData.sessionStartTime || prev.sessionStartTime,
+        sessionEndTime: prefilledData.sessionEndTime || prev.sessionEndTime,
+        hours: prefilledData.hours || prev.hours,
       }));
       
       // Update items based on session type and price
@@ -110,7 +130,7 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
         }]);
       }
     }
-  }, [open, prefilledData?.clientName, prefilledData?.clientEmail, prefilledData?.sessionType, prefilledData?.hours, prefilledData?.totalPrice]);
+  }, [open, prefilledData?.clientName, prefilledData?.clientEmail, prefilledData?.sessionType, prefilledData?.hours, prefilledData?.totalPrice, prefilledData?.sessionDate, prefilledData?.sessionStartTime, prefilledData?.sessionEndTime]);
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: 1, unitPrice: 0 }]);
@@ -130,6 +150,57 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  };
+
+  // Generate Stripe payment link for invoice
+  const generateStripeLink = async () => {
+    const total = calculateTotal();
+    if (total <= 0) {
+      toast({
+        title: "Erreur",
+        description: "Le montant doit être supérieur à 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create a Stripe Checkout Session specifically for invoice payment
+      const { data, error } = await supabase.functions.invoke("create-stripe-payment", {
+        body: {
+          amount: total,
+          email: invoiceData.clientEmail,
+          name: invoiceData.clientName,
+          // Mark this as an invoice payment (not a booking)
+          sessionType: "invoice",
+          hours: 0,
+          date: invoiceData.sessionDate || "",
+          time: "",
+          isDeposit: false,
+          totalPrice: total,
+          message: `Facture ${invoiceData.invoiceNumber}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        setInvoiceData(prev => ({ ...prev, stripePaymentUrl: data.url, includePaymentLink: true }));
+        toast({
+          title: "Lien de paiement créé !",
+          description: "Le lien Stripe a été ajouté à la facture. Il expirera dans 24h.",
+        });
+      } else {
+        throw new Error("Aucune URL de paiement reçue");
+      }
+    } catch (err) {
+      console.error("Error creating Stripe link:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer le lien de paiement. Vérifiez la configuration Stripe.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleGenerateInvoice = async () => {
@@ -155,7 +226,20 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
           clientAddress: invoiceData.clientAddress,
           items: items,
           notes: invoiceData.notes,
-          sendEmail: false, // Admin generates, can choose to send later
+          sendEmail: false,
+          // Session details
+          sessionType: invoiceData.sessionType,
+          sessionDate: invoiceData.sessionDate,
+          sessionStartTime: invoiceData.sessionStartTime,
+          sessionEndTime: invoiceData.sessionEndTime,
+          hours: invoiceData.hours || items[0]?.quantity || 0,
+          // Payment
+          includePaymentLink: invoiceData.includePaymentLink,
+          stripePaymentUrl: invoiceData.stripePaymentUrl,
+          // Bank details
+          includeBankDetails: invoiceData.includeBankDetails,
+          bankIban: invoiceData.bankIban,
+          bankBic: invoiceData.bankBic,
         },
       });
 
@@ -214,6 +298,19 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
           items: items,
           notes: invoiceData.notes,
           sendEmail: true,
+          // Session details
+          sessionType: invoiceData.sessionType,
+          sessionDate: invoiceData.sessionDate,
+          sessionStartTime: invoiceData.sessionStartTime,
+          sessionEndTime: invoiceData.sessionEndTime,
+          hours: invoiceData.hours || items[0]?.quantity || 0,
+          // Payment
+          includePaymentLink: invoiceData.includePaymentLink,
+          stripePaymentUrl: invoiceData.stripePaymentUrl,
+          // Bank details
+          includeBankDetails: invoiceData.includeBankDetails,
+          bankIban: invoiceData.bankIban,
+          bankBic: invoiceData.bankBic,
         },
       });
 
@@ -221,7 +318,7 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
 
       toast({
         title: "Facture envoyée !",
-        description: `Facture envoyée à ${invoiceData.clientEmail}`,
+        description: `Facture envoyée à ${invoiceData.clientEmail} + copie admin`,
       });
 
       setOpen(false);
@@ -262,14 +359,14 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
           Générer une facture
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[700px] bg-card border-border max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <FileText className="w-5 h-5 text-primary" />
-            Générer une facture
+            Générer une facture complète
           </DialogTitle>
           <DialogDescription>
-            Créez une facture personnalisée pour un client.
+            Créez une facture professionnelle avec tous les détails de la session.
           </DialogDescription>
         </DialogHeader>
 
@@ -286,7 +383,7 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invoice-date">Date</Label>
+              <Label htmlFor="invoice-date">Date facture</Label>
               <Input
                 id="invoice-date"
                 type="date"
@@ -343,22 +440,74 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
             />
           </div>
 
-          {/* Preset selector */}
-          <div className="space-y-2">
-            <Label>Modèle rapide</Label>
-            <Select onValueChange={applyPreset}>
-              <SelectTrigger className="bg-secondary/50 border-border">
-                <SelectValue placeholder="Sélectionner un type de service" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="with-engineer">Session avec ingénieur (45€/h)</SelectItem>
-                <SelectItem value="without-engineer">Location sèche (22€/h)</SelectItem>
-                <SelectItem value="mixing">Mixage (200€)</SelectItem>
-                <SelectItem value="mastering">Mastering (60€)</SelectItem>
-                <SelectItem value="analog-mastering">Mastering analogique (100€)</SelectItem>
-                <SelectItem value="podcast">Mixage podcast (40€/min)</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Session details section */}
+          <div className="border border-primary/30 rounded-lg p-4 space-y-4 bg-primary/5">
+            <h4 className="font-semibold text-primary flex items-center gap-2">
+              📅 Détails de la session
+            </h4>
+            
+            {/* Preset selector */}
+            <div className="space-y-2">
+              <Label>Type de service</Label>
+              <Select value={invoiceData.sessionType || undefined} onValueChange={applyPreset}>
+                <SelectTrigger className="bg-secondary/50 border-border">
+                  <SelectValue placeholder="Sélectionner un type de service" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="with-engineer">Session avec ingénieur (45€/h)</SelectItem>
+                  <SelectItem value="without-engineer">Location sèche (22€/h)</SelectItem>
+                  <SelectItem value="mixing">Mixage (200€)</SelectItem>
+                  <SelectItem value="mastering">Mastering (60€)</SelectItem>
+                  <SelectItem value="analog-mastering">Mastering analogique (100€)</SelectItem>
+                  <SelectItem value="podcast">Mixage podcast (40€/min)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Date de la session</Label>
+                <Input
+                  type="date"
+                  value={invoiceData.sessionDate}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, sessionDate: e.target.value })}
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Durée (heures)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={invoiceData.hours || ""}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, hours: parseFloat(e.target.value) || 0 })}
+                  placeholder="4"
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Heure de début</Label>
+                <Input
+                  type="time"
+                  value={invoiceData.sessionStartTime}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, sessionStartTime: e.target.value })}
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Heure de fin</Label>
+                <Input
+                  type="time"
+                  value={invoiceData.sessionEndTime}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, sessionEndTime: e.target.value })}
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Invoice items */}
@@ -426,6 +575,81 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
             </div>
           </div>
 
+          {/* Payment options */}
+          <div className="border border-green-500/30 rounded-lg p-4 space-y-4 bg-green-500/5">
+            <h4 className="font-semibold text-green-400 flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Options de paiement
+            </h4>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Inclure lien de paiement Stripe</p>
+                <p className="text-xs text-muted-foreground">Permet au client de payer en ligne</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={invoiceData.includePaymentLink}
+                  onCheckedChange={(v) => setInvoiceData({ ...invoiceData, includePaymentLink: v })}
+                />
+                {!invoiceData.stripePaymentUrl && invoiceData.includePaymentLink && (
+                  <Button type="button" size="sm" variant="outline" onClick={generateStripeLink}>
+                    Générer
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            {invoiceData.stripePaymentUrl && (
+              <div className="space-y-2">
+                <Label className="text-xs">Lien Stripe généré</Label>
+                <Input
+                  value={invoiceData.stripePaymentUrl}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, stripePaymentUrl: e.target.value })}
+                  placeholder="https://checkout.stripe.com/..."
+                  className="bg-secondary/50 border-border text-xs"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Bank details */}
+          <div className="border border-blue-500/30 rounded-lg p-4 space-y-4 bg-blue-500/5">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-blue-400 flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                Coordonnées bancaires
+              </h4>
+              <Switch
+                checked={invoiceData.includeBankDetails}
+                onCheckedChange={(v) => setInvoiceData({ ...invoiceData, includeBankDetails: v })}
+              />
+            </div>
+            
+            {invoiceData.includeBankDetails && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">IBAN</Label>
+                  <Input
+                    value={invoiceData.bankIban}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, bankIban: e.target.value })}
+                    placeholder="BE00 0000 0000 0000"
+                    className="bg-secondary/50 border-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">BIC</Label>
+                  <Input
+                    value={invoiceData.bankBic}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, bankBic: e.target.value })}
+                    placeholder="GEBABEBB"
+                    className="bg-secondary/50 border-border"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="invoice-notes">Notes (optionnel)</Label>
@@ -433,7 +657,7 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
               id="invoice-notes"
               value={invoiceData.notes}
               onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
-              placeholder="Notes additionnelles..."
+              placeholder="Notes additionnelles, conditions particulières..."
               className="bg-secondary/50 border-border min-h-[60px]"
             />
           </div>
@@ -445,7 +669,7 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
           </Button>
           <Button onClick={handleGenerateInvoice} disabled={loading} variant="outline">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-            Télécharger
+            Télécharger PDF
           </Button>
           <Button onClick={handleSendInvoice} disabled={loading} variant="hero">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
