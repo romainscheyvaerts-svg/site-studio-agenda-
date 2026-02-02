@@ -105,35 +105,27 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
     if (open && prefilledData) {
       console.log("[INVOICE] Updating from prefilledData:", prefilledData);
       
-      // Update invoice data
+      // FORCE update all session data from prefilledData (don't keep old values)
       setInvoiceData(prev => ({
         ...prev,
-        clientName: prefilledData.clientName || prev.clientName,
-        clientEmail: prefilledData.clientEmail || prev.clientEmail,
-        sessionType: prefilledData.sessionType || prev.sessionType,
-        sessionDate: prefilledData.sessionDate || prev.sessionDate,
-        sessionStartTime: prefilledData.sessionStartTime || prev.sessionStartTime,
-        sessionEndTime: prefilledData.sessionEndTime || prev.sessionEndTime,
-        hours: prefilledData.hours || prev.hours,
+        clientName: prefilledData.clientName ?? prev.clientName,
+        clientEmail: prefilledData.clientEmail ?? prev.clientEmail,
+        sessionType: prefilledData.sessionType ?? prev.sessionType,
+        // Always update session details from prefilledData
+        sessionDate: prefilledData.sessionDate || "",
+        sessionStartTime: prefilledData.sessionStartTime || "",
+        sessionEndTime: prefilledData.sessionEndTime || "",
+        hours: prefilledData.hours ?? 0,
       }));
       
       // Update items based on session type and price
       if (prefilledData.sessionType || prefilledData.totalPrice || prefilledData.hours) {
-        const descriptions: Record<string, string> = {
-          "with-engineer": "Session d'enregistrement avec ingénieur son",
-          "without-engineer": "Location studio (autonomie)",
-          "mixing": "Mixage + Mastering projet",
-          "mastering": "Mastering digital",
-          "analog-mastering": "Mastering analogique premium",
-          "podcast": "Mixage podcast",
-        };
-        
         const hours = prefilledData.hours || 1;
         const totalPrice = prefilledData.totalPrice || 0;
         const unitPrice = totalPrice > 0 ? Math.round(totalPrice / hours) : 0;
         
         setItems([{
-          description: descriptions[prefilledData.sessionType || ""] || "Service studio",
+          description: serviceDescriptions[prefilledData.sessionType || ""] || "Service studio",
           quantity: hours,
           unitPrice: unitPrice,
         }]);
