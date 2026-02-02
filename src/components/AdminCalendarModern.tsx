@@ -101,7 +101,7 @@ const AdminCalendarModern = ({
   
   // Admin profiles and session assignments for color indicators
   const [adminProfiles, setAdminProfiles] = useState<Array<{ user_id: string; display_name: string; color: string }>>([]);
-  const [sessionAssignments, setSessionAssignments] = useState<Array<{ event_id: string; assigned_to: string | null }>>([]);
+  const [sessionAssignments, setSessionAssignments] = useState<Array<{ event_id: string; assigned_to: string | null; service_type: string | null }>>([]);
 
   // Swipe/scroll navigation refs
   const calendarContainerRef = useRef<HTMLDivElement>(null);
@@ -165,10 +165,10 @@ const AdminCalendarModern = ({
         setAdminProfiles(profiles as any);
       }
 
-      // Load session assignments
+      // Load session assignments with service_type for color coding
       const { data: assignments } = await supabase
         .from("session_assignments" as any)
-        .select("event_id, assigned_to");
+        .select("event_id, assigned_to, service_type");
       
       if (assignments) {
         setSessionAssignments(assignments as any);
@@ -224,6 +224,22 @@ const AdminCalendarModern = ({
     
     const profile = adminProfiles.find(p => p.user_id === assignment.assigned_to);
     return profile?.display_name || null;
+  };
+
+  // Service type color mapping
+  const serviceTypeColors: Record<string, { bg: string; border: string; text: string }> = {
+    "with-engineer": { bg: "bg-primary/80", border: "border-primary", text: "text-white" },
+    "without-engineer": { bg: "bg-amber-500/80", border: "border-amber-500", text: "text-white" },
+    "mixing": { bg: "bg-purple-500/80", border: "border-purple-500", text: "text-white" },
+    "mastering": { bg: "bg-green-500/80", border: "border-green-500", text: "text-white" },
+    "default": { bg: "bg-destructive/80", border: "border-destructive", text: "text-white" },
+  };
+
+  // Helper to get service type color for an event
+  const getEventServiceColor = (eventId: string): { bg: string; border: string; text: string } => {
+    const assignment = sessionAssignments.find(a => a.event_id === eventId);
+    const serviceType = assignment?.service_type || "default";
+    return serviceTypeColors[serviceType] || serviceTypeColors["default"];
   };
 
   // Force refetch when isSuperAdmin becomes true but last fetch wasn't with super admin calendars
@@ -779,6 +795,7 @@ const AdminCalendarModern = ({
                         const top = event.startHour * hourHeight;
                         const height = (event.endHour - event.startHour) * hourHeight;
                         const adminColor = getEventAdminColor(event.id);
+                        const serviceColor = getEventServiceColor(event.id);
 
                         return (
                           <div
@@ -789,7 +806,9 @@ const AdminCalendarModern = ({
                             }}
                             className={cn(
                               "absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer transition-all",
-                              "bg-destructive/80 hover:bg-destructive/90 border-l-4 border-destructive",
+                              serviceColor.bg,
+                              "hover:opacity-90 border-l-4",
+                              serviceColor.border,
                               "shadow-md hover:shadow-lg overflow-hidden"
                             )}
                             style={{
@@ -1011,6 +1030,7 @@ const AdminCalendarModern = ({
               const top = event.startHour * hourHeight;
               const height = (event.endHour - event.startHour) * hourHeight;
               const adminColor = getEventAdminColor(event.id);
+              const serviceColor = getEventServiceColor(event.id);
 
               return (
                 <div
@@ -1021,7 +1041,9 @@ const AdminCalendarModern = ({
                   }}
                   className={cn(
                     "absolute left-2 right-2 rounded-lg px-3 py-2 cursor-pointer transition-all",
-                    "bg-destructive/80 hover:bg-destructive/90 border-l-4 border-destructive",
+                    serviceColor.bg,
+                    "hover:opacity-90 border-l-4",
+                    serviceColor.border,
                     "shadow-md hover:shadow-lg overflow-hidden"
                   )}
                   style={{
@@ -1233,35 +1255,31 @@ const AdminCalendarModern = ({
         </div>
       </div>
 
-      {/* Legend - Compact */}
+      {/* Legend - Service Types */}
       <div className={cn(
         "flex flex-wrap items-center gap-3 mb-2 text-[10px]",
         isMobileView && "gap-2"
       )}>
         <div className="flex items-center gap-1">
-          <div className="w-2.5 h-2.5 rounded-sm bg-green-500" />
-          <span className="text-muted-foreground">Disponible</span>
+          <div className="w-2.5 h-2.5 rounded-sm bg-primary" />
+          <span className="text-muted-foreground">Avec ingénieur</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
-          <span className="text-muted-foreground">Sur demande</span>
+          <span className="text-muted-foreground">Location sèche</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2.5 h-2.5 rounded-sm bg-purple-500" />
+          <span className="text-muted-foreground">Mixage</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2.5 h-2.5 rounded-sm bg-green-500" />
+          <span className="text-muted-foreground">Mastering</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2.5 h-2.5 rounded-sm bg-destructive" />
-          <span className="text-muted-foreground">Réservé</span>
+          <span className="text-muted-foreground">Non défini</span>
         </div>
-        {isSuperAdmin && (
-          <>
-            <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-              <span className="text-muted-foreground">Agenda 2</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <span className="text-muted-foreground">Agenda 3</span>
-            </div>
-          </>
-        )}
       </div>
 
       {/* Calendar Content */}

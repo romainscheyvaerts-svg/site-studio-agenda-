@@ -23,6 +23,133 @@ async function isUserAdmin(userId: string): Promise<boolean> {
   return data && data.length > 0;
 }
 
+// Get admin email from auth.users
+async function getAdminEmail(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data?.user?.email) {
+    console.log("[UPDATE-ADMIN-EVENT] Could not get admin email:", error);
+    return null;
+  }
+  return data.user.email;
+}
+
+// Get admin display name from admin_profiles
+async function getAdminDisplayName(userId: string): Promise<string> {
+  const { data } = await supabase
+    .from("admin_profiles")
+    .select("display_name")
+    .eq("user_id", userId)
+    .single();
+  return data?.display_name || "Admin";
+}
+
+// Send notification email to assigned admin
+async function sendAdminNotificationEmail(
+  adminEmail: string,
+  adminName: string,
+  sessionTitle: string,
+  sessionDate: string,
+  sessionStartTime: string,
+  sessionEndTime: string,
+  clientName?: string
+): Promise<void> {
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY) {
+    console.log("[UPDATE-ADMIN-EVENT] No Resend API key, skipping email notification");
+    return;
+  }
+
+  const formattedDate = new Date(sessionDate).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 32px; border: 1px solid #00d9ff33; }
+        .header { text-align: center; margin-bottom: 24px; }
+        .logo { font-size: 28px; font-weight: bold; color: #00d9ff; margin-bottom: 8px; }
+        .title { font-size: 20px; color: #ffffff; margin-bottom: 4px; }
+        .session-card { background: rgba(0, 217, 255, 0.1); border: 1px solid #00d9ff50; border-radius: 12px; padding: 20px; margin: 20px 0; }
+        .session-title { font-size: 18px; font-weight: bold; color: #00d9ff; margin-bottom: 12px; }
+        .detail-row { display: flex; align-items: center; margin: 8px 0; color: #e0e0e0; }
+        .detail-label { font-weight: 500; color: #999; width: 80px; }
+        .detail-value { color: #ffffff; }
+        .highlight { background: rgba(0, 217, 255, 0.2); padding: 2px 8px; border-radius: 4px; color: #00d9ff; font-weight: 600; }
+        .footer { text-align: center; margin-top: 24px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">🎵 MAKE MUSIC STUDIO</div>
+          <div class="title">Nouvelle session assignée</div>
+        </div>
+        
+        <p style="color: #e0e0e0;">Bonjour <strong style="color: #00d9ff;">${adminName}</strong>,</p>
+        
+        <p style="color: #e0e0e0;">Tu as été désigné(e) comme responsable pour la session suivante :</p>
+        
+        <div class="session-card">
+          <div class="session-title">📅 ${sessionTitle}</div>
+          <div class="detail-row">
+            <span class="detail-label">📆 Date:</span>
+            <span class="detail-value">${formattedDate}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">🕐 Horaire:</span>
+            <span class="detail-value"><span class="highlight">${sessionStartTime} - ${sessionEndTime}</span></span>
+          </div>
+          ${clientName ? `
+          <div class="detail-row">
+            <span class="detail-label">👤 Client:</span>
+            <span class="detail-value">${clientName}</span>
+          </div>
+          ` : ""}
+        </div>
+        
+        <p style="color: #e0e0e0;">Merci de te rendre disponible et de t'assurer que tout est prêt pour cette session ! 🎤</p>
+        
+        <div class="footer">
+          <p>Cet email a été envoyé automatiquement par le système de gestion MAKE MUSIC Studio.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "MAKE MUSIC Studio <no-reply@studiomakemusic.com>",
+        to: [adminEmail],
+        subject: `🎵 Session assignée: ${sessionTitle} - ${formattedDate}`,
+        html: emailHtml,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[UPDATE-ADMIN-EVENT] Failed to send notification email:", errorText);
+    } else {
+      console.log(`[UPDATE-ADMIN-EVENT] Notification email sent to ${adminEmail}`);
+    }
+  } catch (err) {
+    console.error("[UPDATE-ADMIN-EVENT] Error sending notification email:", err);
+  }
+}
+
 // Get OAuth2 access token for Google APIs
 async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
@@ -278,6 +405,18 @@ serve(async (req) => {
     // Always upsert if any of these fields are provided
     const hasSessionData = assignedAdminId || serviceType || totalPrice !== undefined || clientName || notes;
     
+    // Get previous assignment to check if admin changed
+    let previousAssignedTo: string | null = null;
+    if (assignedAdminId) {
+      const { data: existingAssignment } = await supabase
+        .from("session_assignments")
+        .select("assigned_to")
+        .eq("event_id", eventId)
+        .single();
+      
+      previousAssignedTo = existingAssignment?.assigned_to || null;
+    }
+    
     if (hasSessionData) {
       const sessionData: Record<string, unknown> = {
         event_id: eventId,
@@ -311,6 +450,29 @@ serve(async (req) => {
         // Don't fail the whole request, event was updated successfully
       } else {
         console.log(`[UPDATE-ADMIN-EVENT] Session data updated:`, sessionData);
+      }
+      
+      // Send notification email if admin assignment changed
+      if (assignedAdminId && assignedAdminId !== previousAssignedTo) {
+        console.log(`[UPDATE-ADMIN-EVENT] Admin changed from ${previousAssignedTo} to ${assignedAdminId}, sending notification...`);
+        
+        // Get admin email and display name
+        const adminEmail = await getAdminEmail(assignedAdminId);
+        const adminName = await getAdminDisplayName(assignedAdminId);
+        
+        if (adminEmail) {
+          await sendAdminNotificationEmail(
+            adminEmail,
+            adminName,
+            title || "Session studio",
+            date || new Date().toISOString().split("T")[0],
+            startTime || "09:00",
+            endTime || "10:00",
+            clientName
+          );
+        } else {
+          console.log("[UPDATE-ADMIN-EVENT] Could not get admin email, skipping notification");
+        }
       }
     }
 
