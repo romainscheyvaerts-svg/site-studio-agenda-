@@ -213,7 +213,11 @@ serve(async (req) => {
     const body = await req.json();
     const { title, clientName, description, date, time, hours, colorId, assignedAdminId } = body;
 
-    console.log("[ADMIN-EVENT] Creating event:", { title, clientName, date, time, hours, colorId, assignedAdminId });
+    // The admin who creates the event is automatically the responsible person
+    // Use assignedAdminId if provided, otherwise default to the creator (user.id)
+    const responsibleAdminId = assignedAdminId || user.id;
+
+    console.log("[ADMIN-EVENT] Creating event:", { title, clientName, date, time, hours, colorId, responsibleAdminId, createdBy: user.id });
 
     // Validate required fields
     if (!title || !date || !time) {
@@ -271,7 +275,27 @@ serve(async (req) => {
       colorId: colorId || undefined,
     });
 
-    // Send notification email to assigned admin if specified
+    // Save the session assignment in database
+    // The creator is automatically the responsible admin
+    const { error: assignmentError } = await supabase
+      .from("session_assignments")
+      .upsert({
+        event_id: createdEvent.id,
+        created_by: user.id,
+        assigned_to: responsibleAdminId,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: "event_id"
+      });
+
+    if (assignmentError) {
+      console.error("[ADMIN-EVENT] Error saving session assignment:", assignmentError);
+      // Don't fail the whole request, event was created successfully
+    } else {
+      console.log(`[ADMIN-EVENT] Session assignment saved: created_by=${user.id}, assigned_to=${responsibleAdminId}`);
+    }
+
+    // Send notification email to assigned admin if specified (only if different from creator)
     let adminNotificationSent = false;
     if (assignedAdminId) {
       try {
