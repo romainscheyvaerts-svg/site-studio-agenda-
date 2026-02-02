@@ -208,7 +208,9 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { eventId, title, date, startTime, endTime, colorId } = body;
+    const { eventId, title, date, startTime, endTime, colorId, assignedAdminId } = body;
+
+    console.log("[UPDATE-ADMIN-EVENT] Request:", { eventId, title, date, startTime, endTime, assignedAdminId });
 
     // Validate required fields
     if (!eventId) {
@@ -266,6 +268,26 @@ serve(async (req) => {
 
     // Update the event
     const updatedEvent = await updateCalendarEvent(accessToken, studioCalendarId, eventId, updates);
+
+    // Update session assignment if assignedAdminId is provided
+    if (assignedAdminId) {
+      const { error: assignmentError } = await supabase
+        .from("session_assignments")
+        .upsert({
+          event_id: eventId,
+          assigned_to: assignedAdminId,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "event_id"
+        });
+
+      if (assignmentError) {
+        console.error("[UPDATE-ADMIN-EVENT] Error saving session assignment:", assignmentError);
+        // Don't fail the whole request, event was updated successfully
+      } else {
+        console.log(`[UPDATE-ADMIN-EVENT] Session assignment updated: assigned_to=${assignedAdminId}`);
+      }
+    }
 
     return new Response(
       JSON.stringify({

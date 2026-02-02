@@ -293,6 +293,7 @@ const AdminEventEditPanel = ({
           date,
           startTime: formatHour(currentStartHour),
           endTime: formatHour(currentEndHour),
+          assignedAdminId: selectedAdminId,
         });
 
         const { data, error } = await supabase.functions.invoke("update-admin-event", {
@@ -302,6 +303,7 @@ const AdminEventEditPanel = ({
             date,
             startTime: formatHour(currentStartHour),
             endTime: formatHour(currentEndHour),
+            assignedAdminId: selectedAdminId || undefined,
           },
         });
 

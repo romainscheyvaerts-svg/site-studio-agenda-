@@ -153,34 +153,36 @@ const AdminCalendarModern = ({
     }
   }, [currentDate, viewMode, isSuperAdmin]);
 
+  // Function to load admin data (profiles and assignments)
+  const loadAdminData = useCallback(async () => {
+    try {
+      // Load admin profiles
+      const { data: profiles } = await supabase
+        .from("admin_profiles" as any)
+        .select("user_id, display_name, color");
+      
+      if (profiles) {
+        setAdminProfiles(profiles as any);
+      }
+
+      // Load session assignments
+      const { data: assignments } = await supabase
+        .from("session_assignments" as any)
+        .select("event_id, assigned_to");
+      
+      if (assignments) {
+        setSessionAssignments(assignments as any);
+        console.log("[CALENDAR] Loaded session assignments:", assignments.length);
+      }
+    } catch (err) {
+      console.error("Error loading admin data:", err);
+    }
+  }, []);
+
   // Fetch admin profiles and session assignments
   useEffect(() => {
-    const loadAdminData = async () => {
-      try {
-        // Load admin profiles
-        const { data: profiles } = await supabase
-          .from("admin_profiles" as any)
-          .select("user_id, display_name, color");
-        
-        if (profiles) {
-          setAdminProfiles(profiles as any);
-        }
-
-        // Load session assignments
-        const { data: assignments } = await supabase
-          .from("session_assignments" as any)
-          .select("event_id, assigned_to");
-        
-        if (assignments) {
-          setSessionAssignments(assignments as any);
-        }
-      } catch (err) {
-        console.error("Error loading admin data:", err);
-      }
-    };
-
     loadAdminData();
-  }, []);
+  }, [loadAdminData]);
 
   useEffect(() => {
     fetchAvailability();
@@ -1312,6 +1314,7 @@ const AdminCalendarModern = ({
                 setShowEventEditor(false);
                 setEditingEvent(null);
                 fetchAvailability();
+                loadAdminData(); // Reload assignments to show updated admin color
               }}
               onCancel={() => {
                 setShowEventEditor(false);
