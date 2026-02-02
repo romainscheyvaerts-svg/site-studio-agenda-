@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -98,6 +98,10 @@ const AdminCalendarModern = ({
   const [selectedRange, setSelectedRange] = useState<{ date: string; startHour: number; endHour: number } | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [lastFetchWasSuperAdmin, setLastFetchWasSuperAdmin] = useState<boolean>(false);
+  
+  // Admin profiles and session assignments for color indicators
+  const [adminProfiles, setAdminProfiles] = useState<Array<{ user_id: string; display_name: string; color: string }>>([]);
+  const [sessionAssignments, setSessionAssignments] = useState<Array<{ event_id: string; assigned_to: string | null }>>([]);
 
   // Swipe/scroll navigation refs
   const calendarContainerRef = useRef<HTMLDivElement>(null);
@@ -149,9 +153,47 @@ const AdminCalendarModern = ({
     }
   }, [currentDate, viewMode, isSuperAdmin]);
 
+  // Fetch admin profiles and session assignments
+  useEffect(() => {
+    const loadAdminData = async () => {
+      try {
+        // Load admin profiles
+        const { data: profiles } = await supabase
+          .from("admin_profiles" as any)
+          .select("user_id, display_name, color");
+        
+        if (profiles) {
+          setAdminProfiles(profiles as any);
+        }
+
+        // Load session assignments
+        const { data: assignments } = await supabase
+          .from("session_assignments" as any)
+          .select("event_id, assigned_to");
+        
+        if (assignments) {
+          setSessionAssignments(assignments as any);
+        }
+      } catch (err) {
+        console.error("Error loading admin data:", err);
+      }
+    };
+
+    loadAdminData();
+  }, []);
+
   useEffect(() => {
     fetchAvailability();
   }, [fetchAvailability]);
+
+  // Helper function to get admin color for an event
+  const getEventAdminColor = (eventId: string): string | null => {
+    const assignment = sessionAssignments.find(a => a.event_id === eventId);
+    if (!assignment?.assigned_to) return null;
+    
+    const profile = adminProfiles.find(p => p.user_id === assignment.assigned_to);
+    return profile?.color || null;
+  };
 
   // Force refetch when isSuperAdmin becomes true but last fetch wasn't with super admin calendars
   useEffect(() => {
@@ -705,6 +747,7 @@ const AdminCalendarModern = ({
                       {events.map(event => {
                         const top = event.startHour * hourHeight;
                         const height = (event.endHour - event.startHour) * hourHeight;
+                        const adminColor = getEventAdminColor(event.id);
 
                         return (
                           <div
@@ -724,7 +767,15 @@ const AdminCalendarModern = ({
                               minHeight: "24px"
                             }}
                           >
-                            <div className="text-[11px] font-semibold text-white truncate leading-tight">
+                            {/* Admin color indicator */}
+                            {adminColor && (
+                              <div 
+                                className="absolute top-1 right-1 w-3 h-3 rounded-full border-2 border-white/50 shadow-sm"
+                                style={{ backgroundColor: adminColor }}
+                                title="Admin responsable"
+                              />
+                            )}
+                            <div className="text-[11px] font-semibold text-white truncate leading-tight pr-4">
                               {event.title}
                             </div>
                             <div className="text-[9px] text-white/80 leading-tight">
@@ -928,6 +979,7 @@ const AdminCalendarModern = ({
             {events.map(event => {
               const top = event.startHour * hourHeight;
               const height = (event.endHour - event.startHour) * hourHeight;
+              const adminColor = getEventAdminColor(event.id);
 
               return (
                 <div
@@ -947,8 +999,16 @@ const AdminCalendarModern = ({
                     minHeight: "32px"
                   }}
                 >
+                  {/* Admin color indicator */}
+                  {adminColor && (
+                    <div 
+                      className="absolute top-2 right-2 w-4 h-4 rounded-full border-2 border-white/50 shadow-sm"
+                      style={{ backgroundColor: adminColor }}
+                      title="Admin responsable"
+                    />
+                  )}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 pr-6">
                       <div className="text-sm font-semibold text-white truncate leading-tight">
                         {event.title}
                       </div>
@@ -962,7 +1022,7 @@ const AdminCalendarModern = ({
                       )}
                     </div>
                     {/* Edit and Delete buttons */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 mt-6">
                       <Button
                         variant="ghost"
                         size="icon"
