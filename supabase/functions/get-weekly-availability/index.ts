@@ -263,15 +263,24 @@ async function fetchICalEvents(icalUrl: string, startDate: Date, endDate: Date):
   }
 }
 
+// Extract local hour from Google Calendar dateTime string (e.g., "2026-02-05T10:00:00+01:00" -> 10)
+function extractLocalHour(dateTimeStr: string): number {
+  // Format: YYYY-MM-DDTHH:MM:SS+TZ or YYYY-MM-DDTHH:MM:SSZ
+  const match = dateTimeStr.match(/T(\d{2}):/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+// Extract local date from Google Calendar dateTime string (e.g., "2026-02-05T10:00:00+01:00" -> "2026-02-05")
+function extractLocalDate(dateTimeStr: string): string {
+  return dateTimeStr.split("T")[0];
+}
+
 function isSlotAvailableInGoogle(
   events: CalendarEvent[],
-  slotStart: Date,
-  slotEnd: Date
+  slotDate: string,  // YYYY-MM-DD format
+  slotHour: number   // 0-23 local hour
 ): { available: boolean; eventName?: string; eventId?: string; clientEmail?: string } {
   for (const event of events) {
-    const eventStart = new Date(event.start.dateTime || event.start.date || "");
-    const eventEnd = new Date(event.end.dateTime || event.end.date || "");
-    
     // Extract client email from event details if present
     let clientEmail: string | undefined;
     const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
@@ -285,18 +294,51 @@ function isSlotAvailableInGoogle(
     const anySummaryMatch = summaryText.match(emailRegex);
 
     clientEmail = (labeledMatch?.[1] || anyDescMatch?.[1] || anySummaryMatch?.[1])?.toLowerCase();
+    
     // Check for all-day events
     if (event.start.date && !event.start.dateTime) {
-      const eventDate = event.start.date;
-      const slotDate = slotStart.toISOString().split("T")[0];
-      if (eventDate === slotDate) {
+      if (event.start.date === slotDate) {
         return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
       }
+      continue;
     }
     
-    // Check for overlap
-    if (eventStart < slotEnd && eventEnd > slotStart) {
-      return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
+    // For timed events, extract local times directly from the dateTime strings
+    // This preserves the timezone info without UTC conversion
+    if (event.start.dateTime && event.end.dateTime) {
+      const eventStartDate = extractLocalDate(event.start.dateTime);
+      const eventEndDate = extractLocalDate(event.end.dateTime);
+      const eventStartHour = extractLocalHour(event.start.dateTime);
+      const eventEndHour = extractLocalHour(event.end.dateTime);
+      
+      // Check if the slot overlaps with this event
+      // Slot is [slotHour, slotHour+1)
+      // Event spans from eventStartHour to eventEndHour (exclusive end)
+      
+      // Same day event
+      if (eventStartDate === slotDate && eventEndDate === slotDate) {
+        // Slot overlaps if: slotHour >= eventStartHour AND slotHour < eventEndHour
+        if (slotHour >= eventStartHour && slotHour < eventEndHour) {
+          return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
+        }
+      }
+      // Multi-day event or event ending next day (e.g., 22h -> 02h)
+      else if (eventStartDate === slotDate) {
+        // First day of multi-day event: slot is busy if slotHour >= eventStartHour
+        if (slotHour >= eventStartHour) {
+          return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
+        }
+      }
+      else if (eventEndDate === slotDate) {
+        // Last day of multi-day event: slot is busy if slotHour < eventEndHour (and eventEndHour > 0)
+        if (eventEndHour > 0 && slotHour < eventEndHour) {
+          return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
+        }
+      }
+      else if (eventStartDate < slotDate && eventEndDate > slotDate) {
+        // Middle of multi-day event - all hours are busy
+        return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
+      }
     }
   }
   return { available: true };
@@ -469,7 +511,7 @@ serve(async (req) => {
         const isInPast = slotStart < now;
 
         // Check ONLY studio calendar for event info (even in past)
-        const studioResultForHistory = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
+        const studioResultForHistory = isSlotAvailableInGoogle(studioEvents, dateStr, hour);
         
         if (isInPast) {
           // Show past events with their info for historical purposes
@@ -494,7 +536,7 @@ serve(async (req) => {
         }
 
         // Check ONLY studio calendar for main availability
-        const studioResult = isSlotAvailableInGoogle(studioEvents, slotStart, slotEnd);
+        const studioResult = isSlotAvailableInGoogle(studioEvents, dateStr, hour);
         
         if (!studioResult.available) {
           const clientEmail = studioResult.clientEmail;
@@ -519,14 +561,14 @@ serve(async (req) => {
           });
         } else {
           // Studio is free, check if patron is busy in personal Google calendar OR Claridge
-          const patronResult = isSlotAvailableInGoogle(patronEvents, slotStart, slotEnd);
+          const patronResult = isSlotAvailableInGoogle(patronEvents, dateStr, hour);
           const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
           
         // For available or on-request slots, check if there's a secondary or tertiary calendar event
-        const secondaryResult = isSlotAvailableInGoogle(secondaryEvents, slotStart, slotEnd);
+        const secondaryResult = isSlotAvailableInGoogle(secondaryEvents, dateStr, hour);
         const hasSecondaryConflict = !secondaryResult.available;
         
-        const tertiaryResult = isSlotAvailableInGoogle(tertiaryEvents, slotStart, slotEnd);
+        const tertiaryResult = isSlotAvailableInGoogle(tertiaryEvents, dateStr, hour);
         const hasTertiaryConflict = !tertiaryResult.available;
 
         if (!patronResult.available || isPatronBusyInClaridge) {
