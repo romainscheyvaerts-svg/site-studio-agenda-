@@ -128,13 +128,18 @@ const AdminEventEditPanel = ({
 
         const adminUserIds = roleData.map(r => r.user_id);
 
-        // 2. Get admin profiles for those who have one
-        const { data: profilesData } = await supabase
+        // 2. Get admin profiles for those who have one (no email column in table)
+        const { data: profilesData, error: profileError } = await supabase
           .from("admin_profiles" as any)
-          .select("user_id, display_name, color, email")
+          .select("user_id, display_name, color")
           .in("user_id", adminUserIds);
 
+        if (profileError) {
+          console.error("Error loading admin profiles:", profileError);
+        }
+
         const profiles = (profilesData || []) as any[];
+        console.log("[ADMINS] Loaded profiles:", profiles);
 
         // 3. Get emails from list-users function for ALL admins (to filter excluded emails)
         let userEmails: Record<string, string> = {};
