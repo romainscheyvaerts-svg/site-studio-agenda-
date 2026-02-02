@@ -103,6 +103,37 @@ const AdminEventEditPanel = ({
   // Default colors for admins without profile
   const defaultColors = ['#00D9FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'];
 
+  // Load existing assignment for this event (when editing)
+  useEffect(() => {
+    const loadExistingAssignment = async () => {
+      if (mode !== "edit" || !eventId) return;
+      
+      try {
+        const { data: assignment, error } = await supabase
+          .from("session_assignments" as any)
+          .select("assigned_to")
+          .eq("event_id", eventId)
+          .single();
+        
+        if (error) {
+          console.log("[EDIT-PANEL] No existing assignment for event:", eventId);
+          return;
+        }
+        
+        const assignmentData = assignment as unknown as { assigned_to: string | null } | null;
+        if (assignmentData?.assigned_to) {
+          console.log("[EDIT-PANEL] Found existing assignment:", assignmentData.assigned_to);
+          setSelectedAdminId(assignmentData.assigned_to);
+          hasUserSelectedAdmin.current = true; // Prevent overwriting with default
+        }
+      } catch (err) {
+        console.error("Error loading existing assignment:", err);
+      }
+    };
+    
+    loadExistingAssignment();
+  }, [eventId, mode]);
+
   // Load all admins from user_roles + admin_profiles
   useEffect(() => {
     const loadAdmins = async () => {
