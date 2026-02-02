@@ -246,20 +246,25 @@ serve(async (req) => {
       updates.summary = title;
     }
 
-    if (date && startTime) {
-      const [year, month, day] = date.split("-").map(Number);
-      const [startHour, startMinute] = startTime.split(":").map(Number);
+    // Helper function to format datetime for Google Calendar (preserves local time in Europe/Brussels)
+    const formatDateTimeForCalendar = (dateStr: string, timeStr: string): string => {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const [hour, minute] = timeStr.split(":").map(Number);
+      
+      // Format as ISO 8601 with Brussels timezone offset
+      // Don't use toISOString() as it converts to UTC
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute || 0)}:00+01:00`;
+    };
 
-      const startDate = new Date(year, month - 1, day, startHour, startMinute || 0);
-      updates.start = startDate.toISOString().replace('Z', '+01:00');
+    if (date && startTime) {
+      updates.start = formatDateTimeForCalendar(date, startTime);
+      console.log("[UPDATE-ADMIN-EVENT] Formatted start time:", updates.start);
     }
 
     if (date && endTime) {
-      const [year, month, day] = date.split("-").map(Number);
-      const [endHour, endMinute] = endTime.split(":").map(Number);
-
-      const endDate = new Date(year, month - 1, day, endHour, endMinute || 0);
-      updates.end = endDate.toISOString().replace('Z', '+01:00');
+      updates.end = formatDateTimeForCalendar(date, endTime);
+      console.log("[UPDATE-ADMIN-EVENT] Formatted end time:", updates.end);
     }
 
     if (colorId) {

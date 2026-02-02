@@ -248,12 +248,18 @@ serve(async (req) => {
     const [year, month, day] = date.split("-").map(Number);
     const [hour, minute] = time.split(":").map(Number);
     
-    const startDate = new Date(year, month - 1, day, hour, minute);
-    const endDate = new Date(startDate.getTime() + (hours || 2) * 60 * 60 * 1000);
-    
-    const formatForCalendar = (d: Date): string => {
-      return d.toISOString().replace('Z', '+01:00');
+    // Helper function to format datetime for Google Calendar (preserves local time in Europe/Brussels)
+    // Don't use toISOString() as it converts to UTC, causing timezone shift
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const formatForCalendar = (y: number, m: number, d: number, h: number, min: number): string => {
+      return `${y}-${pad(m)}-${pad(d)}T${pad(h)}:${pad(min)}:00+01:00`;
     };
+    
+    const startFormatted = formatForCalendar(year, month, day, hour, minute || 0);
+    const endHour = hour + (hours || 2);
+    const endFormatted = formatForCalendar(year, month, day, endHour, minute || 0);
+    
+    console.log("[ADMIN-EVENT] Formatted times:", { start: startFormatted, end: endFormatted });
 
     // Build event summary with client name if provided
     let eventSummary = title;
@@ -273,8 +279,8 @@ serve(async (req) => {
     const createdEvent = await createCalendarEvent(accessToken, studioCalendarId, {
       summary: eventSummary,
       description: eventDescription,
-      start: formatForCalendar(startDate),
-      end: formatForCalendar(endDate),
+      start: startFormatted,
+      end: endFormatted,
       colorId: colorId || undefined,
     });
 
@@ -332,19 +338,22 @@ serve(async (req) => {
 
             if (template) {
               // Format date for display
+              const dateObj = new Date(year, month - 1, day);
               const options: Intl.DateTimeFormatOptions = { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
               };
-              const formattedDate = startDate.toLocaleDateString('fr-BE', options);
+              const formattedDate = dateObj.toLocaleDateString('fr-BE', options);
               const startTimeStr = `${hour.toString().padStart(2, '0')}:${(minute || 0).toString().padStart(2, '0')}`;
-              const endHour = hour + (hours || 2);
-              const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
+              const endHourEmail = hour + (hours || 2);
+              const endTimeStr = `${endHourEmail.toString().padStart(2, '0')}:00`;
 
-              // Generate Google Calendar add link
-              const calendarAddUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventSummary)}&dates=${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=${encodeURIComponent(eventDescription)}&location=Make%20Music%20Studio`;
+              // Generate Google Calendar add link (use simple format)
+              const startIso = `${year}${pad(month)}${pad(day)}T${pad(hour)}${pad(minute || 0)}00`;
+              const endIso = `${year}${pad(month)}${pad(day)}T${pad(endHourEmail)}${pad(minute || 0)}00`;
+              const calendarAddUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventSummary)}&dates=${startIso}/${endIso}&details=${encodeURIComponent(eventDescription)}&location=Make%20Music%20Studio`;
 
               // Replace template variables
               const replaceVars = (text: string | null) => {
