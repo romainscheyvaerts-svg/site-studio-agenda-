@@ -188,10 +188,11 @@ const AdminCalendarModern = ({
     fetchAvailability();
   }, [fetchAvailability]);
 
-  // Default colors for admins without a profile
+  // Default colors for admins without a profile - MUST MATCH AdminEventEditPanel
   const defaultAdminColors = ['#00D9FF', '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'];
 
   // Helper function to get admin color for an event
+  // Uses same logic as AdminEventEditPanel for consistency
   const getEventAdminColor = (eventId: string): string | null => {
     const assignment = sessionAssignments.find(a => a.event_id === eventId);
     if (!assignment?.assigned_to) return null;
@@ -199,13 +200,30 @@ const AdminCalendarModern = ({
     const profile = adminProfiles.find(p => p.user_id === assignment.assigned_to);
     if (profile?.color) return profile.color;
     
-    // Generate a consistent color based on user_id if no profile
-    // Use hash of user_id to pick a color from defaults
+    // Fallback: find admin index in the profiles list for consistent color
+    // This matches AdminEventEditPanel behavior
+    const allAdminIds = adminProfiles.map(p => p.user_id);
+    const adminIndex = allAdminIds.indexOf(assignment.assigned_to);
+    
+    if (adminIndex >= 0) {
+      return defaultAdminColors[adminIndex % defaultAdminColors.length];
+    }
+    
+    // Last resort: Generate a consistent color based on user_id hash
     const hashCode = assignment.assigned_to.split('').reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);
     }, 0);
     const colorIndex = Math.abs(hashCode) % defaultAdminColors.length;
     return defaultAdminColors[colorIndex];
+  };
+
+  // Helper to get admin name for tooltip
+  const getAdminNameForEvent = (eventId: string): string | null => {
+    const assignment = sessionAssignments.find(a => a.event_id === eventId);
+    if (!assignment?.assigned_to) return null;
+    
+    const profile = adminProfiles.find(p => p.user_id === assignment.assigned_to);
+    return profile?.display_name || null;
   };
 
   // Force refetch when isSuperAdmin becomes true but last fetch wasn't with super admin calendars
@@ -780,15 +798,15 @@ const AdminCalendarModern = ({
                               minHeight: "24px"
                             }}
                           >
-                            {/* Admin color indicator */}
+                            {/* Admin color indicator - larger and more visible */}
                             {adminColor && (
                               <div 
-                                className="absolute top-1 right-1 w-3 h-3 rounded-full border-2 border-white/50 shadow-sm"
+                                className="absolute top-1 right-1 w-4 h-4 rounded-full border-2 border-white/70 shadow-md"
                                 style={{ backgroundColor: adminColor }}
-                                title="Admin responsable"
+                                title={getAdminNameForEvent(event.id) || "Admin responsable"}
                               />
                             )}
-                            <div className="text-[11px] font-semibold text-white truncate leading-tight pr-4">
+                            <div className="text-[11px] font-semibold text-white truncate leading-tight pr-5">
                               {event.title}
                             </div>
                             <div className="text-[9px] text-white/80 leading-tight">
@@ -1012,16 +1030,16 @@ const AdminCalendarModern = ({
                     minHeight: "32px"
                   }}
                 >
-                  {/* Admin color indicator */}
+                  {/* Admin color indicator - larger and more visible */}
                   {adminColor && (
                     <div 
-                      className="absolute top-2 right-2 w-4 h-4 rounded-full border-2 border-white/50 shadow-sm"
+                      className="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-white/70 shadow-md"
                       style={{ backgroundColor: adminColor }}
-                      title="Admin responsable"
+                      title={getAdminNameForEvent(event.id) || "Admin responsable"}
                     />
                   )}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0 pr-6">
+                    <div className="flex-1 min-w-0 pr-7">
                       <div className="text-sm font-semibold text-white truncate leading-tight">
                         {event.title}
                       </div>
