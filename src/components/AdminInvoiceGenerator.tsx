@@ -288,11 +288,22 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
     if (invoiceData.includePaymentLink && !invoiceData.stripePaymentUrl && !generatingStripeLink) {
       const total = calculateTotal();
       if (total > 0) {
-        console.log("[INVOICE] Auto-generating Stripe link...");
+        console.log("[INVOICE] Auto-generating Stripe link (switch activated)...");
         generateStripeLink(true);
       }
     }
   }, [invoiceData.includePaymentLink]);
+
+  // Also auto-generate when total changes and switch is already on (but no link yet)
+  useEffect(() => {
+    if (invoiceData.includePaymentLink && !invoiceData.stripePaymentUrl && !generatingStripeLink) {
+      const total = calculateTotal();
+      if (total > 0) {
+        console.log("[INVOICE] Auto-generating Stripe link (amount changed)...");
+        generateStripeLink(true);
+      }
+    }
+  }, [items]);
 
   const handleGenerateInvoice = async () => {
     if (!invoiceData.clientName || !invoiceData.clientEmail || items.some(i => !i.description || i.unitPrice <= 0)) {
@@ -686,13 +697,15 @@ const AdminInvoiceGenerator = ({ prefilledData }: AdminInvoiceGeneratorProps) =>
                 {generatingStripeLink && (
                   <Loader2 className="w-4 h-4 animate-spin text-green-400" />
                 )}
-                {!invoiceData.stripePaymentUrl && invoiceData.includePaymentLink && !generatingStripeLink && (
-                  <Button type="button" size="sm" variant="outline" onClick={() => generateStripeLink(true)}>
-                    Générer
-                  </Button>
-                )}
               </div>
             </div>
+            
+            {/* Warning if amount is 0 */}
+            {invoiceData.includePaymentLink && calculateTotal() <= 0 && !generatingStripeLink && !invoiceData.stripePaymentUrl && (
+              <p className="text-xs text-amber-400">
+                ⚠️ Entrez un montant supérieur à 0€ pour générer le lien Stripe automatiquement
+              </p>
+            )}
             
             {invoiceData.stripePaymentUrl && (
               <div className="space-y-2">
