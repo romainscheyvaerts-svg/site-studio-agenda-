@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/useAdmin";
+import { usePricing } from "@/hooks/usePricing";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import {
   Loader2,
@@ -106,6 +107,7 @@ const AdminEventEditPanel = ({
 
   // Admin assignment
   const { user } = useAdmin();
+  const { getEffectivePrice, loading: pricingLoading } = usePricing();
   const [admins, setAdmins] = useState<Array<{ user_id: string; display_name: string; color: string; email?: string }>>([]);
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const hasUserSelectedAdmin = useRef(false); // Track if user manually selected an admin
@@ -325,6 +327,40 @@ const AdminEventEditPanel = ({
 
   const formatHour = (hour: number) => `${hour.toString().padStart(2, "0")}:00`;
   const duration = currentEndHour - currentStartHour;
+
+  // Auto-calculate price based on service type and duration
+  // Only calculate if totalPrice is 0 (not manually set) or when service type changes
+  useEffect(() => {
+    // Skip if pricing is loading or if we're in edit mode and already have a price from DB
+    if (pricingLoading) return;
+    
+    // Calculate price based on service type and duration
+    const hourlyRate = getEffectivePrice(selectedServiceType);
+    const calculatedPrice = hourlyRate * duration;
+    
+    // Only auto-update if:
+    // 1. Price is currently 0 (not set)
+    // 2. Or if service type just changed (user selected different service)
+    if (totalPrice === 0 && calculatedPrice > 0) {
+      setTotalPrice(calculatedPrice);
+    }
+  }, [selectedServiceType, pricingLoading, getEffectivePrice, duration]);
+
+  // Update price when duration changes (if price was auto-calculated)
+  useEffect(() => {
+    if (pricingLoading) return;
+    
+    const hourlyRate = getEffectivePrice(selectedServiceType);
+    if (hourlyRate > 0) {
+      // Check if current price matches a calculated value (meaning it was auto-calculated)
+      const wouldBePrice = hourlyRate * duration;
+      
+      // If price looks auto-calculated, update it with new duration
+      if (totalPrice === wouldBePrice || totalPrice === 0) {
+        setTotalPrice(hourlyRate * duration);
+      }
+    }
+  }, [duration, pricingLoading, getEffectivePrice, selectedServiceType]);
 
   // Service type based on whether engineer is implied
   const sessionType = "with-engineer";
