@@ -571,8 +571,8 @@ const AdminCalendarModern = ({
                   {/* Secondary/Tertiary calendar indicators */}
                   {(hasSecondaryEvents || hasTertiaryEvents) && (
                     <div className="flex gap-0.5">
-                      {hasSecondaryEvents && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500" title={secondaryEvents[0]?.name} />
+                  {hasSecondaryEvents && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500" title={secondaryEvents[0]?.name} />
                       )}
                       {hasTertiaryEvents && (
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500" title={tertiaryEvents[0]?.name} />
@@ -599,8 +599,8 @@ const AdminCalendarModern = ({
                   {secondaryEvents.slice(0, 1).map((event, idx) => (
                     <div
                       key={`sec-${idx}`}
-                      className="text-[8px] px-0.5 py-0 rounded bg-purple-500/20 text-purple-400 truncate leading-tight"
-                      title={`${event.name} (${event.hour}h) - Agenda 2`}
+                      className="text-[8px] px-0.5 py-0 rounded bg-rose-500/20 text-rose-400 truncate leading-tight"
+                      title={`${event.name} (${event.hour}h) - Agenda Claridge`}
                     >
                       {event.hour}h {event.name}
                     </div>
@@ -782,7 +782,7 @@ const AdminCalendarModern = ({
                             {/* Secondary/Tertiary indicator dots */}
                             {(hasSecondaryConflict || hasTertiaryConflict) && (
                               <div className="absolute right-1 top-1 flex gap-0.5">
-                                {hasSecondaryConflict && <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />}
+                                {hasSecondaryConflict && <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
                                 {hasTertiaryConflict && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
                               </div>
                             )}
@@ -867,7 +867,7 @@ const AdminCalendarModern = ({
                           return (
                             <div
                               key={`sec-${slot.hour}`}
-                              className="absolute left-1 right-1 rounded-lg px-2 py-1 bg-purple-500/60 border-l-4 border-purple-500 shadow-sm overflow-hidden pointer-events-none"
+                              className="absolute left-1 right-1 rounded-lg px-2 py-1 bg-rose-500/60 border-l-4 border-rose-500 shadow-sm overflow-hidden pointer-events-none"
                               style={{
                                 top: `${top}px`,
                                 height: `${height - 2}px`,
@@ -878,7 +878,7 @@ const AdminCalendarModern = ({
                                 {slot.secondaryCalendarEventName}
                               </div>
                               <div className="text-[8px] text-white/70">
-                                {slot.hour}h - {endHour}h
+                                {slot.hour}h - {endHour}h • Claridge
                               </div>
                             </div>
                           );
@@ -1018,7 +1018,7 @@ const AdminCalendarModern = ({
                     status === "on-request" && !isInSelectedRange && "hover:bg-amber-500/20",
                     isInSelectedRange && "bg-primary/30",
                     isSelectionStart && "bg-primary/20 ring-1 ring-inset ring-primary",
-                    (hasSecondaryConflict || hasTertiaryConflict) && !isInSelectedRange && "bg-purple-500/10"
+                              (hasSecondaryConflict || hasTertiaryConflict) && !isInSelectedRange && "bg-rose-500/10"
                   )}
                   style={{ height: `${hourHeight}px` }}
                 />
@@ -1124,24 +1124,24 @@ const AdminCalendarModern = ({
                 const top = slot.hour * hourHeight;
                 const height = (endHour - slot.hour) * hourHeight;
 
-                return (
-                  <div
-                    key={`sec-${slot.hour}`}
-                    className="absolute left-2 right-2 rounded-lg px-3 py-2 bg-purple-500/60 border-l-4 border-purple-500 shadow-sm overflow-hidden pointer-events-none"
-                    style={{
-                      top: `${top}px`,
-                      height: `${height - 4}px`,
-                      minHeight: "28px"
-                    }}
-                  >
-                    <div className="text-xs font-medium text-white truncate leading-tight">
-                      {slot.secondaryCalendarEventName}
-                    </div>
-                    <div className="text-[10px] text-white/70">
-                      {slot.hour}h - {endHour}h • Agenda 2
-                    </div>
-                  </div>
-                );
+                          return (
+                            <div
+                              key={`sec-${slot.hour}`}
+                              className="absolute left-1 right-1 rounded-lg px-2 py-1 bg-rose-500/60 border-l-4 border-rose-500 shadow-sm overflow-hidden pointer-events-none"
+                              style={{
+                                top: `${top}px`,
+                                height: `${height - 2}px`,
+                                minHeight: "20px"
+                              }}
+                            >
+                              <div className="text-[10px] font-medium text-white truncate leading-tight">
+                                {slot.secondaryCalendarEventName}
+                              </div>
+                              <div className="text-[8px] text-white/70">
+                                {slot.hour}h - {endHour}h • Claridge
+                              </div>
+                            </div>
+                          );
               }
               
               if (slot.hasTertiaryCalendarConflict && slot.tertiaryCalendarEventName) {
