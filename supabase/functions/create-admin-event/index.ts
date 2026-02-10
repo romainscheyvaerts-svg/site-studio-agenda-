@@ -214,7 +214,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { title, clientName, description, date, time, hours, colorId, assignedAdminId } = body;
+    const { title, clientName, clientEmail, description, date, time, hours, colorId, assignedAdminId } = body;
 
     // The admin who creates the event is automatically the responsible person
     // Use assignedAdminId if provided, otherwise default to the creator (user.id)
@@ -267,9 +267,10 @@ serve(async (req) => {
       eventSummary = `${title} - ${clientName}`;
     }
 
-    // Build description
+    // Build description with client email for accounting tracking
     const eventDescription = [
       clientName ? `Client: ${clientName}` : null,
+      clientEmail ? `Email: ${clientEmail}` : null,
       `Durée: ${hours || 2}h`,
       `Créé par: Admin`,
       description ? `\nNotes: ${description}` : null,
