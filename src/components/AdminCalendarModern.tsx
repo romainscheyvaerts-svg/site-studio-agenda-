@@ -580,21 +580,35 @@ const AdminCalendarModern = ({
                     </div>
                   )}
                 </div>
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 overflow-hidden">
                   {/* Main calendar events */}
-                  {events.slice(0, isMobileView ? 1 : 2).map(event => (
-                    <div
-                      key={event.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditEvent(event);
-                      }}
-                      className="text-[8px] px-0.5 py-0 rounded bg-destructive/20 text-destructive truncate leading-tight"
-                      title={`${event.title} (${event.startHour}h-${event.endHour}h)`}
-                    >
-                      {event.startHour}h {event.title}
-                    </div>
-                  ))}
+                  {events.slice(0, isMobileView ? 1 : 2).map(event => {
+                    const serviceColor = getEventServiceColor(event.id);
+                    const adminColor = getEventAdminColor(event.id);
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditEvent(event);
+                        }}
+                        className={cn(
+                          "text-[8px] px-0.5 py-0 rounded truncate leading-tight flex items-center gap-0.5 overflow-hidden",
+                          serviceColor.bg.replace("/80", "/30"),
+                          serviceColor.text.replace("text-white", "text-foreground")
+                        )}
+                        title={`${event.title} (${event.startHour}h-${event.endHour}h)`}
+                      >
+                        {adminColor && (
+                          <div 
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: adminColor }}
+                          />
+                        )}
+                        <span className="truncate">{event.startHour}h {event.title}</span>
+                      </div>
+                    );
+                  })}
                   {/* Secondary calendar events (superadmin only - already filtered above) */}
                   {secondaryEvents.slice(0, 1).map((event, idx) => (
                     <div
