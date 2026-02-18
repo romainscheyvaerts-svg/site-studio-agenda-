@@ -214,7 +214,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { title, clientName, clientEmail, description, date, time, hours, colorId, assignedAdminId } = body;
+    const { title, clientName, clientEmail, description, date, time, hours, colorId, assignedAdminId, serviceType, totalPrice } = body;
 
     // The admin who creates the event is automatically the responsible person
     // Use assignedAdminId if provided, otherwise default to the creator (user.id)
@@ -287,14 +287,29 @@ serve(async (req) => {
 
     // Save the session assignment in database
     // The creator is automatically the responsible admin
+    const sessionData: Record<string, unknown> = {
+      event_id: createdEvent.id,
+      created_by: user.id,
+      assigned_to: responsibleAdminId,
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Add service type and total price if provided
+    if (serviceType) {
+      sessionData.service_type = serviceType;
+    }
+    if (totalPrice !== undefined && totalPrice !== null) {
+      sessionData.total_price = totalPrice;
+    }
+    if (clientName) {
+      sessionData.client_name = clientName;
+    }
+    
+    console.log("[ADMIN-EVENT] Saving session data:", sessionData);
+    
     const { error: assignmentError } = await supabase
       .from("session_assignments")
-      .upsert({
-        event_id: createdEvent.id,
-        created_by: user.id,
-        assigned_to: responsibleAdminId,
-        updated_at: new Date().toISOString(),
-      }, {
+      .upsert(sessionData, {
         onConflict: "event_id"
       });
 

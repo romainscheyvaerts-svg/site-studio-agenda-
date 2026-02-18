@@ -411,6 +411,8 @@ const AdminEventEditPanel = ({
             time: formatHour(currentStartHour),
             hours: duration,
             assignedAdminId: selectedAdminId || undefined,
+            serviceType: selectedServiceType,
+            totalPrice: totalPrice,
           },
         });
 
