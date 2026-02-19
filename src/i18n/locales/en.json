@@ -210,6 +210,8 @@
     "discount_percent": "{{percent}}% discount",
     "vip_booking": "VIP booking",
     "vip_free_booking": "Free booking with your VIP code",
+    "trusted_client": "TRUSTED CLIENT",
+    "trusted_client_desc": "You are a trusted client. You can book without identity verification and pay in cash at the studio.",
     "balance_at_studio": "Balance at studio: {{amount}}€ (after discount)",
     "rest_paid_at_studio": "The rest will be paid at the studio",
     "discount_deducted_on_site": "{{amount}}€ discount deducted on site",

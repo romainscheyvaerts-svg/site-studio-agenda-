@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Ban, Search, Loader2, ChevronDown, ChevronUp, RefreshCw, AlertTriangle, Globe, Mail, Calendar } from "lucide-react";
+import { Users, Ban, Search, Loader2, ChevronDown, ChevronUp, RefreshCw, AlertTriangle, Globe, Mail, Calendar, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -49,6 +49,12 @@ interface BlockedIP {
   reason: string | null;
 }
 
+interface TrustedUser {
+  user_id: string;
+  created_at: string;
+  reason: string | null;
+}
+
 // Simple IP geolocation using free API
 async function getCountryFromIP(ip: string): Promise<string | null> {
   try {
@@ -73,6 +79,7 @@ const AdminUserManagement = () => {
   const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [blockedIPs, setBlockedIPs] = useState<BlockedIP[]>([]);
+  const [trustedUsers, setTrustedUsers] = useState<TrustedUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -129,6 +136,15 @@ const AdminUserManagement = () => {
       
       if (!blockedIPsError && blockedIPsData) {
         setBlockedIPs(blockedIPsData);
+      }
+
+      // Fetch trusted users (using any to bypass TypeScript until types are regenerated)
+      const { data: trustedData, error: trustedError } = await (supabase as any)
+        .from("trusted_users")
+        .select("user_id, created_at, reason");
+      
+      if (!trustedError && trustedData) {
+        setTrustedUsers(trustedData as TrustedUser[]);
       }
 
       // Fetch user activities from activity_logs (aggregated by user)
@@ -326,6 +342,63 @@ const AdminUserManagement = () => {
 
   const isUserBlocked = (userId: string | null) => userId ? blockedUsers.some(b => b.user_id === userId) : false;
   const isIPBlocked = (ip: string) => blockedIPs.some(b => b.ip_address === ip);
+  const isUserTrusted = (userId: string | null) => userId ? trustedUsers.some(t => t.user_id === userId) : false;
+
+  const handleTrustUser = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const { error } = await (supabase as any)
+        .from("trusted_users")
+        .insert({
+          user_id: userId,
+          reason: "Marqué de confiance par administrateur"
+        });
+      
+      if (error) throw error;
+      
+      setTrustedUsers([...trustedUsers, { user_id: userId, created_at: new Date().toISOString(), reason: null }]);
+      toast({
+        title: "Client de confiance",
+        description: "L'utilisateur peut maintenant réserver et payer en cash sans vérification d'identité",
+      });
+    } catch (err) {
+      console.error("Error trusting user:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de marquer l'utilisateur comme de confiance",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUntrustUser = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const { error } = await (supabase as any)
+        .from("trusted_users")
+        .delete()
+        .eq("user_id", userId);
+      
+      if (error) throw error;
+      
+      setTrustedUsers(trustedUsers.filter(t => t.user_id !== userId));
+      toast({
+        title: "Confiance retirée",
+        description: "L'utilisateur devra à nouveau vérifier son identité et payer en ligne",
+      });
+    } catch (err) {
+      console.error("Error untrusting user:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de retirer la confiance",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const filteredActivities = userActivities.filter(activity => {
     if (!searchTerm) return true;
@@ -470,6 +543,12 @@ const AdminUserManagement = () => {
                                     BLOQUÉ
                                   </span>
                                 )}
+                                {isUserTrusted(user.id) && (
+                                  <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded flex items-center gap-1">
+                                    <ShieldCheck className="w-3 h-3" />
+                                    CONFIANCE
+                                  </span>
+                                )}
                               </div>
                               
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
@@ -489,6 +568,41 @@ const AdminUserManagement = () => {
                             </div>
                             
                             <div className="flex items-center gap-2 ml-2">
+                              {/* Trust/Untrust button */}
+                              {!isUserTrusted(user.id) ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleTrustUser(user.id)}
+                                  disabled={actionLoading === user.id}
+                                  className="text-xs border-green-500 text-green-500 hover:bg-green-500/10"
+                                >
+                                  {actionLoading === user.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <ShieldCheck className="w-3 h-3 mr-1" />
+                                      Confiance
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUntrustUser(user.id)}
+                                  disabled={actionLoading === user.id}
+                                  className="text-xs"
+                                >
+                                  {actionLoading === user.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    "Retirer confiance"
+                                  )}
+                                </Button>
+                              )}
+                              
+                              {/* Block/Unblock button */}
                               {!userBlocked ? (
                                 <Button
                                   variant="destructive"

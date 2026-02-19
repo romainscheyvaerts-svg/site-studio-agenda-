@@ -213,6 +213,8 @@
     "discount_percent": "{{percent}}% de réduction",
     "vip_booking": "Réservation VIP",
     "vip_free_booking": "Réservation gratuite avec votre code VIP",
+    "trusted_client": "CLIENT DE CONFIANCE",
+    "trusted_client_desc": "Vous êtes un client de confiance. Vous pouvez réserver sans vérification d'identité et payer en espèces au studio.",
     "balance_at_studio": "Solde au studio: {{amount}}€ (après réduction)",
     "rest_paid_at_studio": "Le reste sera payé au studio",
     "discount_deducted_on_site": "Réduction de {{amount}}€ déduite sur place",

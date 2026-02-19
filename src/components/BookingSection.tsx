@@ -69,6 +69,7 @@ const BookingSection = () => {
   const [paypalEnabled, setPaypalEnabled] = useState(true);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [showQuickEventModal, setShowQuickEventModal] = useState(false);
+  const [isTrustedUser, setIsTrustedUser] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -87,6 +88,29 @@ const BookingSection = () => {
         name: (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || prev.name,
         phone: (user.user_metadata?.phone as string) || prev.phone,
       }));
+      
+      // Check if user is trusted (can pay in cash without ID verification)
+      const checkTrustedStatus = async () => {
+        try {
+          const { data, error } = await (supabase as any)
+            .from("trusted_users")
+            .select("user_id")
+            .eq("user_id", user.id)
+            .single();
+          
+          if (!error && data) {
+            setIsTrustedUser(true);
+          } else {
+            setIsTrustedUser(false);
+          }
+        } catch (err) {
+          setIsTrustedUser(false);
+        }
+      };
+      
+      checkTrustedStatus();
+    } else {
+      setIsTrustedUser(false);
     }
   }, [user]);
 
@@ -205,11 +229,14 @@ const BookingSection = () => {
     setActivePromos(activePromos.filter(p => p.code !== codeToRemove));
   };
 
-  // Check if identity verification should be skipped
-  const skipIdentityVerification = combinedPromoEffects.skipIdentityVerification;
+  // Check if identity verification should be skipped (promo code OR trusted user)
+  const skipIdentityVerification = combinedPromoEffects.skipIdentityVerification || isTrustedUser;
   
   // Check if cashonly777 is active (skip payment, but still create calendar event and send email)
   const isCashOnly = activePromos.some(p => p.code.toLowerCase() === "cashonly777");
+  
+  // Trusted users can always pay in cash
+  const canPayCash = isTrustedUser || isCashOnly;
   
   // Check if payment should be skipped (cashonly777 or vip777 + without-engineer)
   const skipPayment = combinedPromoEffects.skipPayment && (sessionType === "without-engineer" || isCashOnly);
@@ -896,6 +923,19 @@ const BookingSection = () => {
                 </div>
               )}
               
+            </div>
+          )}
+
+          {/* Trusted User Banner - shown when user is trusted */}
+          {!isAdmin && isTrustedUser && !combinedPromoEffects.skipFormFields && (
+            <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border-2 border-green-500/50">
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="w-8 h-8 text-green-500" />
+                <h3 className="font-display text-2xl text-green-500">{t("booking.trusted_client")}</h3>
+              </div>
+              <p className="text-muted-foreground">
+                {t("booking.trusted_client_desc")}
+              </p>
             </div>
           )}
 
@@ -1731,8 +1771,8 @@ const BookingSection = () => {
                   <Calendar className="w-5 h-5 mr-2" />
                   {t("booking.reserve_open_vip")}
                 </Button>
-              ) : isCashOnly ? (
-                /* CashOnly777 - Show "Validate booking" button that creates event and sends email without payment */
+              ) : canPayCash ? (
+                /* CashOnly777 or Trusted User - Show "Validate booking" button that creates event and sends email without payment */
                 <Button 
                   type="button" 
                   variant="hero" 
