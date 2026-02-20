@@ -672,8 +672,9 @@ const BookingSection = () => {
     return true;
   };
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
     if (!validateForm()) return;
+    await savePhoneToProfile();
     setShowPayment(true);
   };
 
@@ -731,9 +732,24 @@ const BookingSection = () => {
     });
   };
 
+  // Save phone to user metadata if changed
+  const savePhoneToProfile = async () => {
+    if (user && formData.phone && formData.phone.trim()) {
+      const currentPhone = (user.user_metadata?.phone as string) || "";
+      if (currentPhone !== formData.phone.trim()) {
+        try {
+          await supabase.auth.updateUser({ data: { phone: formData.phone.trim() } });
+        } catch (err) {
+          console.error("Error saving phone:", err);
+        }
+      }
+    }
+  };
+
   // Handle cash-only booking (no payment, but create calendar event and send email)
   const handleCashOnlyBooking = async () => {
     if (!validateForm()) return;
+    await savePhoneToProfile();
     
     setCashOnlyLoading(true);
     
