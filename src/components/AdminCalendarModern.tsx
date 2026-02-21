@@ -662,55 +662,52 @@ const AdminCalendarModern = ({
       <div 
         ref={weekScrollContainerRef}
         className={cn(
-          "overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
+          "overflow-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50",
           calendarHeight
         )}
       >
-        {/* Wrapper for horizontal scroll with sticky hour column */}
-        <div className="relative">
-          {/* Header with days - sticky top */}
+        {/* Single wrapper for synchronized horizontal+vertical scroll */}
+        <div className="min-w-max">
+          {/* Header with days - sticky top, scrolls horizontally with content */}
           <div className="sticky top-0 bg-card z-20 border-b border-border/30">
             <div className="flex">
               {/* Empty corner for hours column */}
               <div className="w-14 shrink-0 bg-card sticky left-0 z-30 border-r border-border/30" />
               
               {/* Day headers */}
-              <div className="flex flex-1 min-w-0">
-                {days.map(day => {
-                  const isToday = isSameDay(day, new Date());
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      onClick={() => {
-                        setCurrentDate(day);
-                        setViewMode("day");
-                      }}
-                      className={cn(
-                        "flex-1 min-w-[100px] text-center py-2 cursor-pointer hover:bg-secondary/50 border-r border-border/20",
-                        isToday && "bg-primary/10"
-                      )}
-                    >
-                      <div className="text-[10px] text-muted-foreground uppercase">
-                        {format(day, "EEE", { locale: fr })}.
-                      </div>
-                      <div className={cn(
-                        "text-lg font-display",
-                        isToday ? "text-primary bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center mx-auto" : "text-foreground"
-                      )}>
-                        {format(day, "d")}
-                      </div>
+              {days.map(day => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div
+                    key={day.toISOString()}
+                    onClick={() => {
+                      setCurrentDate(day);
+                      setViewMode("day");
+                    }}
+                    className={cn(
+                      "flex-1 min-w-[100px] text-center py-2 cursor-pointer hover:bg-secondary/50 border-r border-border/20",
+                      isToday && "bg-primary/10"
+                    )}
+                  >
+                    <div className="text-[10px] text-muted-foreground uppercase">
+                      {format(day, "EEE", { locale: fr })}.
                     </div>
-                  );
-                })}
-              </div>
+                    <div className={cn(
+                      "text-lg font-display",
+                      isToday ? "text-primary bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center mx-auto" : "text-foreground"
+                    )}>
+                      {format(day, "d")}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Scrollable content area */}
-          <div className="overflow-x-auto">
-            <div className="flex min-w-max">
-              {/* Sticky hour column */}
-              <div className="w-14 shrink-0 sticky left-0 bg-card z-10 border-r border-border/30">
+          {/* Grid content area - same horizontal context as header */}
+          <div className="flex">
+            {/* Sticky hour column */}
+            <div className="w-14 shrink-0 sticky left-0 bg-card z-10 border-r border-border/30">
                 {hours.map(hour => (
                   <div
                     key={hour}
@@ -722,8 +719,8 @@ const AdminCalendarModern = ({
                 ))}
               </div>
 
-              {/* Day columns with events */}
-              <div className="flex flex-1">
+            {/* Day columns with events */}
+            <div className="flex flex-1">
                 {days.map(day => {
                   const dateStr = format(day, "yyyy-MM-dd");
                   const dayData = availability.find(d => d.date === dateStr);
@@ -940,9 +937,8 @@ const AdminCalendarModern = ({
                         return null;
                       })}
                     </div>
-                  );
-                })}
-              </div>
+                );
+              })}
             </div>
           </div>
         </div>
