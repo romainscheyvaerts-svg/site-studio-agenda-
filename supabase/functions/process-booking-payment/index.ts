@@ -1230,6 +1230,27 @@ serve(async (req) => {
         .update({ google_calendar_event_id: calendarEvent.id })
         .eq('id', booking.id);
       logStep("Google Calendar event created", { eventId: calendarEvent.id });
+
+      // Save session assignment with service_type for calendar color coding
+      try {
+        const { error: assignmentError } = await supabaseClient
+          .from("session_assignments")
+          .upsert({
+            event_id: calendarEvent.id,
+            service_type: booking.session_type,
+            total_price: booking.amount_paid,
+            client_name: booking.client_name,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "event_id" });
+
+        if (assignmentError) {
+          console.error("[BOOKING] Error saving session assignment:", assignmentError);
+        } else {
+          logStep("Session assignment saved with service_type", { serviceType: booking.session_type });
+        }
+      } catch (assignErr) {
+        console.error("[BOOKING] Error in session assignment:", assignErr);
+      }
     } catch (calendarError) {
       logStep("Google Calendar ERROR", { message: calendarError instanceof Error ? calendarError.message : String(calendarError) });
       // We don't fail the booking if calendar insert fails

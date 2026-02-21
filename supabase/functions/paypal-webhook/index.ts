@@ -215,7 +215,7 @@ async function createCalendarEvent(
     end: string;
     attendeeEmail?: string; // Kept for interface compatibility but not used
   }
-): Promise<void> {
+): Promise<string> {
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 
   const eventBody: Record<string, unknown> = {
@@ -262,6 +262,7 @@ async function createCalendarEvent(
 
   const createdEvent = await response.json();
   console.log(`[CALENDAR] Event created successfully: ${createdEvent.id}`);
+  return createdEvent.id as string;
 }
 
 // ============ CALENDAR AVAILABILITY FOR INTERNAL WORK SESSIONS ============
@@ -1465,7 +1466,7 @@ serve(async (req) => {
             payload.message ? `Message: ${payload.message}` : '',
           ].filter(Boolean).join('\n');
 
-          await createCalendarEvent(calendarToken, studioCalendarId, {
+          const calendarEventId = await createCalendarEvent(calendarToken, studioCalendarId, {
             summary: `SESSION ${sessionLabel} - ${payload.payerName}`,
             description: eventDescription,
             start: formatForCalendar(startDate),
@@ -1474,6 +1475,29 @@ serve(async (req) => {
           });
 
           console.log("[CALENDAR] Client session event created successfully");
+
+          // Save session assignment with service_type for calendar color coding
+          if (calendarEventId) {
+            try {
+              const { error: assignmentError } = await supabase
+                .from("session_assignments")
+                .upsert({
+                  event_id: calendarEventId,
+                  service_type: payload.sessionType,
+                  total_price: payload.totalAmount,
+                  client_name: payload.payerName,
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: "event_id" });
+
+              if (assignmentError) {
+                console.error("[PAYPAL] Error saving session assignment:", assignmentError);
+              } else {
+                console.log("[PAYPAL] Session assignment saved", { serviceType: payload.sessionType });
+              }
+            } catch (assignErr) {
+              console.error("[PAYPAL] Error in session assignment:", assignErr);
+            }
+          }
         }
       } catch (calendarError) {
         console.error("[CALENDAR] Failed to create event:", calendarError);
