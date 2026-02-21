@@ -17,7 +17,7 @@ const bookingPayloadSchema = z.object({
   payerName: z.string().trim().min(2).max(100),
   payerEmail: z.string().trim().email().max(255),
   phone: z.string().trim().max(30).optional().default(""),
-  sessionType: z.enum(["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast"]),
+  sessionType: z.enum(["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast", "composition"]),
   // Date/time optional for post-production services, required for studio sessions
   date: z.string().optional().default(""),
   time: z.string().optional().default(""),
@@ -114,7 +114,7 @@ interface BookingPayload {
   payerName: string;
   payerEmail: string;
   phone: string;
-  sessionType: "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast";
+  sessionType: "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition";
   date: string;
   time: string;
   hours: number;
@@ -1410,6 +1410,7 @@ serve(async (req) => {
     else if (payload.sessionType === "mastering") sessionLabel = "MASTERING";
     else if (payload.sessionType === "analog-mastering") sessionLabel = "MASTERING ANALOGIQUE";
     else if (payload.sessionType === "podcast") sessionLabel = "MIXAGE PODCAST";
+    else if (payload.sessionType === "composition") sessionLabel = "COMPOSITION";
 
     // Get Google Calendar credentials
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");

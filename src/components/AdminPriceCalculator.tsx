@@ -36,7 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "custom" | null;
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition" | "custom" | null;
 
 interface AdminPriceCalculatorProps {
   selectedDate?: string;
@@ -115,6 +115,7 @@ const AdminPriceCalculator = ({
     "mastering": "Mastering",
     "analog-mastering": "Mastering Analogique",
     "podcast": "Mixage Podcast",
+    "composition": "Composition",
     "custom": customServiceName || "Autre service",
   };
 
@@ -201,6 +202,7 @@ const AdminPriceCalculator = ({
     { id: "mastering" as SessionType, icon: Headphones, label: "MASTERING", color: "primary" },
     { id: "analog-mastering" as SessionType, icon: Disc, label: "MASTERING ANALOGIQUE", color: "accent" },
     { id: "podcast" as SessionType, icon: Radio, label: "PODCAST", color: "primary" },
+    { id: "composition" as SessionType, icon: Music, label: "COMPOSITION", color: "primary" },
     { id: "custom" as SessionType, icon: Plus, label: "AUTRE SERVICE", color: "secondary" },
   ] as const;
 
@@ -592,6 +594,7 @@ const AdminPriceCalculator = ({
                           "mastering": "Mastering",
                           "analog-mastering": "Mastering analogique",
                           "podcast": "Podcast",
+                          "composition": "Composition",
                           "custom": customServiceName || "Autre service"
                         };
 

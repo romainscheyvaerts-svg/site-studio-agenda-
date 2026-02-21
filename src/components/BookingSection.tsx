@@ -23,11 +23,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { usePricing } from "@/hooks/usePricing";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "custom" | null;
+type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition" | "custom" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 
 // Services qui ne nécessitent pas de calendrier ni de vérification d'identité
-const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast"];
+// "composition" est spécial : le calendrier est optionnel (peut être fait à distance)
+const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast", "composition"];
 
 // Promo code effects returned from server (no codes stored client-side)
 type PromoEffects = {
@@ -250,6 +251,7 @@ const BookingSection = () => {
       "mastering": 60,
       "analog-mastering": 100,
       "podcast": 40,
+      "composition": 200,
     };
     
     // Merge DB pricing with fallbacks
@@ -505,7 +507,7 @@ const BookingSection = () => {
   
   useEffect(() => {
     const serviceFromUrl = searchParams.get('service') as SessionType;
-    if (serviceFromUrl && ['with-engineer', 'without-engineer', 'mixing', 'mastering', 'analog-mastering', 'podcast'].includes(serviceFromUrl)) {
+    if (serviceFromUrl && ['with-engineer', 'without-engineer', 'mixing', 'mastering', 'analog-mastering', 'podcast', 'composition'].includes(serviceFromUrl)) {
       setSessionType(serviceFromUrl);
       setShowPayment(false);
       // Clear the URL param after reading it
@@ -1151,6 +1153,32 @@ const BookingSection = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionType("composition");
+                  setShowPayment(false);
+                }}
+                className={cn(
+                  "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                  sessionType === "composition"
+                    ? "border-pink-500 bg-pink-500/10"
+                    : "border-border bg-card hover:border-pink-500/50"
+                )}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                    <Music className="w-4 h-4 text-pink-500" />
+                  </div>
+                  <div>
+                    <h4 className="font-display text-lg text-foreground">{t("booking.composition")}</h4>
+                    <p className="text-pink-500 font-semibold text-sm">{pricing["composition"]}€</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">{t("booking.composition_desc")}</p>
+                <p className="text-xs text-pink-500 mt-1">🌐 {t("booking.composition_remote")}</p>
+              </button>
             </div>
           </div>
           )}
@@ -1674,6 +1702,7 @@ const BookingSection = () => {
                           {sessionType === "mastering" && t("booking.mastering")}
                           {sessionType === "analog-mastering" && t("booking.analog_mastering")}
                           {sessionType === "podcast" && `${t("booking.podcast_mixing")} (${podcastMinutes} min)`}
+                          {sessionType === "composition" && t("booking.composition")}
                         </p>
                       </div>
                       <div className="text-right">

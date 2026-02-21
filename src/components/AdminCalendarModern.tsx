@@ -233,6 +233,7 @@ const AdminCalendarModern = ({
     "without-engineer": { bg: "bg-amber-500/80", border: "border-amber-500", text: "text-white" },
     "mixing": { bg: "bg-purple-500/80", border: "border-purple-500", text: "text-white" },
     "mastering": { bg: "bg-green-500/80", border: "border-green-500", text: "text-white" },
+    "composition": { bg: "bg-pink-500/80", border: "border-pink-500", text: "text-white" },
     "default": { bg: "bg-destructive/80", border: "border-destructive", text: "text-white" },
   };
 
