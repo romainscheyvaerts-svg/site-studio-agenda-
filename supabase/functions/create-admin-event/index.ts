@@ -123,8 +123,8 @@ async function createCalendarEvent(
     reminders: {
       useDefault: false,
       overrides: [
-        { method: "popup", minutes: 120 }, // 2 hours before
-        { method: "popup", minutes: 60 },  // 1 hour before
+        { method: "popup", minutes: 1440 }, // 24 hours before
+        { method: "popup", minutes: 180 },  // 3 hours before
       ],
     },
   };
