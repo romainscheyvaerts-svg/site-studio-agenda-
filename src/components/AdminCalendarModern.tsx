@@ -12,7 +12,8 @@ import {
   Trash2,
   Edit,
   X,
-  User
+  User,
+  RefreshCw
 } from "lucide-react";
 import { 
   format, 
@@ -1221,6 +1222,19 @@ const AdminCalendarModern = ({
           </h3>
           <Button variant="outline" size="sm" onClick={goToToday} className="h-7 text-xs px-2">
             Aujourd'hui
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              fetchAvailability();
+              loadAdminData();
+            }}
+            disabled={loading}
+            className="h-7 w-7"
+            title="Rafraîchir l'agenda"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           </Button>
         </div>
 
