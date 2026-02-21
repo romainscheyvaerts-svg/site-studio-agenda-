@@ -89,6 +89,11 @@ const AdminCalendarModern = ({
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
+
+  // Always reset to today when the calendar mounts/opens
+  useEffect(() => {
+    setCurrentDate(new Date());
+  }, []);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showEventCreator, setShowEventCreator] = useState(false);
