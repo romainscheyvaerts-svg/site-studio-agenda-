@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import {
   Mic,
@@ -28,6 +30,8 @@ import {
   Check,
   CheckCircle,
   Plus,
+  ChevronsUpDown,
+  User,
 } from "lucide-react";
 import ModernCalendar from "./ModernCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -37,6 +41,12 @@ import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition" | "custom" | null;
+
+interface ClientInfo {
+  id: string;
+  email: string;
+  name: string;
+}
 
 interface AdminPriceCalculatorProps {
   selectedDate?: string;
@@ -85,6 +95,72 @@ const AdminPriceCalculator = ({
   const [customServicePrice, setCustomServicePrice] = useState(0);
   const [customServiceHours, setCustomServiceHours] = useState(1);
   const [customServiceIsHourly, setCustomServiceIsHourly] = useState(false);
+
+  // Client list for autocomplete
+  const [clients, setClients] = useState<ClientInfo[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [openNameCombobox, setOpenNameCombobox] = useState(false);
+  const [openEmailCombobox, setOpenEmailCombobox] = useState(false);
+
+  // Load clients on mount
+  useEffect(() => {
+    const loadClients = async () => {
+      setLoadingClients(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("list-users");
+        if (error) throw error;
+        
+        if (data?.users) {
+          const clientList: ClientInfo[] = data.users.map((u: any) => ({
+            id: u.id,
+            email: u.email || "",
+            name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "",
+          }));
+          setClients(clientList);
+        }
+      } catch (err) {
+        console.error("Error loading clients:", err);
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+    loadClients();
+  }, []);
+
+  // Select client by email
+  const selectClientByEmail = (email: string) => {
+    setClientEmail(email);
+    const client = clients.find(c => c.email === email);
+    if (client) {
+      setClientName(client.name);
+    }
+    setOpenEmailCombobox(false);
+  };
+
+  // Select client by name
+  const selectClientByName = (name: string) => {
+    setClientName(name);
+    const client = clients.find(c => c.name === name);
+    if (client) {
+      setClientEmail(client.email);
+    }
+    setOpenNameCombobox(false);
+  };
+
+  // Filtered clients for search
+  const filteredClientsByName = useMemo(() => {
+    if (!clientName) return clients;
+    return clients.filter(c => 
+      c.name.toLowerCase().includes(clientName.toLowerCase())
+    );
+  }, [clients, clientName]);
+
+  const filteredClientsByEmail = useMemo(() => {
+    if (!clientEmail) return clients;
+    return clients.filter(c => 
+      c.email.toLowerCase().includes(clientEmail.toLowerCase())
+    );
+  }, [clients, clientEmail]);
 
   // Sync with external date/time/duration from calendar
   useEffect(() => {
@@ -500,24 +576,101 @@ const AdminPriceCalculator = ({
                   <Label className="text-sm text-muted-foreground mb-2 block">
                     Nom du client (optionnel)
                   </Label>
-                  <Input
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Nom du client"
-                    className="bg-secondary/50 border-border"
-                  />
+                  <Popover open={openNameCombobox} onOpenChange={setOpenNameCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openNameCombobox}
+                        className="w-full justify-between bg-secondary/50 border-border text-left font-normal"
+                      >
+                        {clientName || "Sélectionner un client..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Rechercher par nom..." 
+                          value={clientName}
+                          onValueChange={setClientName}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {loadingClients ? "Chargement..." : "Aucun client trouvé."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {filteredClientsByName.slice(0, 10).map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.name}
+                                onSelect={() => selectClientByName(client.name)}
+                              >
+                                <User className="mr-2 h-4 w-4" />
+                                <div className="flex flex-col">
+                                  <span>{client.name}</span>
+                                  <span className="text-xs text-muted-foreground">{client.email}</span>
+                                </div>
+                                {clientName === client.name && (
+                                  <Check className="ml-auto h-4 w-4" />
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground mb-2 block">
                     Email du client
                   </Label>
-                  <Input
-                    type="email"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    placeholder="email@exemple.com"
-                    className="bg-secondary/50 border-border"
-                  />
+                  <Popover open={openEmailCombobox} onOpenChange={setOpenEmailCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openEmailCombobox}
+                        className="w-full justify-between bg-secondary/50 border-border text-left font-normal"
+                      >
+                        {clientEmail || "Sélectionner un email..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Rechercher par email..." 
+                          value={clientEmail}
+                          onValueChange={setClientEmail}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {loadingClients ? "Chargement..." : "Aucun client trouvé."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {filteredClientsByEmail.slice(0, 10).map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.email}
+                                onSelect={() => selectClientByEmail(client.email)}
+                              >
+                                <Mail className="mr-2 h-4 w-4" />
+                                <div className="flex flex-col">
+                                  <span>{client.email}</span>
+                                  <span className="text-xs text-muted-foreground">{client.name}</span>
+                                </div>
+                                {clientEmail === client.email && (
+                                  <Check className="ml-auto h-4 w-4" />
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
