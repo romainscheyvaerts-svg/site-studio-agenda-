@@ -20,6 +20,7 @@ interface SalesConfig {
   discount_mastering: number | null;
   discount_analog_mastering: number | null;
   discount_podcast: number | null;
+  discount_composition: number | null;
 }
 
 // Mapping service_key to discount field (using DB format with dashes)
@@ -30,6 +31,7 @@ const serviceKeyToDiscountField: Record<string, keyof SalesConfig> = {
   'mastering': 'discount_mastering',
   'analog-mastering': 'discount_analog_mastering',
   'podcast': 'discount_podcast',
+  'composition': 'discount_composition',
 };
 
 export const usePricing = () => {
@@ -49,7 +51,7 @@ export const usePricing = () => {
           setServices(servicesRes.data);
         }
         if (salesRes.data) {
-          setSalesConfig(salesRes.data);
+          setSalesConfig(salesRes.data as any);
         }
       } catch (error) {
         console.error("Error fetching pricing data:", error);

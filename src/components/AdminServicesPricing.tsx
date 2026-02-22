@@ -28,6 +28,7 @@ interface SalesConfig {
   discount_mastering: number;
   discount_analog_mastering: number;
   discount_podcast: number;
+  discount_composition: number;
 }
 
 // Map service_key to discount field
@@ -38,6 +39,7 @@ const serviceKeyToDiscountField: Record<string, keyof SalesConfig> = {
   'mastering': 'discount_mastering',
   'analog-mastering': 'discount_analog_mastering',
   'podcast': 'discount_podcast',
+  'composition': 'discount_composition',
 };
 
 const AdminServicesPricing = () => {
@@ -57,6 +59,7 @@ const AdminServicesPricing = () => {
     discount_mastering: 0,
     discount_analog_mastering: 0,
     discount_podcast: 0,
+    discount_composition: 0,
   });
 
   const fetchData = async () => {
@@ -73,17 +76,19 @@ const AdminServicesPricing = () => {
     }
     
     if (salesRes.data) {
-      setSalesConfig(salesRes.data as SalesConfig);
+      const sd = salesRes.data as any;
+      setSalesConfig(sd as SalesConfig);
       setEditedSaleConfig({
-        is_active: salesRes.data.is_active,
-        sale_name: salesRes.data.sale_name,
-        discount_percentage: salesRes.data.discount_percentage,
-        discount_with_engineer: (salesRes.data as SalesConfig).discount_with_engineer || 0,
-        discount_without_engineer: (salesRes.data as SalesConfig).discount_without_engineer || 0,
-        discount_mixing: (salesRes.data as SalesConfig).discount_mixing || 0,
-        discount_mastering: (salesRes.data as SalesConfig).discount_mastering || 0,
-        discount_analog_mastering: (salesRes.data as SalesConfig).discount_analog_mastering || 0,
-        discount_podcast: (salesRes.data as SalesConfig).discount_podcast || 0,
+        is_active: sd.is_active,
+        sale_name: sd.sale_name,
+        discount_percentage: sd.discount_percentage,
+        discount_with_engineer: sd.discount_with_engineer || 0,
+        discount_without_engineer: sd.discount_without_engineer || 0,
+        discount_mixing: sd.discount_mixing || 0,
+        discount_mastering: sd.discount_mastering || 0,
+        discount_analog_mastering: sd.discount_analog_mastering || 0,
+        discount_podcast: sd.discount_podcast || 0,
+        discount_composition: sd.discount_composition || 0,
       });
     }
     
@@ -138,7 +143,8 @@ const AdminServicesPricing = () => {
           discount_mastering: editedSaleConfig.discount_mastering,
           discount_analog_mastering: editedSaleConfig.discount_analog_mastering,
           discount_podcast: editedSaleConfig.discount_podcast,
-        })
+          discount_composition: editedSaleConfig.discount_composition,
+        } as any)
         .eq("id", salesConfig.id);
 
       if (error) throw error;
@@ -168,6 +174,7 @@ const AdminServicesPricing = () => {
       discount_mastering: globalDiscount,
       discount_analog_mastering: globalDiscount,
       discount_podcast: globalDiscount,
+      discount_composition: globalDiscount,
     });
   };
 
@@ -333,6 +340,7 @@ const AdminServicesPricing = () => {
                 { key: 'mastering', label: 'Mastering Numérique' },
                 { key: 'analog-mastering', label: 'Mastering Analogique' },
                 { key: 'podcast', label: 'Mixage Podcast' },
+                { key: 'composition', label: 'Composition' },
               ].map((service) => (
                 <div key={service.key} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                   <span className="text-sm text-foreground">{service.label}</span>
