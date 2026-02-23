@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock, Shield, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +72,7 @@ const BookingSection = () => {
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [showQuickEventModal, setShowQuickEventModal] = useState(false);
   const [isTrustedUser, setIsTrustedUser] = useState(false);
+  const [isFreeSession, setIsFreeSession] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -101,8 +103,10 @@ const BookingSection = () => {
           
           if (!error && data) {
             setIsTrustedUser(true);
+            setIsFreeSession(true); // Auto-cocher "Free" pour les clients de confiance
           } else {
             setIsTrustedUser(false);
+            setIsFreeSession(false);
           }
         } catch (err) {
           setIsTrustedUser(false);
@@ -781,6 +785,7 @@ const BookingSection = () => {
           totalAmount: finalPrice,
           message: formData.message || "",
           isCashPayment: true,
+          isFreeSession: isFreeSession, // Si cochée, ajoute [FREE] au nom de l'événement
           podcastMinutes: sessionType === "podcast" ? podcastMinutes : undefined,
         },
       });
@@ -951,9 +956,25 @@ const BookingSection = () => {
                 <Shield className="w-8 h-8 text-green-500" />
                 <h3 className="font-display text-2xl text-green-500">{t("booking.trusted_client")}</h3>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-4">
                 {t("booking.trusted_client_desc")}
               </p>
+              
+              {/* Free session checkbox for trusted users */}
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                <Checkbox
+                  id="freeSession"
+                  checked={isFreeSession}
+                  onCheckedChange={(checked) => setIsFreeSession(checked === true)}
+                  className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
+                />
+                <Label htmlFor="freeSession" className="text-sm cursor-pointer flex-1">
+                  <span className="font-semibold text-purple-400">🎁 Session gratuite</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Non comptabilisée (prix affiché : {totalPrice}€)
+                  </span>
+                </Label>
+              </div>
             </div>
           )}
 

@@ -26,6 +26,7 @@ const bookingPayloadSchema = z.object({
   message: z.string().max(1000).optional(),
   podcastMinutes: z.number().int().min(1).max(180).optional(),
   isCashPayment: z.boolean().optional().default(false),
+  isFreeSession: z.boolean().optional().default(false), // For trusted users - not counted in accounting
 }).refine((data) => {
   // Post-production services don't need date/time
   if (POST_PRODUCTION_SERVICES.includes(data.sessionType)) {
@@ -1466,8 +1467,11 @@ serve(async (req) => {
             payload.message ? `Message: ${payload.message}` : '',
           ].filter(Boolean).join('\n');
 
+          // Add [FREE] tag if session is marked as free (trusted users)
+          const freeTag = payload.isFreeSession ? "[FREE] " : "";
+          
           const calendarEventId = await createCalendarEvent(calendarToken, studioCalendarId, {
-            summary: `SESSION ${sessionLabel} - ${payload.payerName}`,
+            summary: `${freeTag}SESSION ${sessionLabel} - ${payload.payerName}`,
             description: eventDescription,
             start: formatForCalendar(startDate),
             end: formatForCalendar(endDate),
