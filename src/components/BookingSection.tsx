@@ -969,9 +969,9 @@ const BookingSection = () => {
                   className="border-purple-500 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
                 />
                 <Label htmlFor="freeSession" className="text-sm cursor-pointer flex-1">
-                  <span className="font-semibold text-purple-400">🎁 Session gratuite</span>
+                  <span className="font-semibold text-purple-400">💰 Prix à voir le jour de la session</span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
-                    Non comptabilisée (prix affiché : {totalPrice}€)
+                    Non comptabilisée dans les stats (prix indicatif : {totalPrice}€)
                   </span>
                 </Label>
               </div>
