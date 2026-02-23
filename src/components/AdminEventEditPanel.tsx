@@ -89,6 +89,29 @@ const AdminEventEditPanel = ({
   
   // Service type
   const [selectedServiceType, setSelectedServiceType] = useState<string>("with-engineer");
+
+  // Auto-detect service type from title (only in create mode)
+  useEffect(() => {
+    if (mode !== "create") return;
+    const t = title.toLowerCase().trim();
+    if (!t) return; // Don't change service type if title is empty
+    // More specific checks first
+    if (t.includes("analog") && t.includes("master")) {
+      setSelectedServiceType("analog-mastering");
+    } else if (t.includes("mixage") || t.includes("mix")) {
+      setSelectedServiceType("mixing");
+    } else if (t.includes("master")) {
+      setSelectedServiceType("mastering");
+    } else if (t.includes("podcast")) {
+      setSelectedServiceType("podcast");
+    } else if (t.includes("composition") || t.includes("compo")) {
+      setSelectedServiceType("composition");
+    } else if (t.includes("location") || t.includes("sans ingé") || t.includes("without") || t.includes("sèche") || t.includes("seche")) {
+      setSelectedServiceType("without-engineer");
+    } else if (t.includes("session") || t.includes("enregistrement") || t.includes("recording") || t.includes("ingé")) {
+      setSelectedServiceType("with-engineer");
+    }
+  }, [title, mode]);
   
   // Show invoice generator
   const [showInvoiceGenerator, setShowInvoiceGenerator] = useState(false);

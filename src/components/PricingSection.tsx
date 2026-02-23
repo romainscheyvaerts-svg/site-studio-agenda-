@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio } from "lucide-react";
+import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 import QuoteRequestDialog from "./QuoteRequestDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,7 @@ interface SalesConfig {
   discount_mastering: number | null;
   discount_analog_mastering: number | null;
   discount_podcast: number | null;
+  discount_composition?: number | null;
 }
 interface PricingCardProps {
   title: string;
@@ -63,6 +64,7 @@ const PricingCard = ({ title, subtitle, price, originalPrice, hasDiscount, disco
       "Finalisation": "mastering",
       "Mastering premium": "analog-mastering",
       "Audio podcast": "podcast",
+      "Création musicale": "composition",
     };
     
     const serviceType = serviceMap[subtitle] || null;
@@ -231,6 +233,7 @@ const PricingSection = () => {
       'mastering': salesConfig.discount_mastering,
       'analog-mastering': salesConfig.discount_analog_mastering,
       'podcast': salesConfig.discount_podcast,
+      'composition': (salesConfig as any).discount_composition,
     };
 
     const discount = discountMap[serviceKey] ?? salesConfig.discount_percentage;
@@ -254,6 +257,7 @@ const PricingSection = () => {
       'mastering': salesConfig.discount_mastering,
       'analog-mastering': salesConfig.discount_analog_mastering,
       'podcast': salesConfig.discount_podcast,
+      'composition': (salesConfig as any).discount_composition,
     };
     return discountMap[serviceKey] ?? salesConfig.discount_percentage ?? 0;
   };
@@ -402,6 +406,21 @@ const PricingSection = () => {
             isMobileView={isMobileView}
             onSelectService={handleSelectService}
             features={getFeatures('podcast')}
+          />
+
+          <PricingCard
+            title={t("pricing.composition.title", "Composition")}
+            subtitle="Création musicale"
+            price={formatPrice('composition')}
+            originalPrice={`${getPrice('composition')}€`}
+            hasDiscount={getDiscountedPrice('composition').hasDiscount}
+            discountPercent={getDiscountPercent('composition')}
+            unit={t("pricing.per_hour")}
+            icon={<PenTool className={cn(isMobileView ? "w-5 h-5" : "w-6 h-6")} />}
+            buttonText={t("pricing.book").toUpperCase()}
+            isMobileView={isMobileView}
+            onSelectService={handleSelectService}
+            features={getFeatures('composition')}
           />
         </div>
         )}
