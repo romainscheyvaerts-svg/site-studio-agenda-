@@ -42,6 +42,7 @@ import AdminClientDrive from "./AdminClientDrive";
 import AdminClientAccounting from "./AdminClientAccounting";
 import AdminBackgroundImage from "./AdminBackgroundImage";
 import AdminProfileSettings from "./AdminProfileSettings";
+import AdminPendingBookings from "./AdminPendingBookings";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
@@ -158,6 +159,9 @@ const AdminPanel = ({ inline = false, onClose, externalOpen }: AdminPanelProps) 
           </div>
 
           <div className={cn("flex-1 overflow-y-auto", isMobileView ? "p-3" : "p-4")}>
+            {/* Pending FREE Bookings Notification */}
+            <AdminPendingBookings />
+            
             {/* Super Admin Tab */}
             {isSuperAdmin && (
               <TabsContent value="super-admin" className="mt-0 space-y-3">
