@@ -26,12 +26,14 @@ import { usePricing } from "@/hooks/usePricing";
 
 type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition" | "custom" | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
+type CompositionMode = "remote" | "onsite";
 
 // Services qui ne nécessitent pas de calendrier ni de vérification d'identité
-// "composition" est spécial : le calendrier est optionnel (peut être fait à distance)
-const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast", "composition"];
+// Pour "composition", cela dépend du mode (remote = pas de calendrier, onsite = calendrier + acompte 20€)
+const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast"];
 
-// Promo code effects returned from server (no codes stored client-side)
+// Acompte pour composition en présentiel
+const COMPOSITION_ONSITE_DEPOSIT = 20;
 type PromoEffects = {
   code: string; // Only stored after validation, for display/removal purposes
   fullCalendarVisibility: boolean;
@@ -73,6 +75,7 @@ const BookingSection = () => {
   const [showQuickEventModal, setShowQuickEventModal] = useState(false);
   const [isTrustedUser, setIsTrustedUser] = useState(false);
   const [isFreeSession, setIsFreeSession] = useState(false);
+  const [compositionMode, setCompositionMode] = useState<CompositionMode>("remote");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -273,7 +276,14 @@ const BookingSection = () => {
   };
 
   // Pour les services immédiats, pas de notion d'heures
-  const isImmediateService = sessionType && IMMEDIATE_SERVICES.includes(sessionType);
+  // La composition à distance est aussi considérée comme immédiate (pas de calendrier)
+  const isImmediateService = sessionType && (
+    IMMEDIATE_SERVICES.includes(sessionType) || 
+    (sessionType === "composition" && compositionMode === "remote")
+  );
+  
+  // Composition en présentiel nécessite le calendrier
+  const isCompositionOnsite = sessionType === "composition" && compositionMode === "onsite";
   
   // Check if VIP calendar should be available (vip777 with full calendar visibility)
   const showVIPCalendarButton = combinedPromoEffects.fullCalendarVisibility && !isImmediateService;
@@ -317,9 +327,20 @@ const BookingSection = () => {
 
   // Location sèche = paiement complet, analog-mastering = 80€ acompte, autres = 50% acompte
   // Si requireFullPayment (code promo prixdami777), paiement à 100%
+  // Composition à distance = 0€ (pas de paiement), Composition en présentiel = 20€ d'acompte
   const paymentAmount = useMemo(() => {
     if (!sessionType) return 0;
     if (skipPayment) return 0; // VIP777 + without-engineer = free booking
+    
+    // Composition à distance : pas de paiement requis
+    if (sessionType === "composition" && compositionMode === "remote") {
+      return 0;
+    }
+    
+    // Composition en présentiel : acompte fixe de 20€
+    if (sessionType === "composition" && compositionMode === "onsite") {
+      return COMPOSITION_ONSITE_DEPOSIT;
+    }
     
     // Si le code promo exige un paiement complet
     if (requireFullPayment) {
@@ -333,7 +354,7 @@ const BookingSection = () => {
       return Math.max(0, 80 - promoDiscount); // Acompte fixe de 80€ avec réduction
     }
     return Math.ceil(finalPrice / 2); // 50% acompte
-  }, [sessionType, finalPrice, skipPayment, promoDiscount, requireFullPayment]);
+  }, [sessionType, finalPrice, skipPayment, promoDiscount, requireFullPayment, compositionMode]);
 
   // isDeposit = false si paiement complet requis par promo code
   const isDeposit = !requireFullPayment && (sessionType === "with-engineer" || sessionType === "mixing" || sessionType === "mastering" || sessionType === "analog-mastering" || sessionType === "podcast");
@@ -1221,6 +1242,59 @@ const BookingSection = () => {
           
           {!isAdmin && (sessionType || combinedPromoEffects.skipFormFields) && (
           <div className="bg-card rounded-2xl border border-border p-8">
+            {/* Composition mode selector - Remote or On-site */}
+            {sessionType === "composition" && (
+              <div className="mb-6 p-4 rounded-xl bg-pink-500/10 border border-pink-500/30">
+                <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Music className="w-5 h-5 text-pink-500" />
+                  {t("booking.composition_mode_title", "Comment souhaitez-vous travailler ?")}
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Remote option (default) */}
+                  <button
+                    type="button"
+                    onClick={() => setCompositionMode("remote")}
+                    className={cn(
+                      "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                      compositionMode === "remote"
+                        ? "border-pink-500 bg-pink-500/20"
+                        : "border-border bg-card hover:border-pink-500/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">🌐</span>
+                      <span className="font-semibold text-foreground">{t("booking.composition_remote_title", "À distance")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("booking.composition_remote_desc", "Travail à distance sans réservation de créneau. Pas de paiement requis pour commander.")}
+                    </p>
+                    <p className="text-xs text-green-500 mt-2 font-medium">✓ {t("booking.no_payment_required", "Aucun paiement requis")}</p>
+                  </button>
+
+                  {/* On-site option */}
+                  <button
+                    type="button"
+                    onClick={() => setCompositionMode("onsite")}
+                    className={cn(
+                      "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                      compositionMode === "onsite"
+                        ? "border-pink-500 bg-pink-500/20"
+                        : "border-border bg-card hover:border-pink-500/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">🏢</span>
+                      <span className="font-semibold text-foreground">{t("booking.composition_onsite_title", "En présentiel")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("booking.composition_onsite_desc", "Réservez le studio pour travailler ensemble sur place.")}
+                    </p>
+                    <p className="text-xs text-accent mt-2 font-medium">💳 {t("booking.deposit_required", "Acompte")} : {COMPOSITION_ONSITE_DEPOSIT}€</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Info message for immediate services */}
             {isImmediateService && (
               <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
@@ -1654,8 +1728,8 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Price display - Hidden for admin and VIP codes that skip payment */}
-            {sessionType && !skipPayment && !isAdmin && (
+            {/* Price display - Hidden for admin, VIP codes that skip payment, and composition remote */}
+            {sessionType && !skipPayment && !isAdmin && !(sessionType === "composition" && compositionMode === "remote") && (
               <div className="mb-6">
                 <h4 className="font-display text-lg text-foreground flex items-center gap-2 mb-4">
                   <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">4</span>
@@ -1821,7 +1895,32 @@ const BookingSection = () => {
 
             {/* Payment section - Hidden for admin and when VIP calendar is shown */}
             {!isAdmin && !showVIPCalendar && !showPayment ? (
-              showVIPCalendarButton ? (
+              /* Composition remote - Simple "Commander" button without payment */
+              sessionType === "composition" && compositionMode === "remote" ? (
+                <Button 
+                  type="button" 
+                  variant="hero" 
+                  size="xl" 
+                  className="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700"
+                  onClick={handleCashOnlyBooking}
+                  disabled={
+                    cashOnlyLoading ||
+                    (!combinedPromoEffects.skipFormFields && (!formData.name || !formData.email || !formData.phone))
+                  }
+                >
+                  {cashOnlyLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      {t("booking.sending_request", "Envoi en cours...")}
+                    </>
+                  ) : (
+                    <>
+                      <Music className="w-5 h-5 mr-2" />
+                      {t("booking.order_composition", "Commander ma composition")}
+                    </>
+                  )}
+                </Button>
+              ) : showVIPCalendarButton ? (
                 /* VIP777 - Show "Reserve" button that opens calendar */
                 <Button 
                   type="button" 

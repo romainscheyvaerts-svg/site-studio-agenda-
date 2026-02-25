@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import {
   Clock,
   Euro,
@@ -25,7 +28,11 @@ import {
   Receipt,
   Tag,
   CreditCard,
-  Banknote
+  Banknote,
+  CalendarClock,
+  XCircle,
+  AlertTriangle,
+  History
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -57,6 +64,23 @@ interface ClientStats {
   last_session: string | null;
 }
 
+interface Booking {
+  id: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string | null;
+  session_type: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  duration_hours: number;
+  amount_paid: number;
+  status: string;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  created_at: string;
+}
+
 const sessionTypeIcons: Record<string, React.ReactNode> = {
   "with-engineer": <Mic className="w-4 h-4" />,
   "without-engineer": <Building2 className="w-4 h-4" />,
@@ -84,10 +108,12 @@ const paymentMethodIcons: Record<string, React.ReactNode> = {
 const MyAccount = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<ClientSession[]>([]);
   const [stats, setStats] = useState<ClientStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {

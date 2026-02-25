@@ -274,7 +274,18 @@
     "slot_format": "{{date}} at {{time}} for {{duration}}h",
     "config_error": "Configuration error",
     "payment_system_error": "Unable to load payment system.",
-    "check_availability_error": "Unable to check availability. Please try again."
+    "check_availability_error": "Unable to check availability. Please try again.",
+    "composition_desc": "Custom instrumental creation",
+    "composition_remote": "Remote or on-site",
+    "composition_mode_title": "How would you like to work?",
+    "composition_remote_title": "Remote",
+    "composition_remote_desc": "Remote work without slot reservation. No payment required to order.",
+    "composition_onsite_title": "On-site",
+    "composition_onsite_desc": "Book the studio to work together on site.",
+    "no_payment_required": "No payment required",
+    "deposit_required": "Deposit",
+    "sending_request": "Sending...",
+    "order_composition": "Order my composition"
   },
   "chatbot": {
     "title": "Studio Assistant",

@@ -256,8 +256,33 @@ serve(async (req) => {
     };
     
     const startFormatted = formatForCalendar(year, month, day, hour, minute || 0);
-    const endHour = hour + (hours || 2);
-    const endFormatted = formatForCalendar(year, month, day, endHour, minute || 0);
+    
+    // Calculate end time, handling overflow past midnight
+    let endHour = hour + (hours || 2);
+    let endDay = day;
+    let endMonth = month;
+    let endYear = year;
+    
+    // Handle hour overflow (past midnight)
+    if (endHour >= 24) {
+      endHour = endHour - 24;
+      endDay = day + 1;
+      
+      // Handle day overflow (end of month)
+      const daysInMonth = new Date(year, month, 0).getDate();
+      if (endDay > daysInMonth) {
+        endDay = 1;
+        endMonth = month + 1;
+        
+        // Handle month overflow (end of year)
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = year + 1;
+        }
+      }
+    }
+    
+    const endFormatted = formatForCalendar(endYear, endMonth, endDay, endHour, minute || 0);
     
     console.log("[ADMIN-EVENT] Formatted times:", { start: startFormatted, end: endFormatted });
 

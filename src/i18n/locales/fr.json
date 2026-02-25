@@ -277,7 +277,18 @@
     "slot_format": "{{date}} à {{time}} pour {{duration}}h",
     "config_error": "Erreur de configuration",
     "payment_system_error": "Impossible de charger le système de paiement.",
-    "check_availability_error": "Impossible de vérifier la disponibilité. Veuillez réessayer."
+    "check_availability_error": "Impossible de vérifier la disponibilité. Veuillez réessayer.",
+    "composition_desc": "Création d'instrumentaux sur mesure",
+    "composition_remote": "À distance ou en présentiel",
+    "composition_mode_title": "Comment souhaitez-vous travailler ?",
+    "composition_remote_title": "À distance",
+    "composition_remote_desc": "Travail à distance sans réservation de créneau. Pas de paiement requis pour commander.",
+    "composition_onsite_title": "En présentiel",
+    "composition_onsite_desc": "Réservez le studio pour travailler ensemble sur place.",
+    "no_payment_required": "Aucun paiement requis",
+    "deposit_required": "Acompte",
+    "sending_request": "Envoi en cours...",
+    "order_composition": "Commander ma composition"
   },
   "chatbot": {
     "title": "Assistant Studio",

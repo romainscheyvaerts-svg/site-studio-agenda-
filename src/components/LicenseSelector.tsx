@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Check, Star, Crown, Zap } from "lucide-react";
+import { Check, Star, Crown, Zap, Download, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface License {
   id: string;
@@ -47,7 +49,83 @@ const licenseColors: Record<string, string> = {
 const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: LicenseSelectorProps) => {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTrustedUser, setIsTrustedUser] = useState(false);
+  const [downloadingFree, setDownloadingFree] = useState(false);
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Check if user is trusted
+  useEffect(() => {
+    const checkTrustedStatus = async () => {
+      if (!user) {
+        setIsTrustedUser(false);
+        return;
+      }
+      
+      // Direct query to trusted_users table (using 'as any' since table may not be in generated types yet)
+      try {
+        const { data, error } = await (supabase as any)
+          .from("trusted_users")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error("Error checking trusted status:", error);
+          setIsTrustedUser(false);
+        } else {
+          setIsTrustedUser(!!data);
+        }
+      } catch (err) {
+        console.error("Exception checking trusted status:", err);
+        setIsTrustedUser(false);
+      }
+    };
+
+    if (isOpen) {
+      checkTrustedStatus();
+    }
+  }, [user, isOpen]);
+
+  // Handle free download for trusted users (Basic license only)
+  const handleFreeDownload = async () => {
+    if (!instrumental || !user || !isTrustedUser) return;
+    
+    setDownloadingFree(true);
+    try {
+      // Call the deliver-instrumental function with isFree flag
+      const { data, error } = await supabase.functions.invoke("deliver-instrumental", {
+        body: {
+          instrumentalId: instrumental.id,
+          licenseType: "Basic",
+          userId: user.id,
+          isFreeDownload: true, // Trusted user free download
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.downloadUrl) {
+        // Open download link
+        window.open(data.downloadUrl, "_blank");
+        toast({
+          title: t("license.free_download_success", "Téléchargement gratuit !"),
+          description: t("license.free_download_desc", "Votre instrumentale est en cours de téléchargement."),
+        });
+        onClose();
+      }
+    } catch (error: any) {
+      console.error("Free download error:", error);
+      toast({
+        title: t("license.download_error", "Erreur"),
+        description: error.message || t("license.download_error_desc", "Impossible de télécharger l'instrumentale."),
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingFree(false);
+    }
+  };
 
   useEffect(() => {
     const fetchLicenses = async () => {
@@ -108,6 +186,39 @@ const LicenseSelector = ({ instrumental, isOpen, onClose, onSelectLicense }: Lic
             {t("license.for")}: <span className="text-primary font-semibold">{instrumental.title}</span>
           </p>
         </DialogHeader>
+
+        {/* Free download banner for trusted users */}
+        {isTrustedUser && !loading && (
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-500/20 to-green-500/20 border border-emerald-500/30">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-emerald-500/20">
+                  <Gift className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-emerald-400">
+                    {t("license.trusted_user_title", "Utilisateur de confiance")}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("license.trusted_user_desc", "Vous pouvez télécharger gratuitement cette instrumentale (licence Basic)")}
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleFreeDownload}
+                disabled={downloadingFree}
+                className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+              >
+                {downloadingFree ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {t("license.free_download", "Télécharger gratuitement")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12">
