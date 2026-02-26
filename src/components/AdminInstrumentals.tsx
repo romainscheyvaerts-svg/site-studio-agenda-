@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2, Layers, Save, Sparkles, Image, Wand2 } from "lucide-react";
+import { Plus, Edit, Trash2, Music, Eye, EyeOff, FolderSearch, Loader2, Euro, Play, Pause, Volume2, Layers, Save, Sparkles, Image, Wand2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,6 +62,7 @@ const defaultFormData = {
 const AdminInstrumentals = () => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [instrumentals, setInstrumentals] = useState<Instrumental[]>([]);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,7 @@ const AdminInstrumentals = () => {
   const [generatingCover, setGeneratingCover] = useState(false);
   const [generatingTitle, setGeneratingTitle] = useState(false);
   const [suggestedTitles, setSuggestedTitles] = useState<string[]>([]);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const fetchInstrumentals = async () => {
     const { data, error } = await supabase
@@ -438,6 +440,106 @@ const AdminInstrumentals = () => {
     setSuggestedTitles([]);
   };
 
+  // Upload cover image from local file
+  const handleCoverUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Format non supporté",
+        description: "Veuillez sélectionner une image (JPG, PNG, WebP, GIF)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: "Fichier trop volumineux",
+        description: "L'image ne doit pas dépasser 5 Mo",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadingCover(true);
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const timestamp = Date.now();
+      const safeTitle = formData.title 
+        ? formData.title.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30)
+        : 'cover';
+      const fileName = `${safeTitle}-${timestamp}.${fileExt}`;
+
+      // Upload to Supabase Storage (instrumental-covers bucket)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('instrumental-covers')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        // If bucket doesn't exist, try public bucket
+        if (uploadError.message.includes('not found')) {
+          const { data: publicData, error: publicError } = await supabase.storage
+            .from('public')
+            .upload(`instrumental-covers/${fileName}`, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (publicError) throw publicError;
+
+          // Get public URL from public bucket
+          const { data: urlData } = supabase.storage
+            .from('public')
+            .getPublicUrl(`instrumental-covers/${fileName}`);
+
+          setFormData({ ...formData, cover_image_url: urlData.publicUrl });
+        } else {
+          throw uploadError;
+        }
+      } else {
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('instrumental-covers')
+          .getPublicUrl(fileName);
+
+        setFormData({ ...formData, cover_image_url: urlData.publicUrl });
+      }
+
+      toast({
+        title: "Image uploadée !",
+        description: "La cover a été ajoutée avec succès",
+      });
+    } catch (err: any) {
+      console.error("Cover upload error:", err);
+      toast({
+        title: "Erreur d'upload",
+        description: err.message || "Impossible d'uploader l'image",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingCover(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Remove cover image
+  const removeCoverImage = () => {
+    setFormData({ ...formData, cover_image_url: '' });
+  };
+
   const newDriveFiles = driveFiles.filter(f => !f.isInDatabase);
 
   return (
@@ -638,52 +740,126 @@ const AdminInstrumentals = () => {
                     )}
                   </div>
                   
-                  {/* Cover image avec génération IA */}
-                  <div className="col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <Label>Image de couverture</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={generateCover}
-                        disabled={generatingCover}
-                        className="h-7 text-xs"
-                      >
-                        {generatingCover ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            Génération...
-                          </>
-                        ) : (
-                          <>
-                            <Image className="h-3 w-3 mr-1" />
-                            Générer cover IA
-                          </>
-                        )}
-                      </Button>
+                  {/* Cover image avec upload et génération IA */}
+                  <div className="col-span-2 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-foreground font-semibold flex items-center gap-2">
+                        <Image className="h-4 w-4 text-purple-500" />
+                        Image de couverture
+                      </Label>
                     </div>
-                    <Input
-                      value={formData.cover_image_url}
-                      onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
-                      placeholder="https://... ou générez avec l'IA"
-                    />
-                    {/* Preview de la cover */}
-                    {formData.cover_image_url && (
-                      <div className="mt-2 flex items-center gap-3">
-                        <img
-                          src={formData.cover_image_url}
-                          alt="Cover preview"
-                          className="w-20 h-20 rounded-lg object-cover border border-border"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
+                    
+                    {/* Upload et options */}
+                    <div className="space-y-3">
+                      {/* Boutons d'action */}
+                      <div className="flex flex-wrap gap-2">
+                        {/* Upload depuis PC/téléphone */}
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          onChange={handleCoverUpload}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Aperçu de la cover
-                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingCover}
+                          className="h-8"
+                        >
+                          {uploadingCover ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Upload...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-3 w-3 mr-1" />
+                              Uploader une image
+                            </>
+                          )}
+                        </Button>
+                        
+                        {/* Générer avec IA */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={generateCover}
+                          disabled={generatingCover}
+                          className="h-8"
+                        >
+                          {generatingCover ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Génération...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="h-3 w-3 mr-1" />
+                              Générer avec IA
+                            </>
+                          )}
+                        </Button>
                       </div>
-                    )}
+
+                      {/* URL manuelle */}
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Ou entrez une URL directement :
+                        </Label>
+                        <Input
+                          value={formData.cover_image_url}
+                          onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
+                          placeholder="https://..."
+                          className="bg-background/50"
+                        />
+                      </div>
+
+                      {/* Preview de la cover */}
+                      {formData.cover_image_url && (
+                        <div className="mt-3 p-3 bg-background/50 rounded-lg border border-border">
+                          <div className="flex items-start gap-4">
+                            <div className="relative">
+                              <img
+                                src={formData.cover_image_url}
+                                alt="Cover preview"
+                                className="w-24 h-24 rounded-lg object-cover border border-border shadow-lg"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect fill="%23333" width="96" height="96"/><text x="48" y="54" text-anchor="middle" fill="%23666" font-size="12">Erreur</text></svg>';
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                onClick={removeCoverImage}
+                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground mb-1">Aperçu de la cover</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {formData.cover_image_url.length > 50 
+                                  ? formData.cover_image_url.slice(0, 50) + '...' 
+                                  : formData.cover_image_url}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Message d'aide */}
+                      {!formData.cover_image_url && (
+                        <p className="text-xs text-muted-foreground">
+                          💡 Formats supportés : JPG, PNG, WebP, GIF (max 5 Mo)
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="col-span-2 flex items-center gap-2">
