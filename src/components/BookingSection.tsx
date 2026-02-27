@@ -328,6 +328,7 @@ const BookingSection = () => {
   // Location sèche = paiement complet, analog-mastering = 80€ acompte, autres = 50% acompte
   // Si requireFullPayment (code promo prixdami777), paiement à 100%
   // Composition à distance = 0€ (pas de paiement), Composition en présentiel = 20€ d'acompte
+  // Clients de confiance : pas d'acompte pour composition en présentiel
   const paymentAmount = useMemo(() => {
     if (!sessionType) return 0;
     if (skipPayment) return 0; // VIP777 + without-engineer = free booking
@@ -337,8 +338,11 @@ const BookingSection = () => {
       return 0;
     }
     
-    // Composition en présentiel : acompte fixe de 20€
+    // Composition en présentiel : clients de confiance = pas d'acompte, sinon 20€
     if (sessionType === "composition" && compositionMode === "onsite") {
+      if (isTrustedUser) {
+        return 0; // Pas d'acompte pour les clients de confiance
+      }
       return COMPOSITION_ONSITE_DEPOSIT;
     }
     
