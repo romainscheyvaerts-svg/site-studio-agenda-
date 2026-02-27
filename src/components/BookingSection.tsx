@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock, Shield, Calculator } from "lucide-react";
+import { Calendar, Clock, User, Mail, Phone, Euro, Mic, Building2, CreditCard, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink, Music, Headphones, Disc, Radio, Tag, Lock, Shield, Calculator, Link, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -1248,53 +1248,88 @@ const BookingSection = () => {
           <div className="bg-card rounded-2xl border border-border p-8">
             {/* Composition mode selector - Remote or On-site */}
             {sessionType === "composition" && (
-              <div className="mb-6 p-4 rounded-xl bg-pink-500/10 border border-pink-500/30">
-                <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Music className="w-5 h-5 text-pink-500" />
-                  {t("booking.composition_mode_title", "Comment souhaitez-vous travailler ?")}
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Remote option (default) */}
-                  <button
-                    type="button"
-                    onClick={() => setCompositionMode("remote")}
-                    className={cn(
-                      "p-4 rounded-xl border-2 text-left transition-all duration-300",
-                      compositionMode === "remote"
-                        ? "border-pink-500 bg-pink-500/20"
-                        : "border-border bg-card hover:border-pink-500/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">🌐</span>
-                      <span className="font-semibold text-foreground">{t("booking.composition_remote_title", "À distance")}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t("booking.composition_remote_desc", "Travail à distance sans réservation de créneau. Pas de paiement requis pour commander.")}
-                    </p>
-                    <p className="text-xs text-green-500 mt-2 font-medium">✓ {t("booking.no_payment_required", "Aucun paiement requis")}</p>
-                  </button>
+              <div className="mb-6 space-y-4">
+                {/* Mode selection */}
+                <div className="p-4 rounded-xl bg-pink-500/10 border border-pink-500/30">
+                  <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Music className="w-5 h-5 text-pink-500" />
+                    {t("booking.composition_mode_title", "Comment souhaitez-vous travailler ?")}
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Remote option (default) */}
+                    <button
+                      type="button"
+                      onClick={() => setCompositionMode("remote")}
+                      className={cn(
+                        "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                        compositionMode === "remote"
+                          ? "border-pink-500 bg-pink-500/20"
+                          : "border-border bg-card hover:border-pink-500/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">🌐</span>
+                        <span className="font-semibold text-foreground">{t("booking.composition_remote_title", "À distance")}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("booking.composition_remote_desc", "Travail à distance sans réservation de créneau. Pas de paiement requis pour commander.")}
+                      </p>
+                      <p className="text-xs text-green-500 mt-2 font-medium">✓ {t("booking.no_payment_required", "Aucun paiement requis")}</p>
+                    </button>
 
-                  {/* On-site option */}
-                  <button
-                    type="button"
-                    onClick={() => setCompositionMode("onsite")}
-                    className={cn(
-                      "p-4 rounded-xl border-2 text-left transition-all duration-300",
-                      compositionMode === "onsite"
-                        ? "border-pink-500 bg-pink-500/20"
-                        : "border-border bg-card hover:border-pink-500/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">🏢</span>
-                      <span className="font-semibold text-foreground">{t("booking.composition_onsite_title", "En présentiel")}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t("booking.composition_onsite_desc", "Réservez le studio pour travailler ensemble sur place.")}
-                    </p>
-                    <p className="text-xs text-accent mt-2 font-medium">💳 {t("booking.deposit_required", "Acompte")} : {COMPOSITION_ONSITE_DEPOSIT}€</p>
-                  </button>
+                    {/* On-site option */}
+                    <button
+                      type="button"
+                      onClick={() => setCompositionMode("onsite")}
+                      className={cn(
+                        "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                        compositionMode === "onsite"
+                          ? "border-pink-500 bg-pink-500/20"
+                          : "border-border bg-card hover:border-pink-500/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">🏢</span>
+                        <span className="font-semibold text-foreground">{t("booking.composition_onsite_title", "En présentiel")}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("booking.composition_onsite_desc", "Réservez le studio pour travailler ensemble sur place.")}
+                      </p>
+                      <p className="text-xs text-accent mt-2 font-medium">💳 {t("booking.deposit_required", "Acompte")} : {COMPOSITION_ONSITE_DEPOSIT}€</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section d'informations pour la composition - Email et références */}
+                <div className="p-4 rounded-xl bg-secondary/50 border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Mail className="w-5 h-5 text-pink-500" />
+                    <span className="font-semibold text-foreground">{t("booking.composition_send_refs", "Envoyez vos références")}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {t("booking.composition_refs_desc", "Pour nous aider à comprendre votre vision, envoyez-nous des exemples de morceaux qui vous inspirent par email :")}
+                  </p>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-pink-500/10 border border-pink-500/30">
+                    <span className="font-mono text-pink-500 font-semibold flex-1">prod.makemusic@gmail.com</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText("prod.makemusic@gmail.com");
+                        toast({
+                          title: t("booking.email_copied", "Email copié !"),
+                          description: "prod.makemusic@gmail.com",
+                        });
+                      }}
+                      className="h-8 px-2 text-pink-500 hover:bg-pink-500/20"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    💡 {t("booking.composition_tips", "Vous pouvez envoyer des liens YouTube, Spotify, SoundCloud ou tout autre lien vers des morceaux de référence.")}
+                  </p>
                 </div>
               </div>
             )}
