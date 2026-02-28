@@ -114,12 +114,40 @@ const MyAccount = () => {
   const [stats, setStats] = useState<ClientStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
+
+  const fetchBookings = async () => {
+    if (!user?.email) return;
+    
+    try {
+      // Fetch future bookings from the bookings table
+      const today = new Date().toISOString().split("T")[0];
+      const { data: bookingsData, error: bookingsError } = await (supabase as any)
+        .from("bookings")
+        .select("*")
+        .eq("client_email", user.email)
+        .gte("session_date", today)
+        .neq("status", "cancelled")
+        .order("session_date", { ascending: true });
+
+      if (bookingsError) {
+        console.error("Error fetching bookings:", bookingsError);
+      } else {
+        setBookings(bookingsData || []);
+      }
+    } catch (err) {
+      console.error("Error fetching bookings:", err);
+    }
+  };
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -139,6 +167,9 @@ const MyAccount = () => {
         } else {
           setSessions(sessionsData || []);
         }
+
+        // Fetch future bookings
+        await fetchBookings();
 
         // Calculate stats
         const dataToUse = sessionsData || [];
@@ -171,6 +202,48 @@ const MyAccount = () => {
       fetchClientData();
     }
   }, [user]);
+
+  const handleCancelBooking = async () => {
+    if (!selectedBooking) return;
+    
+    setCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("cancel-booking", {
+        body: {
+          bookingId: selectedBooking.id,
+          reason: cancellationReason || "Annulation par le client"
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: t("account.booking_cancelled"),
+        description: t("account.booking_cancelled_desc"),
+      });
+
+      // Refresh bookings
+      await fetchBookings();
+      setCancelDialogOpen(false);
+      setSelectedBooking(null);
+      setCancellationReason("");
+    } catch (err) {
+      console.error("Error cancelling booking:", err);
+      toast({
+        title: t("account.cancel_error"),
+        description: t("account.cancel_error_desc"),
+        variant: "destructive"
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const openCancelDialog = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setCancellationReason("");
+    setCancelDialogOpen(true);
+  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -299,11 +372,99 @@ const MyAccount = () => {
           </div>
         )}
 
+        {/* Upcoming Sessions */}
+        <Card className="bg-card mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="w-5 h-5 text-primary" />
+              {t("account.upcoming_sessions", "Sessions à venir")}
+            </CardTitle>
+            <CardDescription>
+              {t("account.upcoming_sessions_desc", "Vos réservations confirmées à venir. Vous pouvez les annuler si nécessaire.")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {bookings.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground">{t("account.no_upcoming_sessions", "Aucune session à venir")}</p>
+                <Button
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => navigate("/reservation")}
+                >
+                  {t("account.book_session", "Réserver une session")}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {bookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="p-4 rounded-lg border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "flex items-center gap-1",
+                              sessionTypeColors[booking.session_type] || "bg-primary/20 text-primary border-primary/30"
+                            )}
+                          >
+                            {sessionTypeIcons[booking.session_type] || <Calendar className="w-4 h-4" />}
+                            {getSessionTypeName(booking.session_type)}
+                          </Badge>
+                          <Badge variant="outline" className="flex items-center gap-1 bg-green-500/20 text-green-400 border-green-500/30">
+                            <Clock className="w-3 h-3" />
+                            {t("account.confirmed", "Confirmée")}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-sm text-foreground font-medium">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4 text-primary" />
+                            {formatDate(booking.session_date)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4 text-primary" />
+                            {booking.start_time} - {booking.end_time}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {booking.duration_hours}h
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2">
+                        <p className="text-lg font-display text-foreground">
+                          {booking.amount_paid}€ {t("account.paid", "payé")}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openCancelDialog(booking)}
+                          className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          {t("account.cancel_booking", "Annuler")}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Sessions History */}
         <Card className="bg-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-primary" />
+              <History className="w-5 h-5 text-muted-foreground" />
               {t("account.session_history")}
             </CardTitle>
             <CardDescription>
@@ -415,6 +576,87 @@ const MyAccount = () => {
           </Card>
         )}
       </main>
+
+      {/* Cancel Booking Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              {t("account.cancel_booking_title", "Annuler cette réservation ?")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("account.cancel_booking_warning", "Cette action est irréversible. Votre réservation sera annulée et le créneau sera libéré.")}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedBooking && (
+            <div className="p-4 rounded-lg bg-secondary/50 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "flex items-center gap-1",
+                    sessionTypeColors[selectedBooking.session_type] || "bg-primary/20 text-primary border-primary/30"
+                  )}
+                >
+                  {sessionTypeIcons[selectedBooking.session_type] || <Calendar className="w-4 h-4" />}
+                  {getSessionTypeName(selectedBooking.session_type)}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  {formatDate(selectedBooking.session_date)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4 text-primary" />
+                  {selectedBooking.start_time} - {selectedBooking.end_time}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              {t("account.cancel_reason", "Raison de l'annulation (optionnel)")}
+            </label>
+            <Textarea
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder={t("account.cancel_reason_placeholder", "Ex: Changement de planning, imprévu...")}
+              className="min-h-[80px]"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              disabled={cancelling}
+            >
+              {t("common.cancel", "Annuler")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelBooking}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t("account.cancelling", "Annulation...")}
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  {t("account.confirm_cancel", "Confirmer l'annulation")}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
