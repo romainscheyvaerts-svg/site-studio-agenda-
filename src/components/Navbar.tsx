@@ -30,24 +30,46 @@ const Navbar = () => {
       return;
     }
 
+    if (!user?.email) {
+      toast.error("Email utilisateur non disponible");
+      return;
+    }
+
     setIsLoadingDrive(true);
     try {
+      console.log("[DRIVE] Fetching folder for user:", user.email);
+      
       const { data, error } = await supabase.functions.invoke("get-client-drive-folder", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
 
-      if (error) throw error;
+      console.log("[DRIVE] Response:", { data, error });
+
+      if (error) {
+        console.error("[DRIVE] Function error:", error);
+        throw error;
+      }
+
+      // Check if there's an error in the response data
+      if (data?.error) {
+        console.error("[DRIVE] Response error:", data.error);
+        toast.error(`Erreur: ${data.error}`);
+        return;
+      }
 
       if (data?.found && data?.folderLink) {
+        console.log("[DRIVE] Opening folder:", data.folderLink);
         window.open(data.folderLink, "_blank");
       } else {
+        console.log("[DRIVE] No folder found for email:", data?.clientEmail);
         toast.info("Aucun dossier Drive trouvé. Un dossier sera créé lors de votre prochaine réservation.");
       }
-    } catch (error) {
-      console.error("Error fetching Drive folder:", error);
-      toast.error("Impossible d'accéder au dossier Drive");
+    } catch (error: unknown) {
+      console.error("[DRIVE] Error fetching Drive folder:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      toast.error(`Impossible d'accéder au dossier Drive: ${errorMessage}`);
     } finally {
       setIsLoadingDrive(false);
     }

@@ -12,6 +12,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("[GET-CLIENT-DRIVE-FOLDER] Starting request");
+    
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -21,12 +23,19 @@ serve(async (req) => {
 
     // Check for authorization header (logged-in user)
     const authHeader = req.headers.get("authorization");
+    console.log("[GET-CLIENT-DRIVE-FOLDER] Auth header present:", !!authHeader);
+    
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       const { data: userData, error: authError } = await supabase.auth.getUser(token);
 
+      if (authError) {
+        console.error("[GET-CLIENT-DRIVE-FOLDER] Auth error:", authError.message);
+      }
+
       if (!authError && userData?.user?.email) {
         clientEmail = userData.user.email.toLowerCase().trim();
+        console.log("[GET-CLIENT-DRIVE-FOLDER] Email from auth:", clientEmail);
       }
     }
 
@@ -36,13 +45,16 @@ serve(async (req) => {
         const body = await req.json();
         if (body.clientEmail) {
           clientEmail = body.clientEmail.toLowerCase().trim();
+          console.log("[GET-CLIENT-DRIVE-FOLDER] Email from body:", clientEmail);
         }
       } catch {
         // No body or invalid JSON
+        console.log("[GET-CLIENT-DRIVE-FOLDER] No body or invalid JSON");
       }
     }
 
     if (!clientEmail) {
+      console.log("[GET-CLIENT-DRIVE-FOLDER] No email found");
       return new Response(
         JSON.stringify({ error: "Email not provided or not authenticated" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -50,6 +62,8 @@ serve(async (req) => {
     }
 
     // Look up the client's root Drive folder
+    console.log("[GET-CLIENT-DRIVE-FOLDER] Looking up folder for email:", clientEmail);
+    
     const { data: folderData, error: dbError } = await supabase
       .from("client_drive_folders")
       .select("drive_folder_id, drive_folder_link, client_name")
@@ -57,10 +71,34 @@ serve(async (req) => {
       .maybeSingle();
 
     if (dbError) {
+      console.error("[GET-CLIENT-DRIVE-FOLDER] DB error:", dbError.message);
       throw new Error(`Database error: ${dbError.message}`);
     }
 
+    console.log("[GET-CLIENT-DRIVE-FOLDER] Folder data found:", !!folderData);
+
     if (!folderData) {
+      // Also try to search with ILIKE for case-insensitive matching
+      const { data: ilikeFolderData, error: ilikeError } = await supabase
+        .from("client_drive_folders")
+        .select("drive_folder_id, drive_folder_link, client_name, client_email")
+        .ilike("client_email", clientEmail)
+        .maybeSingle();
+      
+      if (!ilikeError && ilikeFolderData) {
+        console.log("[GET-CLIENT-DRIVE-FOLDER] Found folder with ilike, stored email:", ilikeFolderData.client_email);
+        return new Response(
+          JSON.stringify({
+            found: true,
+            folderId: ilikeFolderData.drive_folder_id,
+            folderLink: ilikeFolderData.drive_folder_link,
+            clientName: ilikeFolderData.client_name,
+            clientEmail: ilikeFolderData.client_email
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({
           found: false,
@@ -71,6 +109,8 @@ serve(async (req) => {
       );
     }
 
+    console.log("[GET-CLIENT-DRIVE-FOLDER] Returning folder:", folderData.drive_folder_link);
+    
     return new Response(
       JSON.stringify({
         found: true,
@@ -84,6 +124,7 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    console.error("[GET-CLIENT-DRIVE-FOLDER] Error:", errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
