@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { Mic, Phone, Mail, MapPin } from "lucide-react";
+import { Mic, Phone, Mail, MapPin, Share2 } from "lucide-react";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+const LINKTREE_URL = "https://linktr.ee/StudioMakemusic";
 
 const Footer = () => {
   const { t } = useTranslation();
@@ -43,6 +46,19 @@ const Footer = () => {
                 Bruxelles
               </span>
             </div>
+
+            {/* Social Media / Linktree Button */}
+            <div className="flex justify-center">
+              <Button
+                asChild
+                className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-semibold px-6 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <a href={LINKTREE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4" />
+                  Nos Réseaux Sociaux
+                </a>
+              </Button>
+            </div>
             
             {/* Copyright */}
             <div className="border-t border-border pt-4 text-center">
@@ -54,7 +70,7 @@ const Footer = () => {
         ) : (
           // Desktop Footer
           <>
-            <div className="grid gap-8 mb-8 md:grid-cols-3">
+            <div className="grid gap-8 mb-8 md:grid-cols-4">
               {/* Brand */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
@@ -93,6 +109,25 @@ const Footer = () => {
                   <li>+32 476 09 41 72</li>
                   <li>Bruxelles, Belgique</li>
                 </ul>
+              </div>
+
+              {/* Social Media */}
+              <div>
+                <h4 className="font-display text-lg text-foreground mb-4">
+                  SUIVEZ-NOUS
+                </h4>
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 w-full"
+                >
+                  <a href={LINKTREE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
+                    <Share2 className="w-5 h-5" />
+                    Nos Réseaux Sociaux
+                  </a>
+                </Button>
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  Instagram • TikTok • YouTube • Spotify
+                </p>
               </div>
             </div>
 
