@@ -2,29 +2,78 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Mic, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Menu, X, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2, Users, Calendar, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
 import ViewModeToggle from "./ViewModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+interface CurrentSessionDriveInfo {
+  parentFolderLink: string;
+  hasCurrentSession: boolean;
+  clientName?: string;
+  clientEmail?: string;
+  clientFolderLink?: string;
+  sessionFolderLink?: string;
+  sessionDate?: string;
+}
+
 const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut, session } = useAuth();
+  const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoadingDrive, setIsLoadingDrive] = useState(false);
+  const [currentSessionInfo, setCurrentSessionInfo] = useState<CurrentSessionDriveInfo | null>(null);
+  const [isDriveDropdownOpen, setIsDriveDropdownOpen] = useState(false);
 
   const isHomePage = location.pathname === "/";
 
-  // Function to open user's Drive folder
-  const openDriveFolder = async () => {
+  // Fetch current session info for admins
+  useEffect(() => {
+    if (isAdmin && session?.access_token) {
+      fetchCurrentSessionInfo();
+      // Refresh every 5 minutes
+      const interval = setInterval(fetchCurrentSessionInfo, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin, session?.access_token]);
+
+  const fetchCurrentSessionInfo = async () => {
+    if (!session?.access_token) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("get-current-session-drive", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!error && data) {
+        setCurrentSessionInfo(data);
+      }
+    } catch (error) {
+      console.error("[DRIVE] Error fetching current session info:", error);
+    }
+  };
+
+  // Function to open user's Drive folder (for non-admins)
+  const openUserDriveFolder = async () => {
     if (!session?.access_token) {
       toast.error("Veuillez vous reconnecter");
       return;
@@ -52,7 +101,6 @@ const Navbar = () => {
         throw error;
       }
 
-      // Check if there's an error in the response data
       if (data?.error) {
         console.error("[DRIVE] Response error:", data.error);
         toast.error(`Erreur: ${data.error}`);
@@ -72,6 +120,34 @@ const Navbar = () => {
       toast.error(`Impossible d'accéder au dossier Drive: ${errorMessage}`);
     } finally {
       setIsLoadingDrive(false);
+    }
+  };
+
+  // Admin Drive functions
+  const openAllClientsFolder = () => {
+    if (currentSessionInfo?.parentFolderLink) {
+      window.open(currentSessionInfo.parentFolderLink, "_blank");
+    } else {
+      // Fallback to hardcoded link
+      window.open("https://drive.google.com/drive/folders/1hmo7HY7xX_mvXXm6vUCRuR2HB6C49Y-r", "_blank");
+    }
+  };
+
+  const openCurrentClientFolder = () => {
+    if (currentSessionInfo?.clientFolderLink) {
+      window.open(currentSessionInfo.clientFolderLink, "_blank");
+    } else {
+      toast.info("Aucune session en cours ou dossier client non trouvé");
+    }
+  };
+
+  const openCurrentSessionFolder = () => {
+    if (currentSessionInfo?.sessionFolderLink) {
+      window.open(currentSessionInfo.sessionFolderLink, "_blank");
+    } else if (currentSessionInfo?.hasCurrentSession) {
+      toast.info("Le dossier de cette session n'existe pas encore");
+    } else {
+      toast.info("Aucune session en cours");
     }
   };
   
@@ -94,6 +170,126 @@ const Navbar = () => {
     { label: t("nav.pricing"), path: "/offres" },
     { label: t("nav.booking"), path: "/reservation" },
   ];
+
+  // Admin Drive Dropdown Button (Desktop)
+  const AdminDriveDropdown = () => (
+    <DropdownMenu open={isDriveDropdownOpen} onOpenChange={setIsDriveDropdownOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          {isLoadingDrive ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FolderOpen className="w-4 h-4" />
+          )}
+          Drive
+          <ChevronDown className="w-3 h-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onClick={openAllClientsFolder} className="cursor-pointer">
+          <Users className="w-4 h-4 mr-2" />
+          <span>Tous les clients</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
+          onClick={openCurrentClientFolder} 
+          className="cursor-pointer"
+          disabled={!currentSessionInfo?.hasCurrentSession}
+        >
+          <FolderOpen className="w-4 h-4 mr-2" />
+          <div className="flex flex-col">
+            <span>Dossier du client</span>
+            {currentSessionInfo?.hasCurrentSession && currentSessionInfo?.clientName && (
+              <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                {currentSessionInfo.clientName}
+              </span>
+            )}
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuItem 
+          onClick={openCurrentSessionFolder} 
+          className="cursor-pointer"
+          disabled={!currentSessionInfo?.sessionFolderLink}
+        >
+          <Calendar className="w-4 h-4 mr-2" />
+          <div className="flex flex-col">
+            <span>Dossier de la session</span>
+            {currentSessionInfo?.sessionDate && (
+              <span className="text-xs text-muted-foreground">
+                {currentSessionInfo.sessionDate}
+              </span>
+            )}
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  // Mobile Admin Drive options
+  const MobileAdminDriveOptions = () => (
+    <>
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full h-14 text-lg"
+        onClick={() => {
+          setIsMobileMenuOpen(false);
+          openAllClientsFolder();
+        }}
+      >
+        <Users className="w-5 h-5 mr-2" />
+        TOUS LES CLIENTS
+      </Button>
+      {currentSessionInfo?.hasCurrentSession && (
+        <>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              openCurrentClientFolder();
+            }}
+            disabled={!currentSessionInfo?.clientFolderLink}
+          >
+            <FolderOpen className="w-5 h-5 mr-2" />
+            <div className="flex flex-col items-start">
+              <span>DOSSIER CLIENT</span>
+              {currentSessionInfo?.clientName && (
+                <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                  {currentSessionInfo.clientName}
+                </span>
+              )}
+            </div>
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              openCurrentSessionFolder();
+            }}
+            disabled={!currentSessionInfo?.sessionFolderLink}
+          >
+            <Calendar className="w-5 h-5 mr-2" />
+            <div className="flex flex-col items-start">
+              <span>SESSION EN COURS</span>
+              {currentSessionInfo?.sessionDate && (
+                <span className="text-xs text-muted-foreground">
+                  {currentSessionInfo.sessionDate}
+                </span>
+              )}
+            </div>
+          </Button>
+        </>
+      )}
+    </>
+  );
 
   return (
     <nav
@@ -159,21 +355,28 @@ const Navbar = () => {
                   <ShoppingBag className="w-4 h-4" />
                   Mes Achats
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openDriveFolder}
-                  disabled={isLoadingDrive}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                  title="Accéder à mon dossier Google Drive"
-                >
-                  {isLoadingDrive ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <FolderOpen className="w-4 h-4" />
-                  )}
-                  Mon Drive
-                </Button>
+                
+                {/* Drive button - different for admin vs regular users */}
+                {isAdmin ? (
+                  <AdminDriveDropdown />
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={openUserDriveFolder}
+                    disabled={isLoadingDrive}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                    title="Accéder à mon dossier Google Drive"
+                  >
+                    {isLoadingDrive ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FolderOpen className="w-4 h-4" />
+                    )}
+                    Mon Drive
+                  </Button>
+                )}
+                
                 <Button variant="neon" onClick={() => goToPage("/reservation")}>
                   {t("nav.booking").toUpperCase()}
                 </Button>
@@ -269,23 +472,30 @@ const Navbar = () => {
                       <ShoppingBag className="w-5 h-5 mr-2" />
                       MES ACHATS
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full h-14 text-lg"
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        openDriveFolder();
-                      }}
-                      disabled={isLoadingDrive}
-                    >
-                      {isLoadingDrive ? (
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      ) : (
-                        <FolderOpen className="w-5 h-5 mr-2" />
-                      )}
-                      MON DRIVE
-                    </Button>
+                    
+                    {/* Drive options - different for admin vs regular users */}
+                    {isAdmin ? (
+                      <MobileAdminDriveOptions />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full h-14 text-lg"
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          openUserDriveFolder();
+                        }}
+                        disabled={isLoadingDrive}
+                      >
+                        {isLoadingDrive ? (
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <FolderOpen className="w-5 h-5 mr-2" />
+                        )}
+                        MON DRIVE
+                      </Button>
+                    )}
+                    
                     <Button
                       variant="ghost"
                       size="lg"
