@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, createContext, useContext, ReactNode, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const driveCreationAttempted = useRef<Set<string>>(new Set());
 
   // Log activity
   const logActivity = async (action: string, userEmail?: string, userId?: string) => {
@@ -33,6 +34,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
     } catch (error) {
       console.error("Failed to log activity:", error);
+    }
+  };
+
+  // Create Drive folder for new user
+  const createDriveFolderForUser = async (accessToken: string, userEmail: string) => {
+    // Prevent multiple attempts for the same user in the same session
+    if (driveCreationAttempted.current.has(userEmail)) {
+      return;
+    }
+    driveCreationAttempted.current.add(userEmail);
+
+    try {
+      console.log("[AUTH] Creating Drive folder for user:", userEmail);
+      
+      const { data, error } = await supabase.functions.invoke("create-client-drive-on-signup", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (error) {
+        console.error("[AUTH] Error creating Drive folder:", error);
+        return;
+      }
+
+      if (data?.success) {
+        if (data.alreadyExists) {
+          console.log("[AUTH] Drive folder already exists for:", userEmail);
+        } else {
+          console.log("[AUTH] Drive folder created successfully for:", userEmail);
+        }
+      }
+    } catch (error) {
+      console.error("[AUTH] Failed to create Drive folder:", error);
     }
   };
 
@@ -69,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -77,8 +112,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Log auth events (without exposing PII in console)
         if (event === "SIGNED_IN" && session?.user) {
           logActivity("login", session.user.email, session.user.id);
+          
+          // Create Drive folder for user (will check if already exists)
+          if (session.access_token && session.user.email) {
+            // Use setTimeout to avoid blocking the auth flow
+            setTimeout(() => {
+              createDriveFolderForUser(session.access_token, session.user.email!);
+            }, 1000);
+          }
         } else if (event === "SIGNED_OUT") {
           logActivity("logout");
+          // Clear the drive creation tracking on logout
+          driveCreationAttempted.current.clear();
         }
       }
     );
@@ -88,6 +133,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session) {
         setSession(session);
         setUser(session.user);
+        
+        // Also attempt to create Drive folder for existing sessions
+        // This ensures folders are created for users who signed up before this feature
+        if (session.access_token && session.user.email) {
+          setTimeout(() => {
+            createDriveFolderForUser(session.access_token, session.user.email!);
+          }, 2000);
+        }
       }
       setLoading(false);
     });
@@ -100,6 +153,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Ensure local auth state is cleared even if the listener misses the event
     setUser(null);
     setSession(null);
+    // Clear the drive creation tracking on logout
+    driveCreationAttempted.current.clear();
   };
 
   return (
