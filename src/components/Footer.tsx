@@ -150,7 +150,7 @@ const Footer = () => {
             {/* Copyright */}
             <div className="border-t border-border pt-4 text-center">
               <p className="text-[10px] text-muted-foreground">
-                © 2024 Make Music. {t("footer.rights")}.
+                © {new Date().getFullYear()} Make Music. {t("footer.rights")}.
               </p>
             </div>
           </div>
@@ -303,7 +303,7 @@ const Footer = () => {
 
             <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
               <p className="text-xs text-muted-foreground">
-                © 2024 Make Music. {t("footer.rights")}.
+                © {new Date().getFullYear()} Make Music. {t("footer.rights")}.
               </p>
               <div className="flex gap-6 text-xs text-muted-foreground">
                 <a href="#" className="hover:text-foreground transition-colors">{t("footer.legal")}</a>

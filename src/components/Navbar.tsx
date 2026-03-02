@@ -125,12 +125,8 @@ const Navbar = () => {
 
   // Admin Drive functions
   const openAllClientsFolder = () => {
-    if (currentSessionInfo?.parentFolderLink) {
-      window.open(currentSessionInfo.parentFolderLink, "_blank");
-    } else {
-      // Fallback to hardcoded link
-      window.open("https://drive.google.com/drive/folders/1hmo7HY7xX_mvXXm6vUCRuR2HB6C49Y-r", "_blank");
-    }
+    // Use the correct parent folder link (CLOUD CLIENT MAKE MUSIC)
+    window.open("https://drive.google.com/drive/folders/1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh", "_blank");
   };
 
   const openCurrentClientFolder = () => {
