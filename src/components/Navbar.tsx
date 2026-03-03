@@ -92,23 +92,27 @@ const Navbar = () => {
     }
   };
 
-  // Fetch all client folders for admin
+  // Fetch all client folders for admin using Edge function (bypasses RLS)
   const fetchClientFolders = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !session?.access_token) return;
     
     setIsLoadingClients(true);
     try {
-      const { data, error } = await supabase
-        .from("client_drive_folders")
-        .select("*")
-        .order("client_name", { ascending: true });
+      const { data, error } = await supabase.functions.invoke("list-client-drive-folders", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
       if (error) {
         console.error("[DRIVE] Error fetching client folders:", error);
         return;
       }
 
-      setClientFolders(data || []);
+      if (data?.success && data?.folders) {
+        setClientFolders(data.folders);
+        console.log("[DRIVE] Loaded", data.folders.length, "client folders");
+      }
     } catch (error) {
       console.error("[DRIVE] Error fetching client folders:", error);
     } finally {
