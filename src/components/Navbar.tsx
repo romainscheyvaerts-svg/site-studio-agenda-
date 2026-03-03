@@ -8,8 +8,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2, Users, Calendar, ChevronDown } from "lucide-react";
+import { Menu, X, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2, Users, Calendar, ChevronDown, Search, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +22,8 @@ import { useViewMode } from "@/hooks/useViewMode";
 import ViewModeToggle from "./ViewModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CurrentSessionDriveInfo {
   parentFolderLink: string;
@@ -27,6 +33,15 @@ interface CurrentSessionDriveInfo {
   clientFolderLink?: string;
   sessionFolderLink?: string;
   sessionDate?: string;
+}
+
+interface ClientFolder {
+  id: string;
+  client_email: string;
+  client_name: string;
+  drive_folder_id: string;
+  drive_folder_link: string;
+  created_at: string;
 }
 
 const Navbar = () => {
@@ -41,6 +56,10 @@ const Navbar = () => {
   const [isLoadingDrive, setIsLoadingDrive] = useState(false);
   const [currentSessionInfo, setCurrentSessionInfo] = useState<CurrentSessionDriveInfo | null>(null);
   const [isDriveDropdownOpen, setIsDriveDropdownOpen] = useState(false);
+  const [clientFolders, setClientFolders] = useState<ClientFolder[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [showClientsList, setShowClientsList] = useState(false);
 
   const isHomePage = location.pathname === "/";
 
@@ -48,6 +67,7 @@ const Navbar = () => {
   useEffect(() => {
     if (isAdmin && session?.access_token) {
       fetchCurrentSessionInfo();
+      fetchClientFolders();
       // Refresh every 5 minutes
       const interval = setInterval(fetchCurrentSessionInfo, 5 * 60 * 1000);
       return () => clearInterval(interval);
@@ -71,6 +91,39 @@ const Navbar = () => {
       console.error("[DRIVE] Error fetching current session info:", error);
     }
   };
+
+  // Fetch all client folders for admin
+  const fetchClientFolders = async () => {
+    if (!isAdmin) return;
+    
+    setIsLoadingClients(true);
+    try {
+      const { data, error } = await supabase
+        .from("client_drive_folders")
+        .select("*")
+        .order("client_name", { ascending: true });
+
+      if (error) {
+        console.error("[DRIVE] Error fetching client folders:", error);
+        return;
+      }
+
+      setClientFolders(data || []);
+    } catch (error) {
+      console.error("[DRIVE] Error fetching client folders:", error);
+    } finally {
+      setIsLoadingClients(false);
+    }
+  };
+
+  // Filter clients based on search query
+  const filteredClients = clientFolders.filter(client => {
+    const query = clientSearchQuery.toLowerCase();
+    return (
+      client.client_name?.toLowerCase().includes(query) ||
+      client.client_email?.toLowerCase().includes(query)
+    );
+  });
 
   // Function to open user's Drive folder (for non-admins)
   const openUserDriveFolder = async () => {
@@ -129,6 +182,10 @@ const Navbar = () => {
     window.open("https://drive.google.com/drive/folders/1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh", "_blank");
   };
 
+  const openClientFolder = (folderLink: string) => {
+    window.open(folderLink, "_blank");
+  };
+
   const openCurrentClientFolder = () => {
     if (currentSessionInfo?.clientFolderLink) {
       window.open(currentSessionInfo.clientFolderLink, "_blank");
@@ -185,12 +242,79 @@ const Navbar = () => {
           <ChevronDown className="w-3 h-3" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={openAllClientsFolder} className="cursor-pointer">
-          <Users className="w-4 h-4 mr-2" />
-          <span>Tous les clients</span>
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-64">
+        {/* Sub-menu for all clients */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="cursor-pointer">
+            <Users className="w-4 h-4 mr-2" />
+            <span>Tous les clients</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              ({clientFolders.length})
+            </span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent className="w-72 p-0">
+              {/* Search input */}
+              <div className="p-2 border-b">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher un client..."
+                    value={clientSearchQuery}
+                    onChange={(e) => setClientSearchQuery(e.target.value)}
+                    className="pl-8 h-8 text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+              
+              {/* Open all clients folder */}
+              <DropdownMenuItem 
+                onClick={openAllClientsFolder} 
+                className="cursor-pointer border-b text-primary"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                <span>Ouvrir dossier principal</span>
+              </DropdownMenuItem>
+              
+              {/* Client list */}
+              <ScrollArea className="h-[300px]">
+                {isLoadingClients ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  </div>
+                ) : filteredClients.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    {clientSearchQuery ? "Aucun résultat" : "Aucun client"}
+                  </div>
+                ) : (
+                  filteredClients.map((client) => (
+                    <DropdownMenuItem
+                      key={client.id}
+                      onClick={() => openClientFolder(client.drive_folder_link)}
+                      className="cursor-pointer py-2"
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2 flex-shrink-0 text-amber-500" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate font-medium">
+                          {client.client_name || client.client_email}
+                        </span>
+                        {client.client_name && client.client_name !== client.client_email && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            {client.client_email}
+                          </span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </ScrollArea>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+        
         <DropdownMenuSeparator />
+        
         <DropdownMenuItem 
           onClick={openCurrentClientFolder} 
           className="cursor-pointer"
@@ -233,13 +357,69 @@ const Navbar = () => {
         size="lg"
         className="w-full h-14 text-lg"
         onClick={() => {
-          setIsMobileMenuOpen(false);
-          openAllClientsFolder();
+          setShowClientsList(!showClientsList);
         }}
       >
         <Users className="w-5 h-5 mr-2" />
-        TOUS LES CLIENTS
+        TOUS LES CLIENTS ({clientFolders.length})
+        <ChevronDown className={cn("w-4 h-4 ml-auto transition-transform", showClientsList && "rotate-180")} />
       </Button>
+      
+      {/* Mobile clients list */}
+      {showClientsList && (
+        <div className="bg-secondary/50 rounded-lg p-3 space-y-2 max-h-[300px] overflow-y-auto">
+          {/* Search */}
+          <div className="relative mb-2">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher..."
+              value={clientSearchQuery}
+              onChange={(e) => setClientSearchQuery(e.target.value)}
+              className="pl-8 h-9 text-sm"
+            />
+          </div>
+          
+          {/* Open main folder */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-primary"
+            onClick={() => {
+              openAllClientsFolder();
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Ouvrir dossier principal
+          </Button>
+          
+          {/* Client list */}
+          {filteredClients.map((client) => (
+            <Button
+              key={client.id}
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                openClientFolder(client.drive_folder_link);
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              <FolderOpen className="w-4 h-4 mr-2 text-amber-500" />
+              <span className="truncate">
+                {client.client_name || client.client_email}
+              </span>
+            </Button>
+          ))}
+          
+          {filteredClients.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-2">
+              {clientSearchQuery ? "Aucun résultat" : "Aucun client"}
+            </p>
+          )}
+        </div>
+      )}
+      
       {currentSessionInfo?.hasCurrentSession && (
         <>
           <Button
