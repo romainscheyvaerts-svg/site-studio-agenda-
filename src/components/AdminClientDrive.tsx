@@ -51,13 +51,25 @@ const AdminClientDrive = () => {
 
   const fetchData = async () => {
     try {
-      // Récupérer tous les dossiers clients
-      const { data: foldersData, error: foldersError } = await supabase
-        .from("client_drive_folders")
-        .select("*")
-        .order("client_name");
+      // Récupérer tous les dossiers clients DIRECTEMENT depuis Google Drive
+      console.log("[AdminClientDrive] Fetching folders from Google Drive...");
+      
+      const { data: foldersResponse, error: foldersError } = await supabase.functions.invoke(
+        "list-client-drive-folders"
+      );
 
-      if (foldersError) throw foldersError;
+      if (foldersError) {
+        console.error("[AdminClientDrive] Edge function error:", foldersError);
+        throw foldersError;
+      }
+
+      if (!foldersResponse?.success) {
+        console.error("[AdminClientDrive] API error:", foldersResponse?.error);
+        throw new Error(foldersResponse?.error || "Erreur lors de la récupération des dossiers");
+      }
+
+      const foldersData = foldersResponse.folders || [];
+      console.log("[AdminClientDrive] Got", foldersData.length, "folders from Google Drive");
 
       // Récupérer les réservations du jour
       const today = new Date().toISOString().split("T")[0];
