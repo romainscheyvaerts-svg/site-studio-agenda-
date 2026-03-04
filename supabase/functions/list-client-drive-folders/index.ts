@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,65 +9,64 @@ const corsHeaders = {
 // Parent folder ID for all client folders (CLOUD CLIENT MAKE MUSIC)
 const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
-interface ServiceAccountCredentials {
-  client_email: string;
-  private_key: string;
-}
+// Initialize Supabase client with service role key
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function getAccessToken(credentials: ServiceAccountCredentials): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const exp = now + 3600;
-
+// Get Google OAuth2 access token using service account (same as scan-drive-instrumentals)
+async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
+  const key = JSON.parse(serviceAccountKey);
+  
   const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: credentials.client_email,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
+  const now = Math.floor(Date.now() / 1000);
+  const claimSet = {
+    iss: key.client_email,
+    scope: scopes.join(" "),
     aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
     iat: now,
-    exp: exp,
   };
 
   const encoder = new TextEncoder();
-  const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const unsignedToken = `${headerB64}.${payloadB64}`;
+  const base64url = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  
+  const headerB64 = base64url(encoder.encode(JSON.stringify(header)));
+  const claimSetB64 = base64url(encoder.encode(JSON.stringify(claimSet)));
+  const signatureInput = `${headerB64}.${claimSetB64}`;
 
-  const privateKeyPem = credentials.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\n/g, "");
-  const privateKeyDer = Uint8Array.from(atob(privateKeyPem), (c) => c.charCodeAt(0));
-
+  const pemContent = key.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, "");
+  const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
+  
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
-    privateKeyDer,
+    binaryKey,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]
   );
 
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(unsignedToken));
-  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    encoder.encode(signatureInput)
+  );
 
-  const jwt = `${unsignedToken}.${signatureB64}`;
+  const jwt = `${signatureInput}.${base64url(new Uint8Array(signature))}`;
 
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
 
-  const tokenData = await tokenResponse.json();
   if (!tokenResponse.ok) {
-    throw new Error(`Token error: ${JSON.stringify(tokenData)}`);
+    const errorText = await tokenResponse.text();
+    console.error("Token exchange failed:", errorText);
+    throw new Error("Failed to get access token");
   }
 
+  const tokenData = await tokenResponse.json();
   return tokenData.access_token;
 }
 
@@ -86,43 +85,31 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase clients
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    
-    // Create client with user token to verify admin status
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
-    
-    // Create admin client with service role key
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
     // Verify user from token
-    const { data: userData, error: authError } = await supabaseAuth.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
 
-    if (authError || !userData?.user) {
+    if (authError || !user) {
+      console.error("[LIST-CLIENT-FOLDERS] Auth error:", authError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userEmail = userData.user.email?.toLowerCase().trim();
+    const userEmail = user.email?.toLowerCase().trim();
+    console.log("[LIST-CLIENT-FOLDERS] Request from:", userEmail);
 
     // Check if user is admin
-    const { data: adminData } = await supabaseAdmin
+    const { data: adminData } = await supabase
       .from("admin_users")
       .select("id")
       .eq("email", userEmail)
       .maybeSingle();
 
     if (!adminData) {
+      console.error("[LIST-CLIENT-FOLDERS] User is not admin:", userEmail);
       return new Response(
         JSON.stringify({ error: "Not authorized - admin only" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -132,8 +119,8 @@ serve(async (req) => {
     console.log("[LIST-CLIENT-FOLDERS] Admin verified:", userEmail);
 
     // Get Google credentials
-    const serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountKeyStr) {
+    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    if (!serviceAccountKey) {
       console.error("[LIST-CLIENT-FOLDERS] GOOGLE_SERVICE_ACCOUNT_KEY not configured");
       return new Response(
         JSON.stringify({ error: "Drive integration not configured" }),
@@ -141,26 +128,26 @@ serve(async (req) => {
       );
     }
 
-    const credentials = JSON.parse(serviceAccountKeyStr);
-    const accessToken = await getAccessToken(credentials);
+    // Get access token using the same method as scan-drive-instrumentals
+    const accessToken = await getAccessToken(serviceAccountKey, [
+      "https://www.googleapis.com/auth/drive.readonly",
+    ]);
 
-    console.log("[LIST-CLIENT-FOLDERS] Fetching folders from Google Drive...");
+    console.log("[LIST-CLIENT-FOLDERS] Got access token, fetching folders...");
 
     // List all subfolders in the parent folder
     const driveResponse = await fetch(
       `https://www.googleapis.com/drive/v3/files?q='${PARENT_FOLDER_ID}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name,createdTime,modifiedTime)&orderBy=name&pageSize=1000`,
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
       }
     );
 
     if (!driveResponse.ok) {
-      const errorData = await driveResponse.json();
+      const errorData = await driveResponse.text();
       console.error("[LIST-CLIENT-FOLDERS] Drive API error:", errorData);
       return new Response(
-        JSON.stringify({ error: "Failed to fetch folders from Drive" }),
+        JSON.stringify({ error: "Failed to fetch folders from Drive", details: errorData }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
