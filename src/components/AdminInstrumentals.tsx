@@ -84,13 +84,27 @@ const AdminInstrumentals = () => {
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
 
   const fetchInstrumentals = async () => {
-    const { data, error } = await supabase
+    // Essayer d'abord avec sort_order, sinon utiliser created_at
+    let { data, error } = await supabase
       .from("instrumentals")
       .select("*")
-      .order("sort_order", { ascending: true });
+      .order("sort_order", { ascending: true, nullsFirst: false });
+
+    // Si erreur (colonne n'existe pas), fallback sur created_at
+    if (error) {
+      console.log("sort_order column not found, using created_at fallback");
+      const fallback = await supabase
+        .from("instrumentals")
+        .select("*")
+        .order("created_at", { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (!error && data) {
       setInstrumentals(data);
+    } else {
+      console.error("Error fetching instrumentals:", error);
     }
     setLoading(false);
   };
