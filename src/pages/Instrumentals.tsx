@@ -61,11 +61,23 @@ const Instrumentals = () => {
 
   useEffect(() => {
     const fetchInstrumentals = async () => {
-      const { data, error } = await supabase
+      // Essayer avec sort_order d'abord, sinon fallback sur created_at
+      let { data, error } = await supabase
         .from("instrumentals")
         .select("*")
         .eq("is_active", true)
-        .order("created_at", { ascending: false });
+        .order("sort_order", { ascending: true, nullsFirst: false });
+
+      // Si erreur (colonne sort_order n'existe pas), fallback sur created_at
+      if (error) {
+        const fallback = await supabase
+          .from("instrumentals")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (!error && data) {
         setInstrumentals(data);
