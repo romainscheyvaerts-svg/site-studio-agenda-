@@ -95,7 +95,12 @@ serve(async (req) => {
     // Also generate a view link for the download page
     const downloadPageUrl = `${req.headers.get("origin")}/download/${downloadToken}`;
 
-    logStep("Download URLs generated", { driveDownloadUrl, downloadPageUrl });
+    // Check if license includes stems
+    const stemsLicenses = ["stems", "premium", "exclusive", "unlimited"];
+    const licenseIncludesStems = stemsLicenses.some(s => license.name.toLowerCase().includes(s));
+    const hasStemsDriveUrl = instrumental.stems_drive_url && licenseIncludesStems;
+
+    logStep("Download URLs generated", { driveDownloadUrl, downloadPageUrl, hasStemsDriveUrl, stemsDriveUrl: instrumental.stems_drive_url });
 
     // Send delivery email via Resend
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -204,6 +209,24 @@ serve(async (req) => {
           🎧 Télécharger : ${instrumental.title}
         </a>
       </div>
+
+      ${hasStemsDriveUrl ? `
+      <!-- Stems Section -->
+      <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 12px; padding: 25px; margin: 20px 0;">
+        <h3 style="color: #22c55e; margin: 0 0 15px 0; font-size: 18px;">🎛️ Stems / Pistes Séparées</h3>
+        <p style="color: #a0a0a0; margin: 0 0 15px 0; font-size: 14px;">
+          Votre licence <strong style="color: #e0e0e0;">${license.name}</strong> inclut l'accès aux stems (pistes séparées) de cet instrumental.
+        </p>
+        <div style="text-align: center;">
+          <a href="${instrumental.stems_drive_url}" style="display: inline-block; background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%); color: white; text-decoration: none; padding: 14px 30px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 8px 30px rgba(34, 197, 94, 0.4);">
+            📂 Accéder aux Stems sur Google Drive
+          </a>
+        </div>
+        <p style="color: #666; margin: 15px 0 0 0; font-size: 12px; text-align: center;">
+          Ce lien vous donne accès permanent au dossier contenant toutes les pistes séparées.
+        </p>
+      </div>
+      ` : ''}
 
       <!-- Help Section -->
       <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 20px; margin: 30px 0 0 0;">

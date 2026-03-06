@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Lock, UserPlus } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+
+const PREVIEW_DURATION = 30; // 30 seconds preview for non-authenticated users
 
 interface AudioPlayerProps {
   src: string;
@@ -13,21 +17,54 @@ interface AudioPlayerProps {
   compact?: boolean;
   autoPlay?: boolean;
   onEnded?: () => void;
+  isAuthenticated?: boolean;
+  onPreviewEnded?: () => void;
 }
 
-const AudioPlayer = ({ src, title, artist, coverImage, className, compact = false, autoPlay = false, onEnded }: AudioPlayerProps) => {
+const AudioPlayer = ({ 
+  src, 
+  title, 
+  artist, 
+  coverImage, 
+  className, 
+  compact = false, 
+  autoPlay = false, 
+  onEnded,
+  isAuthenticated = true,
+  onPreviewEnded
+}: AudioPlayerProps) => {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
+  const [showPreviewMessage, setShowPreviewMessage] = useState(false);
+
+  // Calculate effective max duration based on authentication
+  const maxPlayDuration = isAuthenticated ? duration : Math.min(PREVIEW_DURATION, duration);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateTime = () => {
+      const time = audio.currentTime;
+      setCurrentTime(time);
+      
+      // Check if non-authenticated user reached preview limit
+      if (!isAuthenticated && time >= PREVIEW_DURATION) {
+        audio.pause();
+        audio.currentTime = PREVIEW_DURATION;
+        setCurrentTime(PREVIEW_DURATION);
+        setIsPlaying(false);
+        setShowPreviewMessage(true);
+        onPreviewEnded?.();
+      }
+    };
+    
     const updateDuration = () => setDuration(audio.duration);
     const handleEnded = () => {
       setIsPlaying(false);
@@ -51,7 +88,7 @@ const AudioPlayer = ({ src, title, artist, coverImage, className, compact = fals
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("canplay", handleCanPlay);
     };
-  }, [autoPlay, onEnded]);
+  }, [autoPlay, onEnded, isAuthenticated, onPreviewEnded]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -128,6 +165,39 @@ const AudioPlayer = ({ src, title, artist, coverImage, className, compact = fals
   return (
     <div className={cn("bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50", className)}>
       <audio ref={audioRef} src={src} preload="metadata" />
+      
+      {/* Preview ended message for non-authenticated users */}
+      {showPreviewMessage && !isAuthenticated && (
+        <div className="mb-3 p-3 bg-gradient-to-r from-primary/20 to-purple-600/20 rounded-lg border border-primary/30">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-primary" />
+              <span className="text-sm text-foreground">
+                {t("instrumentals.preview_ended", "Aperçu de 30 secondes terminé")}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => navigate("/auth")}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <UserPlus className="h-3 w-3 mr-1" />
+              {t("instrumentals.create_account", "Créer un compte")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {t("instrumentals.preview_info", "Créez un compte gratuit pour écouter les instrumentaux en entier")}
+          </p>
+        </div>
+      )}
+
+      {/* Preview indicator for non-authenticated users */}
+      {!isAuthenticated && !showPreviewMessage && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-amber-500">
+          <Lock className="h-3 w-3" />
+          <span>{t("instrumentals.preview_mode", "Mode aperçu : 30 secondes")}</span>
+        </div>
+      )}
       
       <div className="flex items-center gap-4">
         {/* Cover Image */}

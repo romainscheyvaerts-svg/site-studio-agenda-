@@ -316,7 +316,13 @@
     "login_required": "Login required",
     "login_required_desc": "Please log in to purchase an instrumental.",
     "buy": "Buy",
-    "buy_license": "Buy a license"
+    "buy_license": "Buy a license",
+    "preview_ended": "30-second preview ended",
+    "create_account": "Create an account",
+    "preview_info": "Create a free account to listen to full instrumentals",
+    "preview_mode": "Preview mode: 30 seconds",
+    "preview_limit_title": "Limited preview",
+    "preview_limit_desc": "Create a free account to listen in full"
   },
   "license": {
     "choose_title": "Choose your license",

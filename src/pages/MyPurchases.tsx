@@ -36,6 +36,7 @@ interface Purchase {
     has_stems: boolean | null;
     drive_file_id: string;
     stems_folder_id: string | null;
+    stems_drive_url: string | null;
   };
   license: {
     id: string;
@@ -89,7 +90,8 @@ const MyPurchases = () => {
             cover_image_url,
             has_stems,
             drive_file_id,
-            stems_folder_id
+            stems_folder_id,
+            stems_drive_url
           ),
           license:instrumental_licenses (
             id,
@@ -359,21 +361,22 @@ const MyPurchases = () => {
                             Télécharger l'instrumental
                           </Button>
 
-                          {/* Download Stems (if applicable) */}
-                          {canDownloadStems && (
+                          {/* Access Stems Google Drive folder (if applicable) */}
+                          {canDownloadStems && purchase.instrumental.stems_drive_url && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleDownload(purchase, "stems")}
-                              disabled={downloading === `${purchase.id}-stems`}
+                              onClick={() => {
+                                window.open(purchase.instrumental.stems_drive_url!, "_blank");
+                                toast({
+                                  title: "Dossier Stems ouvert",
+                                  description: "Accédez à votre dossier Google Drive pour télécharger les stems",
+                                });
+                              }}
                               className="text-green-500 border-green-500/50 hover:bg-green-500/10"
                             >
-                              {downloading === `${purchase.id}-stems` ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Layers className="h-4 w-4 mr-2" />
-                              )}
-                              Télécharger les stems
+                              <Layers className="h-4 w-4 mr-2" />
+                              Accéder aux stems
                             </Button>
                           )}
 

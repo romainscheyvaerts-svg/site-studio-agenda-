@@ -219,6 +219,13 @@ const Instrumentals = () => {
                 coverImage={currentPlaying.cover_image_url}
                 autoPlay
                 onEnded={() => setCurrentPlaying(null)}
+                isAuthenticated={!!user}
+                onPreviewEnded={() => {
+                  toast({
+                    title: t("instrumentals.preview_limit_title", "Aperçu limité"),
+                    description: t("instrumentals.preview_limit_desc", "Créez un compte gratuit pour écouter en entier"),
+                  });
+                }}
               />
             </div>
           )}

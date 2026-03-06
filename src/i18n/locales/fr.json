@@ -319,7 +319,13 @@
     "login_required": "Connexion requise",
     "login_required_desc": "Veuillez vous connecter pour acheter un instrumental.",
     "buy": "Acheter",
-    "buy_license": "Acheter une licence"
+    "buy_license": "Acheter une licence",
+    "preview_ended": "Aperçu de 30 secondes terminé",
+    "create_account": "Créer un compte",
+    "preview_info": "Créez un compte gratuit pour écouter les instrumentaux en entier",
+    "preview_mode": "Mode aperçu : 30 secondes",
+    "preview_limit_title": "Aperçu limité",
+    "preview_limit_desc": "Créez un compte gratuit pour écouter en entier"
   },
   "license": {
     "choose_title": "Choisissez votre licence",
