@@ -130,7 +130,23 @@ const AdminInstrumentals = () => {
       return;
     }
 
-    const items = [...instrumentals];
+    // Séparer actifs et inactifs
+    const activeItems = instrumentals.filter(i => i.is_active);
+    const inactiveItems = instrumentals.filter(i => !i.is_active);
+    
+    // Trouver dans quelle liste se trouvent les items
+    const draggedInActive = activeItems.some(i => i.id === draggedItem);
+    const overInActive = activeItems.some(i => i.id === dragOverItem);
+    
+    // Ne permettre le drag que dans la même catégorie (actifs entre eux, inactifs entre eux)
+    if (draggedInActive !== overInActive) {
+      toast({ title: "Info", description: "Déplacez uniquement entre items du même type (actifs ou inactifs)" });
+      setDraggedItem(null);
+      setDragOverItem(null);
+      return;
+    }
+
+    const items = draggedInActive ? [...activeItems] : [...inactiveItems];
     const draggedIndex = items.findIndex(i => i.id === draggedItem);
     const overIndex = items.findIndex(i => i.id === dragOverItem);
 
@@ -142,19 +158,40 @@ const AdminInstrumentals = () => {
 
     const [removed] = items.splice(draggedIndex, 1);
     items.splice(overIndex, 0, removed);
-    setInstrumentals(items);
+    
+    // Reconstruire la liste complète
+    const newInstrumentals = draggedInActive 
+      ? [...items, ...inactiveItems]
+      : [...activeItems, ...items];
+    
+    setInstrumentals(newInstrumentals);
     setDraggedItem(null);
     setDragOverItem(null);
 
     try {
-      for (let i = 0; i < items.length; i++) {
+      // Mettre à jour les sort_order : actifs de 1 à N, inactifs de N+1 à M
+      const allActiveItems = draggedInActive ? items : activeItems;
+      const allInactiveItems = draggedInActive ? inactiveItems : items;
+      
+      // D'abord les actifs (1, 2, 3...)
+      for (let i = 0; i < allActiveItems.length; i++) {
         await (supabase as any)
           .from("instrumentals")
           .update({ sort_order: i + 1 })
-          .eq("id", items[i].id);
+          .eq("id", allActiveItems[i].id);
       }
-      toast({ title: "Ordre mis à jour" });
+      
+      // Puis les inactifs (N+1, N+2...)
+      for (let i = 0; i < allInactiveItems.length; i++) {
+        await (supabase as any)
+          .from("instrumentals")
+          .update({ sort_order: allActiveItems.length + i + 1 })
+          .eq("id", allInactiveItems[i].id);
+      }
+      
+      toast({ title: "Ordre mis à jour ✓" });
     } catch (err) {
+      console.error("Erreur update sort_order:", err);
       toast({ title: "Erreur", description: "Impossible de sauvegarder l'ordre", variant: "destructive" });
       fetchInstrumentals();
     }
