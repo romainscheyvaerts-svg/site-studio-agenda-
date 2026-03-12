@@ -639,6 +639,61 @@ const AdminInstrumentals = () => {
                     )}
                   </div>
 
+                  {/* Section Prix */}
+                  <div className="col-span-2 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-lg border border-amber-500/30">
+                    <Label className="text-foreground font-semibold flex items-center gap-2 mb-4">
+                      <span className="text-lg">💰</span> Tarification des licences
+                    </Label>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">Licence Base (€)</Label>
+                        <Input 
+                          type="number" 
+                          min="0"
+                          step="1"
+                          value={formData.price_base} 
+                          onChange={(e) => setFormData({ ...formData, price_base: e.target.value })} 
+                          placeholder="100" 
+                          className="bg-background/50"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">MP3 + WAV</p>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
+                          Licence Stems (€)
+                          {formData.has_stems && <Badge variant="outline" className="text-[10px] h-4 text-green-500">Actif</Badge>}
+                        </Label>
+                        <Input 
+                          type="number" 
+                          min="0"
+                          step="1"
+                          value={formData.price_stems} 
+                          onChange={(e) => setFormData({ ...formData, price_stems: e.target.value })} 
+                          placeholder="150" 
+                          className="bg-background/50"
+                          disabled={!formData.has_stems}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">MP3 + WAV + Stems</p>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">Licence Exclusive (€)</Label>
+                        <Input 
+                          type="number" 
+                          min="0"
+                          step="1"
+                          value={formData.price_exclusive} 
+                          onChange={(e) => setFormData({ ...formData, price_exclusive: e.target.value })} 
+                          placeholder="500" 
+                          className="bg-background/50"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Droits exclusifs</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="col-span-2 flex items-center gap-2">
                     <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })} />
                     <Label>Visible sur le site</Label>
