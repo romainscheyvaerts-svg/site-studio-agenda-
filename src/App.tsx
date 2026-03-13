@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ViewModeProvider } from "@/hooks/useViewMode";
-import { ThemeProvider } from "@/hooks/useTheme";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BackgroundImage from "@/components/BackgroundImage";
 import Index from "./pages/Index";
@@ -33,13 +32,12 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <AuthProvider>
-          <ViewModeProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+    <TooltipProvider>
+      <AuthProvider>
+        <ViewModeProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
             <BackgroundImage />
             <Routes>
               <Route path="/auth" element={<Auth />} />
@@ -69,7 +67,6 @@ const App = () => (
           </ViewModeProvider>
         </AuthProvider>
       </TooltipProvider>
-    </ThemeProvider>
   </QueryClientProvider>
 );
 
