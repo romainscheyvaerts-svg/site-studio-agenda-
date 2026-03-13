@@ -94,15 +94,23 @@ const Navbar = () => {
 
   // Fetch all client folders for admin using Edge function (bypasses RLS)
   const fetchClientFolders = async () => {
-    if (!isAdmin || !session?.access_token) return;
+    console.log("[DRIVE] fetchClientFolders called - isAdmin:", isAdmin, "hasToken:", !!session?.access_token);
+    
+    if (!isAdmin || !session?.access_token) {
+      console.log("[DRIVE] Skipping fetch - isAdmin:", isAdmin, "hasToken:", !!session?.access_token);
+      return;
+    }
     
     setIsLoadingClients(true);
     try {
+      console.log("[DRIVE] Invoking list-client-drive-folders function...");
       const { data, error } = await supabase.functions.invoke("list-client-drive-folders", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
+
+      console.log("[DRIVE] Response - data:", JSON.stringify(data), "error:", error);
 
       if (error) {
         console.error("[DRIVE] Error fetching client folders:", error);
@@ -112,6 +120,12 @@ const Navbar = () => {
       if (data?.success && data?.folders) {
         setClientFolders(data.folders);
         console.log("[DRIVE] Loaded", data.folders.length, "client folders");
+      } else if (data?.folders) {
+        // Même si success n'est pas true, si folders existe on les prend
+        setClientFolders(data.folders);
+        console.log("[DRIVE] Loaded (no success flag)", data.folders.length, "client folders");
+      } else {
+        console.log("[DRIVE] No folders in response:", data);
       }
     } catch (error) {
       console.error("[DRIVE] Error fetching client folders:", error);
