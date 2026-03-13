@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // Parent folder ID for all client folders (CLOUD CLIENT MAKE MUSIC)
-const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Can be set via environment variable or use default
+const PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
 
 // Initialize Supabase client with service role key
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
