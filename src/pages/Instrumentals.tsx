@@ -225,6 +225,7 @@ const Instrumentals = () => {
           {currentPlaying && getAudioSrc(currentPlaying) && (
             <div className="mb-8 max-w-2xl mx-auto sticky top-20 z-40">
               <AudioPlayer
+                key={currentPlaying.id}
                 src={getAudioSrc(currentPlaying)!}
                 title={currentPlaying.title}
                 artist="Make Music"

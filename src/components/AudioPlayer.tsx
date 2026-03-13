@@ -46,6 +46,36 @@ const AudioPlayer = ({
   // Calculate effective max duration based on authentication
   const maxPlayDuration = isAuthenticated ? duration : Math.min(PREVIEW_DURATION, duration);
 
+  // Auto-start playback when autoPlay is true (triggered on mount)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    // If autoPlay is enabled, try to start playback immediately
+    if (autoPlay) {
+      const startPlayback = () => {
+        audio.play()
+          .then(() => setIsPlaying(true))
+          .catch((e) => {
+            console.log("[AudioPlayer] Autoplay blocked:", e);
+            // On mobile, autoplay might be blocked, but we set isPlaying false
+            setIsPlaying(false);
+          });
+      };
+      
+      // Try immediately if ready, otherwise wait for canplaythrough
+      if (audio.readyState >= 3) {
+        startPlayback();
+      } else {
+        audio.addEventListener("canplaythrough", startPlayback, { once: true });
+      }
+    }
+    
+    return () => {
+      audio.removeEventListener("canplaythrough", () => {});
+    };
+  }, [autoPlay, src]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -70,25 +100,23 @@ const AudioPlayer = ({
       setIsPlaying(false);
       onEnded?.();
     };
-    const handleCanPlay = () => {
-      if (autoPlay && audio.paused) {
-        audio.play().catch(() => {});
-        setIsPlaying(true);
-      }
-    };
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
 
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("canplay", handleCanPlay);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
       audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("canplay", handleCanPlay);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
     };
-  }, [autoPlay, onEnded, isAuthenticated, onPreviewEnded]);
+  }, [onEnded, isAuthenticated, onPreviewEnded]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -133,7 +161,7 @@ const AudioPlayer = ({
   if (compact) {
     return (
       <div className={cn("flex items-center gap-3", className)}>
-        <audio ref={audioRef} src={src} preload="metadata" />
+        <audio ref={audioRef} src={src} preload="auto" />
         
         <Button
           variant="ghost"
@@ -164,7 +192,7 @@ const AudioPlayer = ({
 
   return (
     <div className={cn("bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50", className)}>
-      <audio ref={audioRef} src={src} preload="metadata" />
+      <audio ref={audioRef} src={src} preload="auto" />
       
       {/* Preview ended message for non-authenticated users */}
       {showPreviewMessage && !isAuthenticated && (
