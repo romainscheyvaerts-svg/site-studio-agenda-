@@ -61,34 +61,34 @@
     --sidebar-ring: 185 100% 50%;
   }
 
-  /* Light theme */
+  /* Light theme - Soft gray tones */
   .light {
-    --background: 0 0% 100%;
-    --foreground: 220 20% 10%;
+    --background: 220 15% 92%;
+    --foreground: 220 20% 15%;
 
-    --card: 0 0% 98%;
-    --card-foreground: 220 20% 10%;
+    --card: 220 15% 88%;
+    --card-foreground: 220 20% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover: 220 15% 90%;
+    --popover-foreground: 220 20% 15%;
 
     --primary: 185 100% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 94%;
+    --secondary: 220 12% 82%;
     --secondary-foreground: 220 20% 20%;
 
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 12% 85%;
+    --muted-foreground: 220 10% 40%;
 
     --accent: 45 100% 50%;
-    --accent-foreground: 220 20% 10%;
+    --accent-foreground: 220 20% 15%;
 
     --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 92%;
+    --border: 220 12% 78%;
+    --input: 220 12% 85%;
     --ring: 185 100% 35%;
 
     /* Custom tokens for light mode */
@@ -97,22 +97,22 @@
     --neon-gold: 45 100% 50%;
     --neon-purple: 270 80% 55%;
     
-    --gradient-hero: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(220 15% 98%) 50%, hsl(0 0% 100%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 15% 98%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(220 15% 92%) 0%, hsl(220 15% 88%) 50%, hsl(220 15% 92%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(220 15% 90%) 0%, hsl(220 15% 86%) 100%);
     --gradient-neon: linear-gradient(90deg, hsl(185 100% 35%) 0%, hsl(200 100% 45%) 100%);
     
-    --shadow-neon: 0 0 20px hsl(185 100% 35% / 0.2);
-    --shadow-neon-intense: 0 0 40px hsl(185 100% 35% / 0.3);
-    --shadow-gold: 0 0 20px hsl(45 100% 50% / 0.2);
-    --shadow-card: 0 4px 20px hsl(220 20% 0% / 0.08);
+    --shadow-neon: 0 0 20px hsl(185 100% 35% / 0.25);
+    --shadow-neon-intense: 0 0 40px hsl(185 100% 35% / 0.35);
+    --shadow-gold: 0 0 20px hsl(45 100% 50% / 0.25);
+    --shadow-card: 0 4px 20px hsl(220 20% 0% / 0.12);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 220 20% 10%;
+    --sidebar-background: 220 15% 88%;
+    --sidebar-foreground: 220 20% 15%;
     --sidebar-primary: 185 100% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 94%;
+    --sidebar-accent: 220 12% 82%;
     --sidebar-accent-foreground: 220 20% 20%;
-    --sidebar-border: 220 15% 88%;
+    --sidebar-border: 220 12% 78%;
     --sidebar-ring: 185 100% 35%;
   }
 }
