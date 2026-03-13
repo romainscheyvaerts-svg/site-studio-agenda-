@@ -21,7 +21,8 @@ import {
   UserCog,
   FolderOpen,
   Receipt,
-  User
+  User,
+  Share2
 } from "lucide-react";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
@@ -43,6 +44,7 @@ import AdminClientAccounting from "./AdminClientAccounting";
 import AdminBackgroundImage from "./AdminBackgroundImage";
 import AdminProfileSettings from "./AdminProfileSettings";
 import AdminPendingBookings from "./AdminPendingBookings";
+import AdminSocialLinks from "./AdminSocialLinks";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
@@ -226,6 +228,9 @@ const AdminPanel = ({ inline = false, onClose, externalOpen }: AdminPanelProps) 
               </AdminCollapsibleSection>
               <AdminCollapsibleSection title="Galerie Photos" icon={Image}>
                 <AdminGallery />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Réseaux Sociaux" icon={Share2}>
+                <AdminSocialLinks />
               </AdminCollapsibleSection>
             </TabsContent>
 

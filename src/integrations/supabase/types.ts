@@ -844,6 +844,42 @@ export type Database = {
         }
         Relationships: []
       }
+      social_links: {
+        Row: {
+          id: string
+          platform: string
+          url: string
+          display_name: string | null
+          icon_name: string | null
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          platform: string
+          url: string
+          display_name?: string | null
+          icon_name?: string | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          platform?: string
+          url?: string
+          display_name?: string | null
+          icon_name?: string | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
