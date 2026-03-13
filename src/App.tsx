@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ViewModeProvider } from "@/hooks/useViewMode";
+import { ThemeProvider } from "@/hooks/useTheme";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BackgroundImage from "@/components/BackgroundImage";
 import Index from "./pages/Index";
@@ -32,12 +33,13 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <ViewModeProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+    <ThemeProvider>
+      <TooltipProvider>
+        <AuthProvider>
+          <ViewModeProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
             <BackgroundImage />
             <Routes>
               <Route path="/auth" element={<Auth />} />
@@ -62,11 +64,12 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <AdminFloatingButton />
-          </BrowserRouter>
-        </ViewModeProvider>
-      </AuthProvider>
-    </TooltipProvider>
+              <AdminFloatingButton />
+            </BrowserRouter>
+          </ViewModeProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

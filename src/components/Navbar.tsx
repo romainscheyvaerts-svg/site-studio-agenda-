@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
 import ViewModeToggle from "./ViewModeToggle";
+import ThemeSwitcher from "./ThemeSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -537,6 +538,7 @@ const Navbar = () => {
             isMobileView ? "hidden" : "hidden md:flex"
           )}>
             <ViewModeToggle />
+            <ThemeSwitcher />
             <LanguageSwitcher />
             {user ? (
               <>
@@ -606,6 +608,7 @@ const Navbar = () => {
             isMobileView ? "flex" : "md:hidden flex"
           )}>
             <ViewModeToggle />
+            <ThemeSwitcher size="sm" />
             <LanguageSwitcher />
             <button
               className="text-foreground"
