@@ -100,7 +100,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.list-client-drive-folders]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-client-drive-folder]
 verify_jwt = true
