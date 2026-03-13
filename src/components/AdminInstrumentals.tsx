@@ -173,23 +173,41 @@ const AdminInstrumentals = () => {
       const allActiveItems = draggedInActive ? items : activeItems;
       const allInactiveItems = draggedInActive ? inactiveItems : items;
       
+      let hasError = false;
+      
       // D'abord les actifs (1, 2, 3...)
       for (let i = 0; i < allActiveItems.length; i++) {
-        await (supabase as any)
+        const { error } = await supabase
           .from("instrumentals")
-          .update({ sort_order: i + 1 })
+          .update({ sort_order: i + 1 } as any)
           .eq("id", allActiveItems[i].id);
+        
+        if (error) {
+          console.error("Erreur update sort_order actif:", error);
+          hasError = true;
+        }
       }
       
       // Puis les inactifs (N+1, N+2...)
       for (let i = 0; i < allInactiveItems.length; i++) {
-        await (supabase as any)
+        const { error } = await supabase
           .from("instrumentals")
-          .update({ sort_order: allActiveItems.length + i + 1 })
+          .update({ sort_order: allActiveItems.length + i + 1 } as any)
           .eq("id", allInactiveItems[i].id);
+        
+        if (error) {
+          console.error("Erreur update sort_order inactif:", error);
+          hasError = true;
+        }
       }
       
-      toast({ title: "Ordre mis à jour ✓" });
+      if (hasError) {
+        toast({ title: "Erreur", description: "Certains ordres n'ont pas pu être sauvegardés", variant: "destructive" });
+        fetchInstrumentals();
+      } else {
+        console.log("Sort order mis à jour avec succès:", allActiveItems.map((item, i) => ({ id: item.id, title: item.title, sort_order: i + 1 })));
+        toast({ title: "Ordre mis à jour ✓" });
+      }
     } catch (err) {
       console.error("Erreur update sort_order:", err);
       toast({ title: "Erreur", description: "Impossible de sauvegarder l'ordre", variant: "destructive" });
