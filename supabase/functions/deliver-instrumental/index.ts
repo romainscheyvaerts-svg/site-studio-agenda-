@@ -21,24 +21,53 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    const requestBody = await req.json();
     const {
       instrumentalId,
       licenseId,
+      licenseType, // For trusted user free downloads
       paymentId,
       paymentMethod,
       amountPaid,
       buyerEmail,
       buyerName,
-      userId
-    } = await req.json();
+      userId,
+      isFreeDownload // Flag for trusted user free download
+    } = requestBody;
 
-    logStep("Request data", { instrumentalId, licenseId, buyerEmail });
+    logStep("Request data", { instrumentalId, licenseId, licenseType, buyerEmail, isFreeDownload });
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    // If this is a free download for trusted user, verify trusted status
+    if (isFreeDownload) {
+      logStep("Checking trusted user status for free download");
+      
+      if (!userId) {
+        throw new Error("User ID is required for free downloads");
+      }
+
+      const { data: trustedUser, error: trustedError } = await supabaseAdmin
+        .from("trusted_users")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (trustedError) {
+        logStep("Error checking trusted status", trustedError);
+        throw new Error("Failed to verify trusted user status");
+      }
+
+      if (!trustedUser) {
+        throw new Error("User is not authorized for free downloads");
+      }
+
+      logStep("Trusted user verified", { userId });
+    }
 
     // Get instrumental details
     const { data: instrumental, error: instrumentalError } = await supabaseAdmin
@@ -52,15 +81,33 @@ serve(async (req) => {
     }
     logStep("Instrumental found", { title: instrumental.title });
 
-    // Get license details
-    const { data: license, error: licenseError } = await supabaseAdmin
-      .from("instrumental_licenses")
-      .select("*")
-      .eq("id", licenseId)
-      .single();
-
-    if (licenseError || !license) {
-      throw new Error(`License not found: ${licenseError?.message}`);
+    // Get license details - either by ID or by name (for free downloads)
+    let license;
+    if (licenseId) {
+      const { data, error } = await supabaseAdmin
+        .from("instrumental_licenses")
+        .select("*")
+        .eq("id", licenseId)
+        .single();
+      
+      if (error || !data) {
+        throw new Error(`License not found: ${error?.message}`);
+      }
+      license = data;
+    } else if (licenseType) {
+      // For free downloads, find license by name
+      const { data, error } = await supabaseAdmin
+        .from("instrumental_licenses")
+        .select("*")
+        .ilike("name", licenseType)
+        .single();
+      
+      if (error || !data) {
+        throw new Error(`License type '${licenseType}' not found: ${error?.message}`);
+      }
+      license = data;
+    } else {
+      throw new Error("Either licenseId or licenseType is required");
     }
     logStep("License found", { name: license.name });
 
@@ -68,26 +115,54 @@ serve(async (req) => {
     const downloadToken = crypto.randomUUID();
     const downloadExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // For free downloads, we need to get user info from the database
+    let finalBuyerEmail = buyerEmail;
+    let finalBuyerName = buyerName;
+    
+    if (isFreeDownload && userId) {
+      // Get user info from auth.users
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (userError) {
+        logStep("Error getting user info", userError);
+      } else if (userData?.user) {
+        finalBuyerEmail = finalBuyerEmail || userData.user.email;
+        finalBuyerName = finalBuyerName || userData.user.user_metadata?.full_name || userData.user.email?.split('@')[0] || 'Artiste';
+        logStep("User info retrieved", { email: finalBuyerEmail, name: finalBuyerName });
+      }
+    }
+
     // Create purchase record
+    const purchaseData: any = {
+      user_id: userId,
+      instrumental_id: instrumentalId,
+      license_id: license.id, // Use the license.id we found
+      download_token: downloadToken,
+      download_expires_at: downloadExpiresAt,
+      buyer_email: finalBuyerEmail,
+      buyer_name: finalBuyerName
+    };
+
+    // Only add payment fields if not a free download
+    if (!isFreeDownload) {
+      purchaseData.payment_id = paymentId;
+      purchaseData.payment_method = paymentMethod;
+      purchaseData.amount_paid = amountPaid;
+    } else {
+      // For free downloads, set explicit values
+      purchaseData.payment_id = `free_${downloadToken}`;
+      purchaseData.payment_method = "trusted_user_free";
+      purchaseData.amount_paid = 0;
+    }
+
     const { error: purchaseError } = await supabaseAdmin
       .from("instrumental_purchases")
-      .insert({
-        user_id: userId,
-        instrumental_id: instrumentalId,
-        license_id: licenseId,
-        payment_id: paymentId,
-        payment_method: paymentMethod,
-        amount_paid: amountPaid,
-        download_token: downloadToken,
-        download_expires_at: downloadExpiresAt,
-        buyer_email: buyerEmail,
-        buyer_name: buyerName
-      });
+      .insert(purchaseData);
 
     if (purchaseError) {
       throw new Error(`Failed to create purchase: ${purchaseError.message}`);
     }
-    logStep("Purchase record created", { downloadToken });
+    logStep("Purchase record created", { downloadToken, isFreeDownload });
 
     // Generate Google Drive download link
     const driveDownloadUrl = `https://drive.google.com/uc?export=download&id=${instrumental.drive_file_id}`;
@@ -254,18 +329,23 @@ serve(async (req) => {
       `;
     }
 
-    const { error: emailError } = await resend.emails.send({
-      from: "Make Music Studio <noreply@studiomakemusic.com>",
-      to: [buyerEmail],
-      subject: emailSubject,
-      html: emailHtml
-    });
+    // Only send email if we have an email address
+    if (finalBuyerEmail) {
+      const { error: emailError } = await resend.emails.send({
+        from: "Make Music Studio <noreply@studiomakemusic.com>",
+        to: [finalBuyerEmail],
+        subject: emailSubject,
+        html: emailHtml
+      });
 
-    if (emailError) {
-      logStep("Email send error", emailError);
-      // Don't throw - purchase is still valid
+      if (emailError) {
+        logStep("Email send error", emailError);
+        // Don't throw - purchase is still valid
+      } else {
+        logStep("Delivery email sent successfully");
+      }
     } else {
-      logStep("Delivery email sent successfully");
+      logStep("No email address available, skipping email");
     }
 
     return new Response(
@@ -273,6 +353,7 @@ serve(async (req) => {
         success: true,
         downloadToken,
         downloadPageUrl,
+        downloadUrl: driveDownloadUrl, // Direct download URL for free downloads
         message: "Instrumental delivery initiated"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
