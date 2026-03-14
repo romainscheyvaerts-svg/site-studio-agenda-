@@ -22,7 +22,8 @@ import {
   FolderOpen,
   Receipt,
   User,
-  Share2
+  Share2,
+  Gift
 } from "lucide-react";
 import AdminInstrumentals from "./AdminInstrumentals";
 import AdminServicesPricing from "./AdminServicesPricing";
@@ -45,6 +46,7 @@ import AdminBackgroundImage from "./AdminBackgroundImage";
 import AdminProfileSettings from "./AdminProfileSettings";
 import AdminPendingBookings from "./AdminPendingBookings";
 import AdminSocialLinks from "./AdminSocialLinks";
+import AdminTrustedDownloads from "./AdminTrustedDownloads";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
@@ -253,6 +255,9 @@ const AdminPanel = ({ inline = false, onClose, externalOpen }: AdminPanelProps) 
               </AdminCollapsibleSection>
               <AdminCollapsibleSection title="Dossiers Drive Clients" icon={FolderOpen}>
                 <AdminClientDrive />
+              </AdminCollapsibleSection>
+              <AdminCollapsibleSection title="Téléchargements Gratuits (Confiance)" icon={Gift}>
+                <AdminTrustedDownloads />
               </AdminCollapsibleSection>
               {isSuperAdmin && (
                 <>
