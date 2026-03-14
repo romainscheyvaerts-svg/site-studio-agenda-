@@ -144,7 +144,7 @@ const Navbar = () => {
   });
 
   // Function to open user's Drive folder (for non-admins)
-  const openUserDriveFolder = async () => {
+  const openUserDriveFolder = async (closeMenuAfter = false) => {
     if (!session?.access_token) {
       toast.error("Veuillez vous reconnecter");
       return;
@@ -156,6 +156,20 @@ const Navbar = () => {
     }
 
     setIsLoadingDrive(true);
+    
+    // On mobile, we need to open the window immediately to avoid popup blocker
+    // We'll open a blank page first, then redirect it
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    let newWindow: Window | null = null;
+    
+    if (isMobile) {
+      // Open a loading page immediately to avoid popup blocker
+      newWindow = window.open('about:blank', '_blank');
+      if (newWindow) {
+        newWindow.document.write('<html><body style="background:#0a0a0a;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;"><p>Chargement de Google Drive...</p></body></html>');
+      }
+    }
+    
     try {
       console.log("[DRIVE] Fetching folder for user:", user.email);
       
@@ -169,20 +183,32 @@ const Navbar = () => {
 
       if (error) {
         console.error("[DRIVE] Function error:", error);
+        if (newWindow) newWindow.close();
         throw error;
       }
 
       if (data?.error) {
         console.error("[DRIVE] Response error:", data.error);
+        if (newWindow) newWindow.close();
         toast.error(`Erreur: ${data.error}`);
         return;
       }
 
       if (data?.found && data?.folderLink) {
         console.log("[DRIVE] Opening folder:", data.folderLink);
-        window.open(data.folderLink, "_blank");
+        if (newWindow) {
+          // Redirect the already opened window
+          newWindow.location.href = data.folderLink;
+        } else {
+          // Desktop - open normally
+          window.open(data.folderLink, "_blank");
+        }
+        if (closeMenuAfter) {
+          setIsMobileMenuOpen(false);
+        }
       } else {
         console.log("[DRIVE] No folder found for email:", data?.clientEmail);
+        if (newWindow) newWindow.close();
         toast.info("Aucun dossier Drive trouvé. Un dossier sera créé lors de votre prochaine réservation.");
       }
     } catch (error: unknown) {
@@ -557,7 +583,7 @@ const Navbar = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={openUserDriveFolder}
+                    onClick={() => openUserDriveFolder()}
                     disabled={isLoadingDrive}
                     className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
                     title="Accéder à mon dossier Google Drive"
@@ -675,10 +701,7 @@ const Navbar = () => {
                         variant="outline"
                         size="lg"
                         className="w-full h-14 text-lg"
-                        onClick={() => {
-                          setIsMobileMenuOpen(false);
-                          openUserDriveFolder();
-                        }}
+                        onClick={() => openUserDriveFolder(true)}
                         disabled={isLoadingDrive}
                       >
                         {isLoadingDrive ? (
