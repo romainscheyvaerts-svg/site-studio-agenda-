@@ -41,7 +41,7 @@ serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .eq('role', 'admin')
+      .in('role', ['admin', 'superadmin'])
       .maybeSingle();
 
     if (roleError || !roleData) {
@@ -78,8 +78,9 @@ serve(async (req) => {
     // Get Google service account credentials
     const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
     if (!serviceAccountKey) {
+      console.error('GOOGLE_SERVICE_ACCOUNT_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
+        JSON.stringify({ error: 'Server configuration error: Google credentials missing' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -87,53 +88,84 @@ serve(async (req) => {
     const credentials = JSON.parse(serviceAccountKey);
     const accessToken = await getGoogleAccessToken(credentials);
 
-    let downloadUrl: string;
-    let fileName: string;
-
-    if (downloadType === 'stems' && instrumental.has_stems && instrumental.stems_folder_id) {
-      // For stems, we need to list and zip the folder contents
-      // For now, return the folder link for manual download
-      downloadUrl = `https://drive.google.com/drive/folders/${instrumental.stems_folder_id}`;
-      fileName = `${instrumental.title} - Stems`;
-    } else {
-      // Get direct download link for the main file
-      const fileId = instrumental.drive_file_id;
-      
-      // Get file metadata
-      const metadataResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType`,
-        {
-          headers: { 'Authorization': `Bearer ${accessToken}` },
-        }
-      );
-
-      if (!metadataResponse.ok) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to get file metadata' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const metadata = await metadataResponse.json();
-      fileName = metadata.name || `${instrumental.title}.mp3`;
-      
-      // Generate direct download URL
-      downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-    }
-
     console.log(`Admin download requested by ${user.email} for instrumental: ${instrumental.title}, type: ${downloadType}`);
 
-    return new Response(
-      JSON.stringify({ 
-        downloadUrl,
-        fileName,
-        title: instrumental.title,
-        type: downloadType,
-        accessToken: downloadType === 'stems' ? null : accessToken, // Include token for direct download
-        isFolderLink: downloadType === 'stems'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // Handle stems folder - return folder link
+    if (downloadType === 'stems' && instrumental.has_stems && instrumental.stems_folder_id) {
+      const downloadUrl = `https://drive.google.com/drive/folders/${instrumental.stems_folder_id}`;
+      return new Response(
+        JSON.stringify({ 
+          downloadUrl,
+          fileName: `${instrumental.title} - Stems`,
+          title: instrumental.title,
+          type: downloadType,
+          isFolderLink: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // For instrumental file: proxy the download through the edge function
+    const fileId = instrumental.drive_file_id;
+    
+    if (!fileId) {
+      return new Response(
+        JSON.stringify({ error: 'No drive file ID found for this instrumental' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get file metadata first
+    const metadataResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,size`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
     );
+
+    if (!metadataResponse.ok) {
+      const metaError = await metadataResponse.text();
+      console.error('Failed to get file metadata:', metaError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to get file metadata from Google Drive' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const metadata = await metadataResponse.json();
+    const fileName = metadata.name || `${instrumental.title}.mp3`;
+    const mimeType = metadata.mimeType || 'audio/mpeg';
+
+    console.log(`Downloading file: ${fileName}, mimeType: ${mimeType}, size: ${metadata.size}`);
+
+    // Download the actual file content from Google Drive
+    const fileResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!fileResponse.ok) {
+      const fileError = await fileResponse.text();
+      console.error('Failed to download file from Drive:', fileError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to download file from Google Drive' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Stream the file content back to the client
+    const fileContent = await fileResponse.arrayBuffer();
+
+    return new Response(fileContent, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': mimeType,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+        'Content-Length': fileContent.byteLength.toString(),
+      },
+    });
 
   } catch (error: unknown) {
     console.error('Admin download error:', error);
@@ -155,6 +187,8 @@ async function getGoogleAccessToken(credentials: { client_email: string; private
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Failed to get Google access token:', errorText);
     throw new Error('Failed to get Google access token');
   }
 

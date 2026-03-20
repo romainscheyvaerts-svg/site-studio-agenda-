@@ -41,39 +41,68 @@ const AdminDownloadModal = ({ instrumental, isOpen, onClose }: AdminDownloadModa
         return;
       }
 
-      const response = await supabase.functions.invoke('admin-download-instrumental', {
-        body: { 
-          instrumentalId: instrumental.id,
-          downloadType: type
-        },
-      });
+      if (type === 'stems') {
+        // For stems, the edge function returns JSON with a folder link
+        const response = await supabase.functions.invoke('admin-download-instrumental', {
+          body: { 
+            instrumentalId: instrumental.id,
+            downloadType: type
+          },
+        });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
 
-      const { downloadUrl, fileName, accessToken, isFolderLink } = response.data;
-
-      if (isFolderLink) {
-        // For stems folder, open in new tab
+        const { downloadUrl } = response.data;
         window.open(downloadUrl, '_blank');
         toast({
           title: "Dossier Stems ouvert",
           description: "Le dossier des stems s'est ouvert dans un nouvel onglet.",
         });
       } else {
-        // For direct file download, fetch with access token
-        const fileResponse = await fetch(downloadUrl, {
+        // For instrumental, the edge function now returns the file binary directly
+        // We need to use fetch directly to get the binary response
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const functionUrl = `${supabaseUrl}/functions/v1/admin-download-instrumental`;
+        
+        const response = await fetch(functionUrl, {
+          method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
+          body: JSON.stringify({
+            instrumentalId: instrumental.id,
+            downloadType: type
+          }),
         });
 
-        if (!fileResponse.ok) {
-          throw new Error('Failed to download file');
+        if (!response.ok) {
+          // Try to parse error JSON
+          let errorMessage = 'Erreur lors du téléchargement';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            errorMessage = `Erreur HTTP ${response.status}`;
+          }
+          throw new Error(errorMessage);
         }
 
-        const blob = await fileResponse.blob();
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let fileName = `${instrumental.title}.mp3`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+          if (match && match[1]) {
+            fileName = decodeURIComponent(match[1]);
+          }
+        }
+
+        // Download the binary content
+        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -92,7 +121,7 @@ const AdminDownloadModal = ({ instrumental, isOpen, onClose }: AdminDownloadModa
       console.error('Download error:', error);
       toast({
         title: "Erreur de téléchargement",
-        description: "Impossible de télécharger le fichier.",
+        description: error instanceof Error ? error.message : "Impossible de télécharger le fichier.",
         variant: "destructive",
       });
     } finally {
