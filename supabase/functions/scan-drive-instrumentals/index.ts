@@ -307,7 +307,7 @@ serve(async (req) => {
           drive_file_id: file.id,
           has_stems: file.hasStemsFolder,
           stems_folder_id: file.stemsFolderId,
-          is_active: true,
+          is_active: false,
           drive_modified_at: file.modifiedTime,
         });
       
