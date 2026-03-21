@@ -11,29 +11,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Check if user has admin or superadmin role in database
-async function isUserAdmin(userId: string): Promise<boolean> {
-  console.log("[ADMIN] Checking role for user:", userId);
-  
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
-  
-  console.log("[ADMIN] Query result - data:", JSON.stringify(data), "error:", error?.message);
-  
-  if (error) {
-    console.error("[ADMIN] Error checking admin role:", error);
-    return false;
-  }
-  
-  // Check if any role is admin or superadmin
-  const hasAdminRole = data?.some((r: any) => r.role === 'admin' || r.role === 'superadmin');
-  console.log("[ADMIN] Has admin role:", hasAdminRole);
-  
-  return hasAdminRole || false;
-}
-
 // Get Google OAuth2 access token using service account
 async function getAccessToken(serviceAccountKey: string, scopes: string[]): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
@@ -49,7 +26,14 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   };
 
   const encoder = new TextEncoder();
-  const base64url = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  // Safe base64url encoding (avoids spread operator stack overflow on large arrays)
+  const base64url = (data: Uint8Array) => {
+    let binary = "";
+    for (let i = 0; i < data.length; i++) {
+      binary += String.fromCharCode(data[i]);
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  };
   
   const headerB64 = base64url(encoder.encode(JSON.stringify(header)));
   const claimSetB64 = base64url(encoder.encode(JSON.stringify(claimSet)));
@@ -83,7 +67,7 @@ async function getAccessToken(serviceAccountKey: string, scopes: string[]): Prom
   if (!tokenResponse.ok) {
     const errorText = await tokenResponse.text();
     console.error("Token exchange failed:", errorText);
-    throw new Error("Failed to get access token");
+    throw new Error("Échec d'authentification Google. Vérifiez la clé de service.");
   }
 
   const tokenData = await tokenResponse.json();
@@ -99,22 +83,60 @@ function extractNumericPrefix(fileName: string): string | null {
   return match ? match[1] : null;
 }
 
+// List ALL files from Google Drive with pagination support
+async function listAllDriveFiles(accessToken: string, folderId: string): Promise<any[]> {
+  const allFiles: any[] = [];
+  let pageToken: string | undefined = undefined;
+  
+  do {
+    const url = new URL("https://www.googleapis.com/drive/v3/files");
+    url.searchParams.set("q", `'${folderId}' in parents and trashed = false`);
+    url.searchParams.set("fields", "nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size)");
+    url.searchParams.set("pageSize", "1000");
+    if (pageToken) {
+      url.searchParams.set("pageToken", pageToken);
+    }
+    
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Failed to list drive files:", response.status, errorText);
+      throw new Error(`Erreur Google Drive (${response.status}): impossible de lister les fichiers du dossier.`);
+    }
+
+    const data = await response.json();
+    allFiles.push(...(data.files || []));
+    pageToken = data.nextPageToken;
+    
+    console.log(`[DRIVE] Fetched ${data.files?.length || 0} items (total: ${allFiles.length}), hasMore: ${!!pageToken}`);
+  } while (pageToken);
+  
+  return allFiles;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // TEMPORARILY SKIP AUTH FOR TESTING
+    // Auth check
     const authHeader = req.headers.get("authorization");
     let userEmail = "anonymous";
     
     if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(
-        authHeader.replace("Bearer ", "")
-      );
-      if (user) {
-        userEmail = user.email || "unknown";
+      try {
+        const { data: { user } } = await supabase.auth.getUser(
+          authHeader.replace("Bearer ", "")
+        );
+        if (user) {
+          userEmail = user.email || "unknown";
+        }
+      } catch (authErr) {
+        console.warn("[AUTH] Could not verify user token:", authErr);
       }
     }
     
@@ -123,35 +145,67 @@ serve(async (req) => {
     // Get Google credentials
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKey) {
-      console.error("Missing Google service account key");
-      return new Response(JSON.stringify({ error: "Configuration missing" }), {
-        status: 500,
+      console.error("Missing GOOGLE_SERVICE_ACCOUNT_KEY environment variable");
+      return new Response(JSON.stringify({ 
+        error: "Configuration manquante: GOOGLE_SERVICE_ACCOUNT_KEY n'est pas défini dans les secrets Supabase." 
+      }), {
+        status: 200, // Return 200 with error in body so client can read it
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate that the key is valid JSON
+    try {
+      const parsedKey = JSON.parse(serviceAccountKey);
+      if (!parsedKey.client_email || !parsedKey.private_key) {
+        return new Response(JSON.stringify({ 
+          error: "La clé de service Google est incomplète (client_email ou private_key manquant)." 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } catch (parseErr) {
+      console.error("Invalid GOOGLE_SERVICE_ACCOUNT_KEY JSON:", parseErr);
+      return new Response(JSON.stringify({ 
+        error: "La clé de service Google n'est pas un JSON valide. Vérifiez le format dans les secrets Supabase." 
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // Get access token
-    const accessToken = await getAccessToken(serviceAccountKey, [
-      "https://www.googleapis.com/auth/drive.readonly",
-    ]);
-
-    // List all items in the folder (audio files AND folders for stems)
-    // Include modifiedTime to detect updated files
-    const listResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q='${INSTRUMENTALS_FOLDER_ID}'+in+parents&fields=files(id,name,mimeType,createdTime,modifiedTime,size)`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
-
-    if (!listResponse.ok) {
-      const errorText = await listResponse.text();
-      console.error("Failed to list drive files:", errorText);
-      throw new Error("Failed to list drive files");
+    let accessToken: string;
+    try {
+      accessToken = await getAccessToken(serviceAccountKey, [
+        "https://www.googleapis.com/auth/drive.readonly",
+      ]);
+    } catch (tokenErr) {
+      console.error("Failed to get Google access token:", tokenErr);
+      return new Response(JSON.stringify({ 
+        error: `Impossible d'obtenir un token Google: ${tokenErr instanceof Error ? tokenErr.message : "erreur inconnue"}` 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const listData = await listResponse.json();
-    const allItems = listData.files || [];
+    console.log("[SCAN] Got Google access token, listing files from folder:", INSTRUMENTALS_FOLDER_ID);
+
+    // List all items in the folder with pagination
+    let allItems: any[];
+    try {
+      allItems = await listAllDriveFiles(accessToken, INSTRUMENTALS_FOLDER_ID);
+    } catch (driveErr) {
+      console.error("Failed to list drive files:", driveErr);
+      return new Response(JSON.stringify({ 
+        error: `${driveErr instanceof Error ? driveErr.message : "Impossible de lister les fichiers Google Drive."}` 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Separate audio files and folders
     const audioFiles = allItems.filter((item: any) => 
@@ -165,7 +219,7 @@ serve(async (req) => {
       /^\d+\s+ppp$/i.test(item.name.trim())
     );
 
-    console.log(`Found ${audioFiles.length} audio files and ${stemsFolders.length} stems folders`);
+    console.log(`[SCAN] Found ${audioFiles.length} audio files and ${stemsFolders.length} stems folders (total items: ${allItems.length})`);
 
     // Create a map of stems folders by their numeric prefix
     const stemsFolderMap: Record<string, { id: string; name: string }> = {};
@@ -173,7 +227,6 @@ serve(async (req) => {
       const prefix = folder.name.match(/^(\d+)/)?.[1];
       if (prefix) {
         stemsFolderMap[prefix] = { id: folder.id, name: folder.name };
-        console.log(`Stems folder found: ${folder.name} -> prefix ${prefix}`);
       }
     }
 
@@ -183,8 +236,13 @@ serve(async (req) => {
       .select("id, drive_file_id, title, has_stems, stems_folder_id, drive_modified_at");
 
     if (dbError) {
-      console.error("DB error:", dbError);
-      throw new Error("Database error");
+      console.error("DB error fetching instrumentals:", dbError);
+      return new Response(JSON.stringify({ 
+        error: `Erreur base de données: ${dbError.message}` 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const existingDriveIds = new Set(existingInstrumentals?.map(i => i.drive_file_id) || []);
@@ -194,22 +252,23 @@ serve(async (req) => {
     
     // ========== DELETION: Find instrumentals in DB that no longer exist in Drive ==========
     const deletedFromDrive: string[] = [];
-    for (const instrumental of existingInstrumentals || []) {
-      if (instrumental.drive_file_id && !driveFileIds.has(instrumental.drive_file_id)) {
-        // This file no longer exists in Google Drive - DELETE from Supabase
-        console.log(`[DELETE] File removed from Drive: ${instrumental.title} (${instrumental.drive_file_id})`);
-        
-        const { error: deleteError } = await supabase
-          .from("instrumentals")
-          .delete()
-          .eq("id", instrumental.id);
-        
-        if (deleteError) {
-          console.error(`Failed to delete ${instrumental.title}:`, deleteError);
-        } else {
-          deletedFromDrive.push(instrumental.title);
-          console.log(`Deleted from database: ${instrumental.title}`);
-        }
+    const toDelete = (existingInstrumentals || []).filter(
+      instrumental => instrumental.drive_file_id && !driveFileIds.has(instrumental.drive_file_id)
+    );
+    
+    if (toDelete.length > 0) {
+      const deleteIds = toDelete.map(i => i.id);
+      console.log(`[DELETE] Removing ${toDelete.length} files no longer in Drive:`, toDelete.map(i => i.title));
+      
+      const { error: deleteError } = await supabase
+        .from("instrumentals")
+        .delete()
+        .in("id", deleteIds);
+      
+      if (deleteError) {
+        console.error("Failed to batch delete:", deleteError);
+      } else {
+        deletedFromDrive.push(...toDelete.map(i => i.title));
       }
     }
 
@@ -234,11 +293,12 @@ serve(async (req) => {
 
     // ========== UPDATE: Check for modified files and update stems info ==========
     const updatedFiles: string[] = [];
+    const updatePromises: Promise<void>[] = [];
+    
     for (const instrumental of existingInstrumentals || []) {
       const driveFile = driveFilesWithStatus.find((f: any) => f.id === instrumental.drive_file_id);
       if (!driveFile) continue; // Already deleted above
       
-      // Check if file was modified in Drive (date changed)
       const driveModifiedAt = driveFile.modifiedTime ? new Date(driveFile.modifiedTime).toISOString() : null;
       const dbModifiedAt = instrumental.drive_modified_at;
       
@@ -248,7 +308,6 @@ serve(async (req) => {
         (driveModifiedAt && driveModifiedAt !== dbModifiedAt);
       
       if (needsUpdate) {
-        // Re-parse title, BPM, key from new filename if file was replaced
         const bpmMatch = driveFile.name.match(/(\d+)\s*bpm/i);
         const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
         
@@ -263,43 +322,50 @@ serve(async (req) => {
           drive_modified_at: driveModifiedAt,
         };
         
-        // Only update title/bpm/key if the file was actually modified (not just stems info)
         if (driveModifiedAt && driveModifiedAt !== dbModifiedAt) {
           updateData.title = title;
           if (bpm) updateData.bpm = bpm;
           if (key) updateData.key = key;
-          console.log(`[UPDATE] File was modified in Drive: ${instrumental.title} -> ${title}`);
         }
         
-        await supabase
-          .from("instrumentals")
-          .update(updateData)
-          .eq("drive_file_id", instrumental.drive_file_id);
-        
-        updatedFiles.push(driveFile.name);
-        console.log(`Updated: ${driveFile.name}`);
+        updatePromises.push(
+          supabase
+            .from("instrumentals")
+            .update(updateData)
+            .eq("drive_file_id", instrumental.drive_file_id)
+            .then(({ error }) => {
+              if (error) {
+                console.error(`Failed to update ${driveFile.name}:`, error);
+              } else {
+                updatedFiles.push(driveFile.name);
+              }
+            })
+        );
       }
     }
+    
+    // Execute all updates in parallel
+    if (updatePromises.length > 0) {
+      console.log(`[UPDATE] Updating ${updatePromises.length} files...`);
+      await Promise.all(updatePromises);
+    }
 
-    // AUTO-INSERT: Add new files to database automatically
+    // ========== INSERT: Add new files to database ==========
     const newFiles = driveFilesWithStatus.filter((f: any) => !f.isInDatabase);
     const insertedFiles: string[] = [];
     
-    for (const file of newFiles) {
-      // Parse BPM from filename (e.g., "1280 e min 125 bpm.wav" -> 125)
-      const bpmMatch = file.name.match(/(\d+)\s*bpm/i);
-      const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
-      
-      // Parse key from filename (e.g., "e min", "D MIN")
-      const keyMatch = file.name.match(/([a-gA-G])\s*(min|maj|minor|major)?/i);
-      const key = keyMatch ? `${keyMatch[1].toUpperCase()} ${keyMatch[2]?.toLowerCase() || 'minor'}` : null;
-      
-      // Clean title
-      const title = file.name.replace(/\.(mp3|wav|flac|m4a)$/i, '').trim();
-      
-      const { error: insertError } = await supabase
-        .from("instrumentals")
-        .insert({
+    if (newFiles.length > 0) {
+      // Batch insert all new files at once
+      const insertData = newFiles.map((file: any) => {
+        const bpmMatch = file.name.match(/(\d+)\s*bpm/i);
+        const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
+        
+        const keyMatch = file.name.match(/([a-gA-G])\s*(min|maj|minor|major)?/i);
+        const key = keyMatch ? `${keyMatch[1].toUpperCase()} ${keyMatch[2]?.toLowerCase() || 'minor'}` : null;
+        
+        const title = file.name.replace(/\.(mp3|wav|flac|m4a)$/i, '').trim();
+        
+        return {
           title,
           bpm,
           key,
@@ -309,15 +375,40 @@ serve(async (req) => {
           stems_folder_id: file.stemsFolderId,
           is_active: false,
           drive_modified_at: file.modifiedTime,
-        });
+        };
+      });
       
-      if (insertError) {
-        console.error(`Failed to insert ${file.name}:`, insertError);
-      } else {
-        console.log(`Inserted: ${title}`);
-        insertedFiles.push(title);
+      console.log(`[INSERT] Inserting ${insertData.length} new files...`);
+      
+      // Insert in batches of 50 to avoid payload limits
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < insertData.length; i += BATCH_SIZE) {
+        const batch = insertData.slice(i, i + BATCH_SIZE);
+        const { error: insertError } = await supabase
+          .from("instrumentals")
+          .insert(batch);
+        
+        if (insertError) {
+          console.error(`Failed to insert batch ${i / BATCH_SIZE + 1}:`, insertError);
+          // Try inserting one by one for this failed batch
+          for (const item of batch) {
+            const { error: singleError } = await supabase
+              .from("instrumentals")
+              .insert(item);
+            if (singleError) {
+              console.error(`Failed to insert ${item.title}:`, singleError);
+            } else {
+              insertedFiles.push(item.title);
+            }
+          }
+        } else {
+          insertedFiles.push(...batch.map(b => b.title));
+          console.log(`[INSERT] Batch ${i / BATCH_SIZE + 1} inserted successfully (${batch.length} files)`);
+        }
       }
     }
+
+    console.log(`[SCAN] Complete - New: ${insertedFiles.length}, Updated: ${updatedFiles.length}, Deleted: ${deletedFromDrive.length}`);
 
     return new Response(
       JSON.stringify({ 
@@ -337,10 +428,22 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error scanning drive:", error);
+    // IMPORTANT: Return 200 with error in body so supabase.functions.invoke() 
+    // can pass the actual error message to the client instead of generic "non-2xx" error
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Erreur inconnue lors du scan",
+        files: [],
+        totalInDrive: 0,
+        totalInDatabase: 0,
+        newFiles: 0,
+        insertedFiles: [],
+        deletedFiles: [],
+        updatedFiles: [],
+        stemsFoldersFound: 0,
+      }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

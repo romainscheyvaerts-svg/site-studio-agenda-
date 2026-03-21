@@ -220,11 +220,23 @@ const AdminInstrumentals = () => {
     try {
       const { data, error } = await supabase.functions.invoke("scan-drive-instrumentals");
       if (error) throw error;
+      
+      // Check for error in response body (function returns 200 with error field)
+      if (data?.error) {
+        toast({
+          title: "Erreur de scan",
+          description: data.error,
+          variant: "destructive"
+        });
+        return;
+      }
+      
       if (data?.files) {
         setDriveFiles(data.files);
         const parts: string[] = [];
         if (data.newFiles > 0) parts.push(`${data.newFiles} ajouté(s)`);
         if (data.deletedFiles?.length > 0) parts.push(`${data.deletedFiles.length} supprimé(s)`);
+        if (data.updatedFiles?.length > 0) parts.push(`${data.updatedFiles.length} mis à jour`);
         if (data.stemsFoldersFound > 0) parts.push(`${data.stemsFoldersFound} dossiers stems`);
         toast({
           title: "🔄 Synchronisation terminée",
@@ -233,9 +245,21 @@ const AdminInstrumentals = () => {
         fetchInstrumentals();
       }
     } catch (err: any) {
+      // Try to extract meaningful error message
+      let errorMessage = "Impossible de scanner Google Drive";
+      if (err?.message && !err.message.includes("non-2xx")) {
+        errorMessage = err.message;
+      } else if (err?.context) {
+        try {
+          const body = await err.context.json();
+          if (body?.error) errorMessage = body.error;
+        } catch {
+          // ignore parse error
+        }
+      }
       toast({
         title: "Erreur de scan",
-        description: err.message || "Impossible de scanner Google Drive",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
