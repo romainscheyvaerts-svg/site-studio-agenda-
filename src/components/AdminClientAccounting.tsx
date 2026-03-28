@@ -509,6 +509,8 @@ const AdminClientAccounting = () => {
       }
 
       // Assign sessions to clients
+      const orphanSessions: CalendarSession[] = []; // Sessions without clientEmail
+
       for (const [sessionKey, session] of sessionMap) {
         sessionsForStats.push(session);
 
@@ -523,6 +525,101 @@ const AdminClientAccounting = () => {
             } else {
               client.totalPaidHours += session.duration;
             }
+          }
+        } else {
+          // No email - this is an orphan session, we'll try to match it by name
+          orphanSessions.push(session);
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // STEP 2: Fuzzy-match orphan sessions (no email) to existing clients
+      // This handles the case where admin manually types "Domenico" or "Dominico"
+      // in the calendar without attaching an email address.
+      // ---------------------------------------------------------------
+      if (orphanSessions.length > 0) {
+        console.log(`[Accounting] Found ${orphanSessions.length} orphan sessions (no email). Attempting fuzzy name matching...`);
+
+        // Build a name → client lookup from all known clients
+        // Each client may have multiple name variants
+        const clientNameIndex: Array<{ name: string; email: string }> = [];
+        for (const client of clientsMap.values()) {
+          // Add all known name variants
+          for (const n of client.allNames) {
+            clientNameIndex.push({ name: n, email: client.email });
+          }
+          // Also add the email local part as a potential name match
+          const emailLocal = client.email.split("@")[0].replace(/[._-]/g, " ");
+          clientNameIndex.push({ name: emailLocal, email: client.email });
+        }
+
+        for (const orphan of orphanSessions) {
+          // Extract a name from the session title
+          const cleanTitle = orphan.title
+            .replace(/\[FREE\]/gi, "")
+            .replace(/session|réservation|booking|rec|recording|enregistrement|avec ingénieur|sans ingénieur|location|mixage|mastering|podcast|composition/gi, "")
+            .replace(/[-:]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          if (!cleanTitle || cleanTitle.length < 2) continue;
+
+          // Try to find the best matching client
+          let bestMatch: { email: string; similarity: number } | null = null;
+
+          // Split the orphan title into name tokens (might be "Domenico Mammone" or just "Domenico")
+          const orphanTokens = normalizeName(cleanTitle).split(" ").filter(t => t.length > 1);
+
+          for (const entry of clientNameIndex) {
+            // Full name similarity
+            const sim = nameSimilarity(cleanTitle, entry.name);
+            if (sim >= 0.70 && (!bestMatch || sim > bestMatch.similarity)) {
+              bestMatch = { email: entry.email, similarity: sim };
+            }
+
+            // Also check each token of the orphan title against each token of the client name
+            // This handles "Domenico" matching "Domenico Mammone"
+            const clientTokens = normalizeName(entry.name).split(" ").filter(t => t.length > 1);
+            for (const oToken of orphanTokens) {
+              for (const cToken of clientTokens) {
+                if (oToken.length >= 3 && cToken.length >= 3) {
+                  const tokenSim = nameSimilarity(oToken, cToken);
+                  // Higher threshold for single-token matching to avoid false positives
+                  // But if the token is long enough and matches well, accept it
+                  const threshold = Math.max(oToken.length, cToken.length) >= 5 ? 0.75 : 0.85;
+                  if (tokenSim >= threshold && (!bestMatch || tokenSim > bestMatch.similarity)) {
+                    bestMatch = { email: entry.email, similarity: tokenSim };
+                  }
+                }
+              }
+            }
+          }
+
+          if (bestMatch) {
+            const client = clientsMap.get(bestMatch.email);
+            if (client && !client.sessions.find(s => s.id === orphan.id)) {
+              console.log(`[Accounting] Matched orphan "${orphan.title}" (${orphan.date}) → ${client.name || client.email} (similarity: ${Math.round(bestMatch.similarity * 100)}%)`);
+              const sessionWithOrigin = { ...orphan, originalClientEmail: undefined };
+              client.sessions.push(sessionWithOrigin);
+              client.totalHours += orphan.duration;
+              if (orphan.isFree) {
+                client.totalFreeHours += orphan.duration;
+              } else {
+                client.totalPaidHours += orphan.duration;
+              }
+
+              // Update date ranges
+              if (!client.firstSession || orphan.date < client.firstSession) client.firstSession = orphan.date;
+              if (!client.lastSession || orphan.date > client.lastSession) client.lastSession = orphan.date;
+
+              // Add the orphan's clean title as a name variant
+              const normalizedCleanTitle = normalizeName(cleanTitle);
+              if (!client.allNames.some(n => normalizeName(n) === normalizedCleanTitle)) {
+                client.allNames.push(cleanTitle);
+              }
+            }
+          } else {
+            console.log(`[Accounting] No match found for orphan "${orphan.title}" (${orphan.date})`);
           }
         }
       }
