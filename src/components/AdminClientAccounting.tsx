@@ -178,6 +178,72 @@ const KNOWN_SAME_CLIENTS: KnownClientRule[] = [
   // { primaryEmailPattern: /somepattern/i, namePatterns: [/name/i] },
 ];
 
+// =========================================================================
+// "Always Free" clients - the studio owner / partners whose sessions
+// should NEVER be counted as paid hours.
+// Matches on name patterns (from event titles) and/or email patterns.
+// =========================================================================
+
+interface AlwaysFreeRule {
+  namePatterns: RegExp[];
+  emailPatterns?: RegExp[];
+  label: string; // For logging
+}
+
+const ALWAYS_FREE_CLIENTS: AlwaysFreeRule[] = [
+  {
+    // Kazam BRZ = le patron
+    namePatterns: [/kazam/i, /brz/i],
+    label: "Kazam BRZ"
+  },
+  {
+    // Romain = le patron
+    namePatterns: [/romain/i],
+    label: "Romain"
+  },
+  {
+    // My Trap House = le patron
+    namePatterns: [/my\s*trap\s*house/i, /mytraphouse/i, /trap\s*house/i],
+    label: "My Trap House"
+  },
+];
+
+/**
+ * Check if a client matches any "always free" rule based on their names and email.
+ */
+function isAlwaysFreeClient(clientNames: string[], clientEmail: string): boolean {
+  for (const rule of ALWAYS_FREE_CLIENTS) {
+    // Check email patterns
+    if (rule.emailPatterns) {
+      for (const pattern of rule.emailPatterns) {
+        if (pattern.test(clientEmail)) return true;
+      }
+    }
+    // Check name patterns against all name variants
+    for (const namePattern of rule.namePatterns) {
+      for (const name of clientNames) {
+        if (namePattern.test(name)) return true;
+      }
+      // Also check against the email local part
+      const emailLocal = clientEmail.split("@")[0];
+      if (namePattern.test(emailLocal)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if a single event title matches any "always free" rule.
+ */
+function isAlwaysFreeEventTitle(eventTitle: string): boolean {
+  for (const rule of ALWAYS_FREE_CLIENTS) {
+    for (const namePattern of rule.namePatterns) {
+      if (namePattern.test(eventTitle)) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Auto-detect and return hardcoded merges based on KNOWN_SAME_CLIENTS rules.
  * Scans the client list and returns a merge mapping { secondaryEmail → primaryEmail }.
@@ -624,7 +690,33 @@ const AdminClientAccounting = () => {
         }
       }
 
+      // ---------------------------------------------------------------
+      // STEP 3: Mark "always free" clients (patron / partners)
+      // Force all their sessions to isFree = true and recalculate totals
+      // ---------------------------------------------------------------
       for (const client of clientsMap.values()) {
+        const allNamesToCheck = [
+          ...(client.allNames || []),
+          ...(client.name ? [client.name] : []),
+          // Also include session titles for matching
+          ...client.sessions.map(s => s.title)
+        ];
+
+        if (isAlwaysFreeClient(allNamesToCheck, client.email)) {
+          console.log(`[Accounting] Client "${client.name || client.email}" matched as ALWAYS FREE (patron/partenaire)`);
+          // Force all sessions to free
+          let recalcPaid = 0;
+          let recalcFree = 0;
+          for (const session of client.sessions) {
+            if (!session.isFree) {
+              session.isFree = true;
+            }
+            recalcFree += session.duration;
+          }
+          client.totalPaidHours = 0;
+          client.totalFreeHours = recalcFree;
+        }
+
         const uniqueDates = new Set(client.sessions.map(s => s.date));
         client.totalSessions = uniqueDates.size;
         client.sessions.sort((a, b) => b.date.localeCompare(a.date));
