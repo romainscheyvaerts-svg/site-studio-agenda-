@@ -692,20 +692,22 @@ const AdminClientAccounting = () => {
 
       // ---------------------------------------------------------------
       // STEP 3: Mark "always free" clients (patron / partners)
-      // Force all their sessions to isFree = true and recalculate totals
+      // ONLY mark a client as "always free" if their EMAIL or clean name
+      // matches patron patterns. Do NOT check session titles because
+      // the patron sometimes books on behalf of clients (adds client email).
+      // If a clientEmail is present and belongs to a real client, that
+      // session is PAID, even if created by the patron.
       // ---------------------------------------------------------------
       for (const client of clientsMap.values()) {
-        const allNamesToCheck = [
+        // Only check the client's own identity (names + email), NOT session titles
+        const clientIdentityNames = [
           ...(client.allNames || []),
-          ...(client.name ? [client.name] : []),
-          // Also include session titles for matching
-          ...client.sessions.map(s => s.title)
+          ...(client.name ? [client.name] : [])
         ];
 
-        if (isAlwaysFreeClient(allNamesToCheck, client.email)) {
-          console.log(`[Accounting] Client "${client.name || client.email}" matched as ALWAYS FREE (patron/partenaire)`);
+        if (isAlwaysFreeClient(clientIdentityNames, client.email)) {
+          console.log(`[Accounting] Client "${client.name || client.email}" matched as ALWAYS FREE (patron/partenaire) — their sessions won't count as paid`);
           // Force all sessions to free
-          let recalcPaid = 0;
           let recalcFree = 0;
           for (const session of client.sessions) {
             if (!session.isFree) {
