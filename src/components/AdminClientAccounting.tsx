@@ -192,17 +192,18 @@ interface AlwaysFreeRule {
 
 const ALWAYS_FREE_CLIENTS: AlwaysFreeRule[] = [
   {
-    // Kazam BRZ = le patron
+    // Kazam BRZ = patron du studio
     namePatterns: [/kazam/i, /brz/i],
+    emailPatterns: [/ingabirebrave/i],
     label: "Kazam BRZ"
   },
   {
-    // Romain = le patron
+    // Romain = patron du studio
     namePatterns: [/romain/i],
     label: "Romain"
   },
   {
-    // My Trap House = le patron
+    // My Trap House = patron du studio
     namePatterns: [/my\s*trap\s*house/i, /mytraphouse/i, /trap\s*house/i],
     label: "My Trap House"
   },
@@ -722,6 +723,39 @@ const AdminClientAccounting = () => {
         const uniqueDates = new Set(client.sessions.map(s => s.date));
         client.totalSessions = uniqueDates.size;
         client.sessions.sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      // ---------------------------------------------------------------
+      // STEP 4: Synchronize sessionsForStats with "always free" rules
+      // This ensures the "Comptabilité Générale" tab matches the per-client tab.
+      // We scan ALL sessions (including orphans not assigned to any client)
+      // and mark them as free if they belong to a patron by email OR title.
+      // ---------------------------------------------------------------
+      const alwaysFreeEmails = new Set<string>();
+      for (const client of clientsMap.values()) {
+        const clientIdentityNames = [
+          ...(client.allNames || []),
+          ...(client.name ? [client.name] : [])
+        ];
+        if (isAlwaysFreeClient(clientIdentityNames, client.email)) {
+          alwaysFreeEmails.add(client.email);
+        }
+      }
+
+      for (const session of sessionsForStats) {
+        if (session.isFree) continue; // Already free, skip
+
+        // Check 1: Session belongs to an "always free" client by email
+        if (session.originalClientEmail && alwaysFreeEmails.has(session.originalClientEmail)) {
+          session.isFree = true;
+          continue;
+        }
+
+        // Check 2: Orphan session (no email) whose title matches a patron pattern
+        if (!session.originalClientEmail && isAlwaysFreeEventTitle(session.title)) {
+          session.isFree = true;
+          continue;
+        }
       }
 
       const clientsList = Array.from(clientsMap.values())
