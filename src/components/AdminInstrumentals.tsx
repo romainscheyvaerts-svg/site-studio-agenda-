@@ -28,6 +28,9 @@ interface Instrumental {
   stems_folder_id?: string;
   stems_drive_url?: string;
   sort_order?: number;
+  collab_artist_name?: string;
+  collab_artist_username?: string;
+  collab_visible?: boolean;
 }
 
 interface DriveFile {
@@ -60,6 +63,8 @@ const defaultFormData = {
   has_stems: false,
   stems_folder_id: "",
   stems_drive_url: "",
+  collab_artist_name: "",
+  collab_artist_username: "",
 };
 
 const AdminInstrumentals = () => {
@@ -343,6 +348,8 @@ const AdminInstrumentals = () => {
       has_stems: formData.has_stems,
       stems_folder_id: formData.stems_folder_id || null,
       stems_drive_url: formData.stems_drive_url || null,
+      collab_artist_name: formData.collab_artist_name || null,
+      collab_artist_username: formData.collab_artist_username?.toLowerCase().trim() || null,
     };
 
     const { error } = editingId
@@ -382,6 +389,8 @@ const AdminInstrumentals = () => {
       has_stems: instrumental.has_stems || false,
       stems_folder_id: instrumental.stems_folder_id || "",
       stems_drive_url: instrumental.stems_drive_url || "",
+      collab_artist_name: instrumental.collab_artist_name || "",
+      collab_artist_username: instrumental.collab_artist_username || "",
     });
     setIsDialogOpen(true);
   };
@@ -740,6 +749,43 @@ const AdminInstrumentals = () => {
                     <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })} />
                     <Label>Visible sur le site</Label>
                   </div>
+
+                  {/* Section Collaboration Beatmaker */}
+                  <div className="col-span-2 p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-lg border border-cyan-500/30">
+                    <Label className="text-foreground font-semibold flex items-center gap-2 mb-3">
+                      <span className="text-lg">🤝</span> Collaboration Beatmaker (Social Artist)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Indiquez un artiste de la plateforme Social Artist. Un lecteur avec cette instru apparaîtra automatiquement sur son profil.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">Nom de l'artiste</Label>
+                        <Input
+                          value={formData.collab_artist_name}
+                          onChange={(e) => setFormData({ ...formData, collab_artist_name: e.target.value })}
+                          placeholder="Ex: DJ Flow"
+                          className="bg-background/50"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">Username Social Artist</Label>
+                        <Input
+                          value={formData.collab_artist_username}
+                          onChange={(e) => setFormData({ ...formData, collab_artist_username: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '') })}
+                          placeholder="ex: djflow"
+                          className="bg-background/50"
+                        />
+                      </div>
+                    </div>
+                    {formData.collab_artist_username && (
+                      <div className="mt-2">
+                        <Badge variant="outline" className="text-xs text-cyan-500 border-cyan-500/50">
+                          🤝 Collab avec @{formData.collab_artist_username}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex justify-end gap-2 pt-4">
@@ -815,6 +861,7 @@ const AdminInstrumentals = () => {
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold truncate">{instrumental.title}</h3>
                       {instrumental.has_stems && <Badge variant="outline" className="text-xs text-green-500"><Layers className="h-3 w-3 mr-1" />Stems</Badge>}
+                      {instrumental.collab_artist_username && <Badge variant="outline" className="text-xs text-cyan-500 border-cyan-500/50">🤝 @{instrumental.collab_artist_username}</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground">{instrumental.genre && `${instrumental.genre} • `}{instrumental.bpm && `${instrumental.bpm} BPM`}</p>
                     <p className="text-xs text-primary/70 truncate flex items-center gap-1 mt-0.5"><Volume2 className="h-3 w-3" />{driveFile?.name || `ID: ${instrumental.drive_file_id.slice(0, 15)}...`}</p>

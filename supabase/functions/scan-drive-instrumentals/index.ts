@@ -292,6 +292,8 @@ serve(async (req) => {
     });
 
     // ========== UPDATE: Check for modified files and update stems info ==========
+    // IMPORTANT: Never overwrite user-editable fields (title, description, genre, bpm, key)
+    // Only update technical/Drive-related fields (has_stems, stems_folder_id, drive_modified_at)
     const updatedFiles: string[] = [];
     const updatePromises: Promise<void>[] = [];
     
@@ -308,25 +310,13 @@ serve(async (req) => {
         (driveModifiedAt && driveModifiedAt !== dbModifiedAt);
       
       if (needsUpdate) {
-        const bpmMatch = driveFile.name.match(/(\d+)\s*bpm/i);
-        const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
-        
-        const keyMatch = driveFile.name.match(/([a-gA-G])\s*(min|maj|minor|major)?/i);
-        const key = keyMatch ? `${keyMatch[1].toUpperCase()} ${keyMatch[2]?.toLowerCase() || 'minor'}` : null;
-        
-        const title = driveFile.name.replace(/\.(mp3|wav|flac|m4a)$/i, '').trim();
-        
+        // Only update technical fields - NEVER overwrite title, bpm, key, genre, description
+        // These are manually edited by the admin on the site and must be preserved
         const updateData: any = {
           has_stems: driveFile.hasStemsFolder,
           stems_folder_id: driveFile.stemsFolderId,
           drive_modified_at: driveModifiedAt,
         };
-        
-        if (driveModifiedAt && driveModifiedAt !== dbModifiedAt) {
-          updateData.title = title;
-          if (bpm) updateData.bpm = bpm;
-          if (key) updateData.key = key;
-        }
         
         updatePromises.push(
           supabase
@@ -360,8 +350,16 @@ serve(async (req) => {
         const bpmMatch = file.name.match(/(\d+)\s*bpm/i);
         const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
         
-        const keyMatch = file.name.match(/([a-gA-G])\s*(min|maj|minor|major)?/i);
-        const key = keyMatch ? `${keyMatch[1].toUpperCase()} ${keyMatch[2]?.toLowerCase() || 'minor'}` : null;
+        // Improved key detection: handles sharps (#), flats (b), and various formats
+        // Examples: "d# min", "C#m", "Ab major", "Fm", "d# minor", "Bb min"
+        const keyMatch = file.name.match(/\b([a-gA-G][#b]?)\s*(min|maj|minor|major|m(?!\w))?/i);
+        let key: string | null = null;
+        if (keyMatch) {
+          const note = keyMatch[1].charAt(0).toUpperCase() + keyMatch[1].slice(1);
+          const quality = keyMatch[2] || 'minor';
+          const normalizedQuality = quality.startsWith('maj') ? 'major' : 'minor';
+          key = `${note} ${normalizedQuality}`;
+        }
         
         const title = file.name.replace(/\.(mp3|wav|flac|m4a)$/i, '').trim();
         
@@ -369,7 +367,7 @@ serve(async (req) => {
           title,
           bpm,
           key,
-          genre: 'Beat',
+          genre: 'Trap',
           drive_file_id: file.id,
           has_stems: file.hasStemsFolder,
           stems_folder_id: file.stemsFolderId,

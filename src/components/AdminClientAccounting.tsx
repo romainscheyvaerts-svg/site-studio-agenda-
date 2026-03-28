@@ -150,6 +150,98 @@ function areNamesSimilar(nameA: string, nameB: string, threshold = 0.75): boolea
 // Merge storage (localStorage persistence)
 // =========================================================================
 
+// =========================================================================
+// Hardcoded client identity rules (always merged, no matter what)
+// These define groups of clients that are ALWAYS the same person.
+// Each rule: { primaryEmailPattern, namePatterns, emailPatterns }
+// =========================================================================
+
+interface KnownClientRule {
+  /** Regex to identify the PRIMARY email (the one we keep) */
+  primaryEmailPattern: RegExp;
+  /** Name patterns (normalized) that also belong to this client */
+  namePatterns: RegExp[];
+  /** Additional email patterns that belong to this client */
+  emailPatterns?: RegExp[];
+  /** Display name override */
+  displayName?: string;
+}
+
+const KNOWN_SAME_CLIENTS: KnownClientRule[] = [
+  {
+    // Garri = ton chauve préféré = s83.management.music
+    primaryEmailPattern: /s83[._-]?management/i,
+    namePatterns: [/^gar+i$/i],
+    displayName: "Garri"
+  },
+  // Add more rules here as needed:
+  // { primaryEmailPattern: /somepattern/i, namePatterns: [/name/i] },
+];
+
+/**
+ * Auto-detect and return hardcoded merges based on KNOWN_SAME_CLIENTS rules.
+ * Scans the client list and returns a merge mapping { secondaryEmail → primaryEmail }.
+ */
+function computeHardcodedMerges(clientsList: ClientFromCalendar[]): MergeMapping {
+  const autoMerges: MergeMapping = {};
+
+  for (const rule of KNOWN_SAME_CLIENTS) {
+    // Find the primary client (by email pattern)
+    const primaryClient = clientsList.find(c => rule.primaryEmailPattern.test(c.email));
+    if (!primaryClient) continue;
+
+    // Find secondary clients by name patterns
+    for (const client of clientsList) {
+      if (client.email === primaryClient.email) continue;
+      if (autoMerges[client.email]) continue; // Already merged
+
+      // Check if any of the client's names match the name patterns
+      const allNamesToCheck = [
+        ...(client.allNames || []),
+        ...(client.name ? [client.name] : [])
+      ];
+
+      let isMatch = false;
+
+      for (const namePattern of rule.namePatterns) {
+        for (const clientName of allNamesToCheck) {
+          const normalized = normalizeName(clientName);
+          // Test against each token in the name (in case name has extra words)
+          const tokens = normalized.split(" ").filter(t => t.length > 1);
+          for (const token of tokens) {
+            if (namePattern.test(token)) {
+              isMatch = true;
+              break;
+            }
+          }
+          // Also test the full normalized name
+          if (namePattern.test(normalized)) {
+            isMatch = true;
+          }
+          if (isMatch) break;
+        }
+        if (isMatch) break;
+      }
+
+      // Check email patterns too
+      if (!isMatch && rule.emailPatterns) {
+        for (const emailPattern of rule.emailPatterns) {
+          if (emailPattern.test(client.email)) {
+            isMatch = true;
+            break;
+          }
+        }
+      }
+
+      if (isMatch) {
+        autoMerges[client.email] = primaryClient.email;
+      }
+    }
+  }
+
+  return autoMerges;
+}
+
 const MERGE_STORAGE_KEY = "admin_client_merges";
 
 interface MergeMapping {
@@ -468,13 +560,17 @@ const AdminClientAccounting = () => {
     const suggestions: SuggestedMerge[] = [];
     const checked = new Set<string>();
 
+    // Also compute hardcoded merges to skip those pairs from suggestions
+    const hardcoded = computeHardcodedMerges(clientsList);
+
     for (let i = 0; i < clientsList.length; i++) {
       for (let j = i + 1; j < clientsList.length; j++) {
         const cA = clientsList[i];
         const cB = clientsList[j];
 
-        // Skip if already merged
+        // Skip if already merged (manual or hardcoded)
         if (merges[cA.email] || merges[cB.email]) continue;
+        if (hardcoded[cA.email] || hardcoded[cB.email]) continue;
 
         // Skip if same email
         if (cA.email === cB.email) continue;
@@ -568,13 +664,19 @@ const AdminClientAccounting = () => {
   // -----------------------------------------------------------------------
 
   const clients = useMemo(() => {
-    if (Object.keys(merges).length === 0) return rawClients;
+    // Compute hardcoded merges (Garri = s83.management.music, etc.)
+    const hardcodedMerges = computeHardcodedMerges(rawClients);
+    
+    // Combine: hardcoded merges + manual merges (manual takes priority)
+    const allMerges: MergeMapping = { ...hardcodedMerges, ...merges };
+
+    if (Object.keys(allMerges).length === 0) return rawClients;
 
     const mergedMap = new Map<string, ClientFromCalendar>();
 
     // First pass: identify primary clients
     for (const client of rawClients) {
-      const primaryEmail = merges[client.email] || client.email;
+      const primaryEmail = allMerges[client.email] || client.email;
 
       let primary = mergedMap.get(primaryEmail);
       if (!primary) {
@@ -638,11 +740,19 @@ const AdminClientAccounting = () => {
       }
     }
 
-    // Finalize
+    // Finalize + apply displayName overrides from KNOWN_SAME_CLIENTS
     for (const client of mergedMap.values()) {
       const uniqueDates = new Set(client.sessions.map(s => s.date));
       client.totalSessions = uniqueDates.size;
       client.sessions.sort((a, b) => b.date.localeCompare(a.date));
+
+      // Apply hardcoded displayName if matching a rule
+      for (const rule of KNOWN_SAME_CLIENTS) {
+        if (rule.displayName && rule.primaryEmailPattern.test(client.email)) {
+          client.name = rule.displayName;
+          break;
+        }
+      }
     }
 
     return Array.from(mergedMap.values())
