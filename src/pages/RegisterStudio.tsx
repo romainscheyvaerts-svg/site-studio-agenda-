@@ -1,0 +1,251 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Headphones, ArrowRight, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+
+const RegisterStudio = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(user ? 2 : 1); // Skip auth if already logged in
+  
+  // Auth fields
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  // Studio fields
+  const [studioName, setStudioName] = useState("");
+  const [studioSlug, setStudioSlug] = useState("");
+  const [studioCity, setStudioCity] = useState("");
+  const [studioPhone, setStudioPhone] = useState("");
+
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+  };
+
+  const handleNameChange = (name: string) => {
+    setStudioName(name);
+    if (!studioSlug || studioSlug === generateSlug(studioName)) {
+      setStudioSlug(generateSlug(name));
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!email || !password) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      setStep(2);
+      toast({ title: "Compte créé !", description: "Configurez maintenant votre studio." });
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateStudio = async () => {
+    if (!studioName || !studioSlug) return;
+    setLoading(true);
+    
+    const currentUser = user || (await supabase.auth.getUser()).data.user;
+    if (!currentUser) {
+      toast({ title: "Erreur", description: "Vous devez être connecté", variant: "destructive" });
+      setStep(1);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Check slug availability
+      const { data: existing } = await supabase
+        .from("studios")
+        .select("id")
+        .eq("slug", studioSlug)
+        .maybeSingle();
+
+      if (existing) {
+        toast({ title: "Slug déjà pris", description: "Choisissez un autre nom d'URL.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      // Create studio
+      const { data: studio, error: studioError } = await supabase
+        .from("studios")
+        .insert({
+          name: studioName,
+          slug: studioSlug,
+          city: studioCity || null,
+          phone: studioPhone || null,
+          email: currentUser.email || null,
+          subscription_status: "trialing",
+        })
+        .select()
+        .single();
+
+      if (studioError) throw studioError;
+
+      // Add user as owner
+      const { error: memberError } = await supabase
+        .from("studio_members")
+        .insert({
+          studio_id: studio.id,
+          user_id: currentUser.id,
+          role: "owner",
+        });
+
+      if (memberError) throw memberError;
+
+      // Also give platform admin role
+      await supabase
+        .from("user_roles")
+        .insert({ user_id: currentUser.id, role: "admin" })
+        .single();
+
+      toast({ title: "🎉 Studio créé !", description: `Votre studio "${studioName}" est prêt !` });
+      
+      // Redirect to studio
+      navigate(`/s/${studioSlug}`);
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white flex flex-col">
+      {/* Header */}
+      <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto w-full">
+        <Link to="/" className="flex items-center gap-2">
+          <Headphones className="w-8 h-8 text-cyan-400" />
+          <span className="text-xl font-bold">StudioBooking</span>
+        </Link>
+      </nav>
+
+      {/* Form */}
+      <div className="flex-1 flex items-center justify-center px-6 pb-20">
+        <div className="w-full max-w-md">
+          <h1 className="text-3xl font-bold mb-2 text-center">Créer mon studio</h1>
+          <p className="text-gray-400 text-center mb-8">
+            {step === 1 ? "Étape 1/2 — Créez votre compte" : "Étape 2/2 — Configurez votre studio"}
+          </p>
+
+          {/* Progress */}
+          <div className="flex gap-2 mb-8">
+            <div className={`h-1 flex-1 rounded ${step >= 1 ? "bg-cyan-500" : "bg-gray-700"}`} />
+            <div className={`h-1 flex-1 rounded ${step >= 2 ? "bg-cyan-500" : "bg-gray-700"}`} />
+          </div>
+
+          {step === 1 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="votre@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Mot de passe</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="Min. 6 caractères"
+                />
+              </div>
+              <button
+                onClick={handleSignUp}
+                disabled={loading || !email || !password}
+                className="w-full bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-bold py-3 px-6 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? "Création..." : "Créer mon compte"} <ArrowRight className="w-5 h-5" />
+              </button>
+              <p className="text-center text-sm text-gray-500">
+                Déjà un compte ?{" "}
+                <Link to="/auth" className="text-cyan-400 hover:underline">Se connecter</Link>
+              </p>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Nom du studio *</label>
+                <input
+                  type="text"
+                  value={studioName}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="Ex: Make Music Studio"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">URL de votre studio *</label>
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <span className="px-3 text-gray-500 text-sm">studiobooking.com/s/</span>
+                  <input
+                    type="text"
+                    value={studioSlug}
+                    onChange={(e) => setStudioSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    className="flex-1 bg-transparent px-2 py-3 text-white focus:outline-none"
+                    placeholder="mon-studio"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Ville</label>
+                <input
+                  type="text"
+                  value={studioCity}
+                  onChange={(e) => setStudioCity(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="Ex: Bruxelles"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Téléphone</label>
+                <input
+                  type="tel"
+                  value={studioPhone}
+                  onChange={(e) => setStudioPhone(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                  placeholder="+32 xxx xxx xxx"
+                />
+              </div>
+              <button
+                onClick={handleCreateStudio}
+                disabled={loading || !studioName || !studioSlug}
+                className="w-full bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-bold py-3 px-6 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? "Création..." : "🎵 Créer mon studio"} <ArrowRight className="w-5 h-5" />
+              </button>
+              {!user && (
+                <button onClick={() => setStep(1)} className="w-full text-gray-400 hover:text-white flex items-center justify-center gap-2 text-sm">
+                  <ArrowLeft className="w-4 h-4" /> Retour
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RegisterStudio;

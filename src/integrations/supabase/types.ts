@@ -901,6 +901,132 @@ export type Database = {
         }
         Relationships: []
       }
+      studios: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          description: string | null
+          logo_url: string | null
+          primary_color: string
+          secondary_color: string
+          background_color: string
+          address: string | null
+          city: string | null
+          country: string
+          phone: string | null
+          email: string | null
+          stripe_publishable_key: string | null
+          stripe_secret_key: string | null
+          paypal_client_id: string | null
+          paypal_client_secret: string | null
+          google_calendar_id: string | null
+          google_patron_calendar_id: string | null
+          google_drive_parent_folder_id: string | null
+          google_service_account_key: string | null
+          resend_api_key: string | null
+          resend_from_email: string | null
+          gemini_api_key: string | null
+          subscription_status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          description?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          background_color?: string
+          address?: string | null
+          city?: string | null
+          country?: string
+          phone?: string | null
+          email?: string | null
+          stripe_publishable_key?: string | null
+          stripe_secret_key?: string | null
+          paypal_client_id?: string | null
+          paypal_client_secret?: string | null
+          google_calendar_id?: string | null
+          google_patron_calendar_id?: string | null
+          google_drive_parent_folder_id?: string | null
+          google_service_account_key?: string | null
+          resend_api_key?: string | null
+          resend_from_email?: string | null
+          gemini_api_key?: string | null
+          subscription_status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          description?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          background_color?: string
+          address?: string | null
+          city?: string | null
+          country?: string
+          phone?: string | null
+          email?: string | null
+          stripe_publishable_key?: string | null
+          stripe_secret_key?: string | null
+          paypal_client_id?: string | null
+          paypal_client_secret?: string | null
+          google_calendar_id?: string | null
+          google_patron_calendar_id?: string | null
+          google_drive_parent_folder_id?: string | null
+          google_service_account_key?: string | null
+          resend_api_key?: string | null
+          resend_from_email?: string | null
+          gemini_api_key?: string | null
+          subscription_status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      studio_members: {
+        Row: {
+          id: string
+          studio_id: string
+          user_id: string
+          role: Database["public"]["Enums"]["studio_role"]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          studio_id: string
+          user_id: string
+          role?: Database["public"]["Enums"]["studio_role"]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          studio_id?: string
+          user_id?: string
+          role?: Database["public"]["Enums"]["studio_role"]
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -918,6 +1044,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "superadmin"
+      studio_role: "owner" | "admin" | "engineer"
     }
     CompositeTypes: {
       [_ in never]: never
