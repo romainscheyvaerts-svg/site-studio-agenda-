@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useStudio } from "@/hooks/useStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Settings, CreditCard, Calendar, Mail, Bot, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image } from "lucide-react";
+import { Save, Settings, CreditCard, Calendar, Mail, Bot, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const StudioSettings = () => {
@@ -232,6 +232,52 @@ const StudioSettings = () => {
     }
   };
 
+  // --- Pricing / Services state ---
+  interface ServiceItem { id: string; service_key: string; name_fr: string; base_price: number; price_unit: string; is_active: boolean; sort_order: number; }
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceKey, setNewServiceKey] = useState("");
+  const [newServicePrice, setNewServicePrice] = useState(0);
+  const [newServiceUnit, setNewServiceUnit] = useState("/h");
+
+  const loadServices = async () => {
+    setServicesLoading(true);
+    const { data } = await supabase.from("services").select("*").order("sort_order");
+    if (data) setServices(data as any);
+    setServicesLoading(false);
+  };
+
+  useEffect(() => { if (activeTab === "pricing") loadServices(); }, [activeTab]);
+
+  const updateServiceField = async (id: string, field: string, value: any) => {
+    const { error } = await supabase.from("services").update({ [field]: value }).eq("id", id);
+    if (!error) setServices(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+    else toast({ title: "Erreur", description: error.message, variant: "destructive" });
+  };
+
+  const addService = async () => {
+    if (!newServiceName || !newServiceKey) return toast({ title: "Remplissez le nom et la clé", variant: "destructive" });
+    const { data, error } = await supabase.from("services").insert({
+      service_key: newServiceKey.toLowerCase().replace(/\s+/g, "-"),
+      name_fr: newServiceName,
+      base_price: newServicePrice,
+      price_unit: newServiceUnit,
+      is_active: true,
+      sort_order: services.length + 1,
+    }).select().single();
+    if (error) return toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    if (data) setServices(prev => [...prev, data as any]);
+    setNewServiceName(""); setNewServiceKey(""); setNewServicePrice(0);
+    toast({ title: "✅ Service ajouté !" });
+  };
+
+  const deleteService = async (id: string) => {
+    const { error } = await supabase.from("services").delete().eq("id", id);
+    if (!error) setServices(prev => prev.filter(s => s.id !== id));
+    else toast({ title: "Erreur", description: error.message, variant: "destructive" });
+  };
+
   if (!isStudioAdmin) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -242,6 +288,7 @@ const StudioSettings = () => {
 
   const tabs = [
     { id: "general", label: "Général", icon: Settings },
+    { id: "pricing", label: "Tarifs", icon: Euro },
     { id: "design", label: "Design", icon: Layout },
     { id: "branding", label: "Couleurs", icon: Palette },
     { id: "payment", label: "Paiements", icon: CreditCard },
@@ -332,6 +379,145 @@ const StudioSettings = () => {
               <InputField label="Ville" value={city} onChange={setCity} placeholder="Bruxelles" />
               <InputField label="Téléphone" value={phone} onChange={setPhone} placeholder="+32 xxx xxx xxx" />
               <InputField label="Email" value={email} onChange={setEmail} type="email" placeholder="contact@studio.com" />
+            </>
+          )}
+
+          {activeTab === "pricing" && (
+            <>
+              <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2 mb-2">
+                <Euro className="w-5 h-5" /> Vos services & tarifs
+              </h3>
+              <p className="text-xs text-gray-400 mb-4">
+                Ajoutez, modifiez ou supprimez les services proposés par votre studio. Les prix s'affichent sur votre page et dans le système de réservation.
+              </p>
+
+              {servicesLoading ? (
+                <p className="text-gray-500 text-center py-8">Chargement...</p>
+              ) : (
+                <div className="space-y-3">
+                  {services.map((service) => (
+                    <div key={service.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                      <GripVertical className="w-4 h-4 text-gray-600 shrink-0" />
+                      <div className="flex-1 grid grid-cols-12 gap-2 items-center">
+                        {/* Name */}
+                        <input
+                          value={service.name_fr}
+                          onChange={(e) => setServices(prev => prev.map(s => s.id === service.id ? { ...s, name_fr: e.target.value } : s))}
+                          onBlur={() => updateServiceField(service.id, "name_fr", service.name_fr)}
+                          className="col-span-4 bg-gray-700/50 border border-gray-600 rounded px-2 py-1.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                          placeholder="Nom du service"
+                        />
+                        {/* Key */}
+                        <input
+                          value={service.service_key}
+                          onChange={(e) => setServices(prev => prev.map(s => s.id === service.id ? { ...s, service_key: e.target.value } : s))}
+                          onBlur={() => updateServiceField(service.id, "service_key", service.service_key)}
+                          className="col-span-3 bg-gray-700/50 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-300 font-mono focus:border-cyan-500 focus:outline-none"
+                          placeholder="cle-service"
+                        />
+                        {/* Price */}
+                        <div className="col-span-2 flex items-center gap-1">
+                          <input
+                            type="number"
+                            value={service.base_price}
+                            onChange={(e) => setServices(prev => prev.map(s => s.id === service.id ? { ...s, base_price: Number(e.target.value) } : s))}
+                            onBlur={() => updateServiceField(service.id, "base_price", service.base_price)}
+                            className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1.5 text-sm text-white text-right focus:border-cyan-500 focus:outline-none"
+                          />
+                          <span className="text-xs text-gray-400 shrink-0">€</span>
+                        </div>
+                        {/* Unit */}
+                        <select
+                          value={service.price_unit}
+                          onChange={(e) => updateServiceField(service.id, "price_unit", e.target.value)}
+                          className="col-span-1 bg-gray-700/50 border border-gray-600 rounded px-1 py-1.5 text-xs text-gray-300 focus:border-cyan-500 focus:outline-none"
+                        >
+                          <option value="/h">/h</option>
+                          <option value="/session">/sess</option>
+                          <option value="/track">/piste</option>
+                          <option value="/projet">/proj</option>
+                          <option value="">(fixe)</option>
+                        </select>
+                        {/* Active toggle */}
+                        <button
+                          onClick={() => updateServiceField(service.id, "is_active", !service.is_active)}
+                          className={`col-span-1 px-2 py-1.5 rounded text-xs font-medium transition ${
+                            service.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          {service.is_active ? "ON" : "OFF"}
+                        </button>
+                      </div>
+                      {/* Delete */}
+                      <button
+                        onClick={() => { if (confirm(`Supprimer "${service.name_fr}" ?`)) deleteService(service.id); }}
+                        className="text-red-400/60 hover:text-red-400 transition shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new service */}
+              <div className="mt-6 p-4 rounded-xl border-2 border-dashed border-gray-700 space-y-3">
+                <h4 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-cyan-400" /> Ajouter un service
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    value={newServiceName}
+                    onChange={(e) => { setNewServiceName(e.target.value); setNewServiceKey(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")); }}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                    placeholder="Nom (ex: Mixage audio)"
+                  />
+                  <input
+                    value={newServiceKey}
+                    onChange={(e) => setNewServiceKey(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 font-mono focus:border-cyan-500 focus:outline-none"
+                    placeholder="Clé (ex: mixage-audio)"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={newServicePrice}
+                      onChange={(e) => setNewServicePrice(Number(e.target.value))}
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                      placeholder="Prix"
+                    />
+                    <span className="text-gray-400 text-sm">€</span>
+                  </div>
+                  <select
+                    value={newServiceUnit}
+                    onChange={(e) => setNewServiceUnit(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                  >
+                    <option value="/h">Par heure</option>
+                    <option value="/session">Par session</option>
+                    <option value="/track">Par piste</option>
+                    <option value="/projet">Par projet</option>
+                    <option value="">Prix fixe</option>
+                  </select>
+                  <button
+                    onClick={addService}
+                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm"
+                  >
+                    <Plus className="w-4 h-4" /> Ajouter
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary */}
+              {services.length > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-gray-800/30 border border-gray-700/30">
+                  <p className="text-xs text-gray-400">
+                    📊 {services.filter(s => s.is_active).length} service(s) actif(s) sur {services.length} total
+                  </p>
+                </div>
+              )}
             </>
           )}
 

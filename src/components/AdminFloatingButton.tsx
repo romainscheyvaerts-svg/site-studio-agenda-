@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { Settings } from "lucide-react";
 import { useStudio } from "@/hooks/useStudio";
+import { useLocation } from "react-router-dom";
 import AdminPanel from "./AdminPanel";
 import { cn } from "@/lib/utils";
 
 const AdminFloatingButton = () => {
   const { isStudioAdmin } = useStudio();
+  const location = useLocation();
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  // Only show for studio admins (owner or admin of this studio)
+  // Only show for studio admins, hide on settings/visual-editor pages
   if (!isStudioAdmin) return null;
+  const path = location.pathname;
+  if (path.endsWith("/settings") || path.endsWith("/visual-editor")) return null;
 
   return (
     <>
