@@ -277,6 +277,7 @@ const Navbar = () => {
     { label: t("nav.gear"), path: "/arsenal", visible: showGear },
     { label: t("nav.pricing"), path: "/offres", visible: showPricing },
     { label: t("nav.booking"), path: "/reservation", visible: showBooking },
+    { label: "⚙ Paramètres", path: "/settings", visible: isAdmin },
   ].filter(l => l.visible);
 
   // Admin Drive Dropdown Button (Desktop)
