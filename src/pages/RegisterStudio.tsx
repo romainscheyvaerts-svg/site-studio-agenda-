@@ -16,8 +16,9 @@ const RegisterStudio = () => {
   const [forgotEmailSent, setForgotEmailSent] = useState(false);
   
   // Auth fields
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem("rememberedEmail") || "");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem("rememberedEmail"));
   
   // Studio fields
   const [studioName, setStudioName] = useState("");
@@ -72,6 +73,12 @@ const RegisterStudio = () => {
           toast({ title: "Erreur", description: error.message, variant: "destructive" });
         }
       } else {
+        // Save or clear remembered email
+        if (rememberMe) {
+          localStorage.setItem("rememberedEmail", email);
+        } else {
+          localStorage.removeItem("rememberedEmail");
+        }
         setStep(2);
         toast({ title: "Connecté !", description: "Configurez maintenant votre studio." });
       }
@@ -315,6 +322,17 @@ const RegisterStudio = () => {
                   placeholder="Min. 12 car., 1 majuscule, 1 spécial"
                 />
               </div>
+              {authMode === "login" && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                  />
+                  <span className="text-sm text-gray-400">Se souvenir de moi</span>
+                </label>
+              )}
               <button
                 onClick={authMode === "signup" ? handleSignUp : handleLogin}
                 disabled={loading || !email || !password}
