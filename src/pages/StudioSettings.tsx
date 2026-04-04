@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useStudio } from "@/hooks/useStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Settings, CreditCard, Calendar, Mail, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical } from "lucide-react";
+import { Save, Settings, CreditCard, Calendar, Mail, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical, Copy, ExternalLink, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const StudioSettings = () => {
@@ -10,6 +10,7 @@ const StudioSettings = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
+  const [copied, setCopied] = useState(false);
 
   // Form states
   const [name, setName] = useState("");
@@ -326,9 +327,35 @@ const StudioSettings = () => {
           <Link to={`/${studio?.slug}`} className="text-gray-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold">Paramètres du studio</h1>
             <p className="text-gray-400 text-sm">{studio?.name}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const studioUrl = `${window.location.origin}/${studio?.slug}`;
+                navigator.clipboard.writeText(studioUrl);
+                setCopied(true);
+                toast({ title: "✅ Lien copié !", description: studioUrl });
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:border-cyan-500/50 hover:bg-gray-700 text-sm text-gray-300 hover:text-white transition"
+              title="Copier le lien du studio"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copié !" : "Copier le lien"}
+            </button>
+            <a
+              href={`/${studio?.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 text-sm text-cyan-400 hover:text-cyan-300 transition"
+              title="Voir la page du studio"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Voir le studio
+            </a>
           </div>
         </div>
 
