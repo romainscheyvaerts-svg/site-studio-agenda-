@@ -1,7 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Footer from "@/components/Footer";
-import AdminPanel from "@/components/AdminPanel";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useStudio } from "@/hooks/useStudio";
 
@@ -18,7 +17,6 @@ const Index = () => {
         </div>
         <Footer />
       </div>
-      {isAdmin && <AdminPanel />}
     </main>
   );
 };
