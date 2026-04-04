@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useStudio } from "@/hooks/useStudio";
 import Navbar from "@/components/Navbar";
 import ChatBot from "@/components/ChatBot";
 import WaveformDisplay from "@/components/studio/WaveformDisplay";
@@ -73,6 +74,7 @@ const TRACK_COLORS = [
 const Studio = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { studio } = useStudio();
   const audioContextRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
   const metronomeGainRef = useRef<GainNode | null>(null);
@@ -1120,7 +1122,7 @@ const Studio = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <Navbar />
-      <ChatBot />
+      {(studio as any)?.show_chatbot !== false && <ChatBot />}
       
       <div className="pt-16 flex flex-col h-screen">
         {/* Headphone Tip Alert */}
