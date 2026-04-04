@@ -141,7 +141,7 @@ const Auth = () => {
     if (!validatePassword(newPassword)) {
       toast({
         title: "Mot de passe invalide",
-        description: "Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule et un chiffre.",
+        description: "Min. 12 caractères, 1 majuscule et 1 caractère spécial requis.",
         variant: "destructive",
       });
       return;
@@ -365,7 +365,7 @@ const Auth = () => {
           <div className="bg-card border border-border rounded-2xl p-8">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-gold bg-clip-text text-transparent">
-                Make Music
+                {isPlatformAuth ? "StudioBooking" : (studioSlug || "Studio")}
               </h1>
               <p className="text-muted-foreground mt-2">
                 Créez un nouveau mot de passe
@@ -382,10 +382,10 @@ const Auth = () => {
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Min. 12 car., 1 majuscule, 1 spécial"
                     className="pl-10 pr-10"
                     required
-                    minLength={6}
+                    minLength={12}
                   />
                   <button
                     type="button"
@@ -396,7 +396,7 @@ const Auth = () => {
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Minimum 6 caractères
+                  Min. 12 caractères, 1 majuscule, 1 caractère spécial
                 </p>
               </div>
 
@@ -430,7 +430,7 @@ const Auth = () => {
           <div className="bg-card border border-border rounded-2xl p-8">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-gold bg-clip-text text-transparent">
-                Make Music
+                {isPlatformAuth ? "StudioBooking" : (studioSlug || "Studio")}
               </h1>
               <p className="text-muted-foreground mt-2">
                 Récupération de mot de passe
