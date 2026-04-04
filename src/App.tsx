@@ -88,8 +88,8 @@ const App = () => (
             <Route path="/studio-pending" element={<StudioPending />} />
             <Route path="/super-admin" element={<SuperAdmin />} />
             
-            {/* Studio-scoped routes: /s/:studioSlug/* */}
-            <Route path="/s/:studioSlug/*" element={<StudioLayout />} />
+            {/* Studio-scoped routes: /:studioSlug/* */}
+            <Route path="/:studioSlug/*" element={<StudioLayout />} />
             
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

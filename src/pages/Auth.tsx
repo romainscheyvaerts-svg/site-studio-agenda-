@@ -51,7 +51,7 @@ const Auth = () => {
     
     const redirectAfterLogin = async (userId: string) => {
       if (studioSlug) {
-        navigate(`/s/${studioSlug}`);
+        navigate(`/${studioSlug}`);
       } else {
         const { data: membership } = await supabase
           .from("studio_members")
@@ -61,7 +61,7 @@ const Auth = () => {
           .single();
         
         if (membership && (membership as any).studios?.slug) {
-          navigate(`/s/${(membership as any).studios.slug}`);
+          navigate(`/${(membership as any).studios.slug}`);
         } else {
           navigate("/register-studio");
         }
@@ -476,7 +476,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* Back button */}
         <button
-          onClick={() => navigate(studioSlug ? `/s/${studioSlug}` : "/")}
+          onClick={() => navigate(studioSlug ? `/${studioSlug}` : "/")}
           className="flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -503,7 +503,7 @@ const Auth = () => {
             onClick={async () => {
               setLoading(true);
               const redirectTo = studioSlug 
-                ? `${window.location.origin}/s/${studioSlug}` 
+                ? `${window.location.origin}/${studioSlug}`
                 : `${window.location.origin}/auth`;
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',

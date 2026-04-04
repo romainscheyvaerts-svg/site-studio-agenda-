@@ -193,7 +193,7 @@ const RegisterStudio = () => {
       });
       
       // Redirect to a pending page
-      navigate(`/studio-pending`);
+      navigate("/studio-pending");
     } catch (err: any) {
       toast({ title: "Erreur", description: err.message, variant: "destructive" });
     } finally {
@@ -352,7 +352,7 @@ const RegisterStudio = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">URL de votre studio *</label>
                 <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-                  <span className="px-3 text-gray-500 text-sm">studiobooking.com/s/</span>
+                  <span className="px-3 text-gray-500 text-sm">studiobooking.com/</span>
                   <input
                     type="text"
                     value={studioSlug}

@@ -248,7 +248,7 @@ const SuperAdmin = () => {
                     
                     <div className="flex flex-wrap gap-4 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
-                        <Building2 className="w-4 h-4" /> /s/{studio.slug}
+                        <Building2 className="w-4 h-4" /> /{studio.slug}
                       </span>
                       {studio.city && (
                         <span className="flex items-center gap-1">
@@ -295,7 +295,7 @@ const SuperAdmin = () => {
 
                   {studio.subscription_status === "trialing" && (
                     <Link 
-                      to={`/s/${studio.slug}`}
+                      to={`/${studio.slug}`}
                       className="text-cyan-400 hover:underline text-sm ml-4"
                     >
                       Voir le studio →

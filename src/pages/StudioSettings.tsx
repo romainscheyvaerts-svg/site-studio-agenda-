@@ -160,7 +160,7 @@ const StudioSettings = () => {
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="flex items-center gap-4 mb-8">
-          <Link to={`/s/${studio?.slug}`} className="text-gray-400 hover:text-white">
+          <Link to={`/${studio?.slug}`} className="text-gray-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
