@@ -40,8 +40,8 @@ const RegisterStudio = () => {
 
   const handleSignUp = async () => {
     if (!email || !password) return;
-    if (password.length < 6) {
-      toast({ title: "Mot de passe trop court", description: "Min. 6 caractères", variant: "destructive" });
+    if (password.length < 12 || !/[A-Z]/.test(password) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      toast({ title: "Mot de passe invalide", description: "Min. 12 caractères, 1 majuscule et 1 caractère spécial requis.", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -197,7 +197,7 @@ const RegisterStudio = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
-                  placeholder="Min. 6 caractères"
+                  placeholder="Min. 12 car., 1 majuscule, 1 spécial"
                 />
               </div>
               <button

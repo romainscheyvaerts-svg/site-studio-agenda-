@@ -98,13 +98,10 @@ const Auth = () => {
   };
 
   const validatePassword = (password: string) => {
-    // Minimum 12 characters for security
     if (password.length < 12) return false;
-    // Must contain at least one uppercase, one lowercase, one number
     const hasUppercase = /[A-Z]/.test(password);
-    const hasLowercase = /[a-z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    return hasUppercase && hasLowercase && hasNumber;
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    return hasUppercase && hasSpecial;
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -189,7 +186,7 @@ const Auth = () => {
     if (!validatePassword(password)) {
       toast({
         title: "Mot de passe invalide",
-        description: "Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule et un chiffre.",
+        description: "Min. 12 caractères, 1 majuscule et 1 caractère spécial requis.",
         variant: "destructive",
       });
       return;
@@ -647,7 +644,7 @@ const Auth = () => {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Minimum 6 caractères
+                Min. 12 caractères, 1 majuscule, 1 caractère spécial
               </p>
             </div>
 
