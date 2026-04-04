@@ -42,19 +42,17 @@ const Auth = () => {
       setRememberMe(true);
     }
 
-    // Check URL for password reset
+    // Check URL for password reset — synchronous check before any redirect
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get("type");
-    if (type === "recovery") {
+    const isRecovery = hashParams.get("type") === "recovery";
+    if (isRecovery) {
       setView("reset-password");
     }
     
     const redirectAfterLogin = async (userId: string) => {
       if (studioSlug) {
-        // Inside a studio → go back to studio home
         navigate(`/s/${studioSlug}`);
       } else {
-        // Platform-level → find user's first studio
         const { data: membership } = await supabase
           .from("studio_members")
           .select("studio_id, studios(slug)")
@@ -65,7 +63,6 @@ const Auth = () => {
         if (membership && (membership as any).studios?.slug) {
           navigate(`/s/${(membership as any).studios.slug}`);
         } else {
-          // No studio → redirect to register
           navigate("/register-studio");
         }
       }
@@ -76,18 +73,20 @@ const Auth = () => {
       (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           setView("reset-password");
-        } else if (session?.user && view !== "reset-password") {
+        } else if (session?.user && !isRecovery && view !== "reset-password") {
           redirectAfterLogin(session.user.id);
         }
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && view !== "reset-password") {
-        redirectAfterLogin(session.user.id);
-      }
-    });
+    // Check for existing session — skip redirect if we're in recovery mode
+    if (!isRecovery) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user && view !== "reset-password") {
+          redirectAfterLogin(session.user.id);
+        }
+      });
+    }
 
     return () => subscription.unsubscribe();
   }, [navigate, view]);
