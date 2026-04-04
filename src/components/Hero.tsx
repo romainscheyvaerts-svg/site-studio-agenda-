@@ -7,6 +7,7 @@ import AdminQuickEventModal from "./AdminQuickEventModal";
 import { usePricing } from "@/hooks/usePricing";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useStudio } from "@/hooks/useStudio";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -20,7 +21,14 @@ const Hero = () => {
   const { getEffectivePrice, loading } = usePricing();
   const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
+  const { studio } = useStudio();
   const [showQuickEventModal, setShowQuickEventModal] = useState(false);
+
+  // Split studio name into two lines for hero display
+  const studioName = studio?.name?.toUpperCase() || "";
+  const nameWords = studioName.split(" ");
+  const heroLine1 = nameWords.length > 1 ? nameWords[0] : t("hero.title1");
+  const heroLine2 = nameWords.length > 1 ? nameWords.slice(1).join(" ") : studioName || `${t("hero.title2")} ${t("hero.title3")}`;
 
   const goToBooking = () => {
     navigate('/reservation');
@@ -83,9 +91,9 @@ const Hero = () => {
             "font-display text-foreground leading-none",
             isMobileView ? "text-5xl mb-3" : "text-6xl md:text-8xl lg:text-9xl mb-6"
           )}>
-            {t("hero.title1")}
+            {heroLine1}
             <br />
-            <span className="text-glow-cyan text-primary">{t("hero.title2")} {t("hero.title3")}</span>
+            <span className="text-glow-cyan text-primary">{heroLine2}</span>
           </h1>
           
           {/* Subtitle */}

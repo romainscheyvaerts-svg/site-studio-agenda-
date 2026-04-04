@@ -1,11 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { Mic, Phone, Mail, MapPin, ExternalLink } from "lucide-react";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useStudio } from "@/hooks/useStudio";
 import { cn } from "@/lib/utils";
 
 const Footer = () => {
   const { t } = useTranslation();
   const { isMobileView } = useViewMode();
+  const { studio } = useStudio();
+  const studioName = studio?.name || "Make Music";
 
   return (
     <footer className={cn("border-t border-border bg-secondary/20", isMobileView ? "py-6" : "py-12")}>
@@ -20,11 +23,15 @@ const Footer = () => {
                   <Mic className="w-4 h-4 text-primary" />
                 </div>
                 <span className="font-display text-xl text-foreground">
-                  MAKE<span className="text-primary">MUSIC</span>
+                  {(() => {
+                    const words = studioName.toUpperCase().split(" ");
+                    if (words.length > 1) return <>{words[0]}<span className="text-primary">{words.slice(1).join(" ")}</span></>;
+                    return <span className="text-primary">{words[0]}</span>;
+                  })()}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("footer.description")}
+                {studio?.description || t("footer.description")}
               </p>
             </div>
             
@@ -60,7 +67,7 @@ const Footer = () => {
             {/* Copyright */}
             <div className="border-t border-border pt-4 text-center">
               <p className="text-[10px] text-muted-foreground">
-                © {new Date().getFullYear()} Make Music. {t("footer.rights")}.
+                © {new Date().getFullYear()} {studioName}. {t("footer.rights")}.
               </p>
             </div>
           </div>
@@ -75,7 +82,11 @@ const Footer = () => {
                     <Mic className="w-5 h-5 text-primary" />
                   </div>
                   <span className="font-display text-2xl text-foreground">
-                    MAKE<span className="text-primary">MUSIC</span>
+                    {(() => {
+                      const words = studioName.toUpperCase().split(" ");
+                      if (words.length > 1) return <>{words[0]}<span className="text-primary">{words.slice(1).join(" ")}</span></>;
+                      return <span className="text-primary">{words[0]}</span>;
+                    })()}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground max-w-md mb-4">
@@ -127,7 +138,7 @@ const Footer = () => {
 
             <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
               <p className="text-xs text-muted-foreground">
-                © {new Date().getFullYear()} Make Music. {t("footer.rights")}.
+                © {new Date().getFullYear()} {studioName}. {t("footer.rights")}.
               </p>
               <div className="flex gap-6 text-xs text-muted-foreground">
                 <a href="#" className="hover:text-foreground transition-colors">{t("footer.legal")}</a>

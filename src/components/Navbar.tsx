@@ -19,6 +19,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useStudio } from "@/hooks/useStudio";
 import ViewModeToggle from "./ViewModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ const Navbar = () => {
   const { user, signOut, session } = useAuth();
   const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
+  const { studio } = useStudio();
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -528,7 +530,13 @@ const Navbar = () => {
               "font-display text-foreground",
               isMobileView ? "text-xl" : "text-2xl"
             )}>
-              MAKE<span className="text-primary">MUSIC</span>
+              {(() => {
+                const words = (studio?.name || "MAKE MUSIC").toUpperCase().split(" ");
+                if (words.length > 1) {
+                  return <>{words[0]}<span className="text-primary">{words.slice(1).join(" ")}</span></>;
+                }
+                return <span className="text-primary">{words[0]}</span>;
+              })()}
             </span>
           </div>
 
