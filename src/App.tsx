@@ -12,6 +12,8 @@ import BackgroundImage from "@/components/BackgroundImage";
 // Platform pages (no studio context)
 import Landing from "./pages/Landing";
 import RegisterStudio from "./pages/RegisterStudio";
+import StudioPending from "./pages/StudioPending";
+import SuperAdmin from "./pages/SuperAdmin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -83,6 +85,8 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/register-studio" element={<RegisterStudio />} />
+            <Route path="/studio-pending" element={<StudioPending />} />
+            <Route path="/super-admin" element={<SuperAdmin />} />
             
             {/* Studio-scoped routes: /s/:studioSlug/* */}
             <Route path="/s/:studioSlug/*" element={<StudioLayout />} />

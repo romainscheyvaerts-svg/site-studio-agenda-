@@ -81,6 +81,18 @@ export const StudioProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Check if subscription is active
+      if (studioData.subscription_status === "pending_approval") {
+        setError("Ce studio est en attente de validation par l'équipe StudioBooking.");
+        setStudio(null);
+        setLoading(false);
+        return;
+      }
+      if (studioData.subscription_status === "rejected") {
+        setError("Ce studio n'a pas été approuvé.");
+        setStudio(null);
+        setLoading(false);
+        return;
+      }
       if (!["active", "trialing"].includes(studioData.subscription_status)) {
         setError("Ce studio n'est plus actif");
         setStudio(null);

@@ -163,7 +163,7 @@ const RegisterStudio = () => {
           city: studioCity || null,
           phone: studioPhone || null,
           email: currentUser.email || null,
-          subscription_status: "trialing",
+          subscription_status: "pending_approval",
         })
         .select()
         .single();
@@ -187,10 +187,13 @@ const RegisterStudio = () => {
         .insert({ user_id: currentUser.id, role: "admin" })
         .single();
 
-      toast({ title: "🎉 Studio créé !", description: `Votre studio "${studioName}" est prêt !` });
+      toast({ 
+        title: "📋 Demande envoyée !", 
+        description: `Votre studio "${studioName}" est en attente de validation par l'équipe StudioBooking. Vous serez notifié par email.` 
+      });
       
-      // Redirect to studio
-      navigate(`/s/${studioSlug}`);
+      // Redirect to a pending page
+      navigate(`/studio-pending`);
     } catch (err: any) {
       toast({ title: "Erreur", description: err.message, variant: "destructive" });
     } finally {
