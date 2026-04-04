@@ -27,8 +27,8 @@ const Hero = () => {
   const s = studio as any;
   const studioName = studio?.name?.toUpperCase() || "";
   const nameWords = studioName.split(" ");
-  const heroLine1 = s?.hero_title_line1?.toUpperCase() || (nameWords.length > 1 ? nameWords[0] : t("hero.title1"));
-  const heroLine2 = s?.hero_title_line2?.toUpperCase() || (nameWords.length > 1 ? nameWords.slice(1).join(" ") : studioName || `${t("hero.title2")} ${t("hero.title3")}`);
+  const heroLine1 = s?.hero_title_line1?.toUpperCase() || (studioName ? (nameWords.length > 1 ? nameWords[0] : studioName) : "");
+  const heroLine2 = s?.hero_title_line2?.toUpperCase() || (studioName ? (nameWords.length > 1 ? nameWords.slice(1).join(" ") : "") : "");
   const heroSubtitle = s?.hero_subtitle || t("hero.description");
   const heroImageUrl = s?.hero_image_url || null;
 

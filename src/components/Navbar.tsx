@@ -532,13 +532,13 @@ const Navbar = () => {
               "font-display text-foreground",
               isMobileView ? "text-xl" : "text-2xl"
             )}>
-              {(() => {
-                const words = (studio?.name || "MAKE MUSIC").toUpperCase().split(" ");
+              {studio?.name ? (() => {
+                const words = studio.name.toUpperCase().split(" ");
                 if (words.length > 1) {
                   return <>{words[0]}<span className="text-primary">{words.slice(1).join(" ")}</span></>;
                 }
                 return <span className="text-primary">{words[0]}</span>;
-              })()}
+              })() : <span className="text-primary opacity-0">LOADING</span>}
             </span>
           </div>
 
