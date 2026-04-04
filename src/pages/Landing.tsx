@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Music, Calendar, CreditCard, Shield, Headphones, ArrowRight, Check, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,9 +8,28 @@ const Landing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isSuperAdmin = user?.email === "romain.scheyvaerts@gmail.com";
+  const [userStudioSlug, setUserStudioSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from("studio_members")
+        .select("studio_id, studios(slug, subscription_status)")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single()
+        .then(({ data }) => {
+          const s = data as any;
+          if (s?.studios?.slug && ["trialing", "active"].includes(s.studios.subscription_status)) {
+            setUserStudioSlug(s.studios.slug);
+          }
+        });
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setUserStudioSlug(null);
     navigate("/");
   };
   return (
@@ -30,8 +50,8 @@ const Landing = () => {
             )}
             {user ? (
               <>
-                <Link to="/register-studio" className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
-                  Mon studio
+              <Link to={userStudioSlug ? `/${userStudioSlug}/settings` : "/register-studio"} className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
+                  {userStudioSlug ? "Mon studio" : "Créer mon studio"}
                 </Link>
                 <button
                   onClick={handleLogout}

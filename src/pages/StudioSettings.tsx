@@ -18,6 +18,7 @@ const StudioSettings = () => {
   const [city, setCity] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [slug, setSlug] = useState("");
   
   // Branding
   const [primaryColor, setPrimaryColor] = useState("#06b6d4");
@@ -51,6 +52,7 @@ const StudioSettings = () => {
       setCity(studio.city || "");
       setPhone(studio.phone || "");
       setEmail(studio.email || "");
+      setSlug(studio.slug || "");
       setPrimaryColor(studio.primary_color || "#06b6d4");
       setSecondaryColor(studio.secondary_color || "#8b5cf6");
       setBackgroundColor(studio.background_color || "#000000");
@@ -91,7 +93,7 @@ const StudioSettings = () => {
       const updateData: any = {};
       
       if (activeTab === "general") {
-        Object.assign(updateData, { name, description, address, city, phone, email });
+        Object.assign(updateData, { name, slug, description, address, city, phone, email });
       } else if (activeTab === "branding") {
         Object.assign(updateData, { primary_color: primaryColor, secondary_color: secondaryColor, background_color: backgroundColor });
       } else if (activeTab === "payment") {
@@ -189,6 +191,19 @@ const StudioSettings = () => {
           {activeTab === "general" && (
             <>
               <InputField label="Nom du studio" value={name} onChange={setName} placeholder="Mon Studio" />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">URL de votre studio</label>
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                  <span className="px-3 text-gray-500 text-sm">studiobooking.com/</span>
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e: any) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    className="flex-1 bg-transparent px-2 py-2.5 text-white focus:outline-none text-sm"
+                    placeholder="mon-studio"
+                  />
+                </div>
+              </div>
               <InputField label="Description" value={description} onChange={setDescription} placeholder="Studio d'enregistrement professionnel..." />
               <InputField label="Adresse" value={address} onChange={setAddress} placeholder="123 rue de la Musique" />
               <InputField label="Ville" value={city} onChange={setCity} placeholder="Bruxelles" />
