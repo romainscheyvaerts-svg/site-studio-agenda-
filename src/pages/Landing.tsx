@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { Music, Calendar, CreditCard, Shield, Headphones, ArrowRight, Check } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Landing = () => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.email === "romain.scheyvaerts@gmail.com";
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white">
       {/* Hero */}
@@ -12,13 +15,26 @@ const Landing = () => {
             <Headphones className="w-8 h-8 text-cyan-400" />
             <span className="text-xl font-bold">StudioBooking</span>
           </div>
-          <div className="flex gap-4">
-            <Link to="/auth" className="px-4 py-2 text-sm text-gray-300 hover:text-white transition">
-              Connexion
-            </Link>
-            <Link to="/register-studio" className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
-              Créer mon studio
-            </Link>
+          <div className="flex gap-4 items-center">
+            {isSuperAdmin && (
+              <Link to="/super-admin" className="px-3 py-1.5 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition flex items-center gap-1">
+                <Shield className="w-3.5 h-3.5" /> Admin
+              </Link>
+            )}
+            {user ? (
+              <Link to="/register-studio" className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
+                Mon studio
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth" className="px-4 py-2 text-sm text-gray-300 hover:text-white transition">
+                  Connexion
+                </Link>
+                <Link to="/register-studio" className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
+                  Créer mon studio
+                </Link>
+              </>
+            )}
           </div>
         </nav>
 
