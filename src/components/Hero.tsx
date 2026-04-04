@@ -38,6 +38,43 @@ const Hero = () => {
   const showGear = s?.show_gear ?? true;
   const showBooking = s?.show_booking ?? true;
 
+  // Advanced design settings
+  const heroTitleSize = s?.hero_title_size || "9xl";
+  const heroSubtitleSize = s?.hero_subtitle_size || "xl";
+  const btnStyle = s?.button_style || "rounded";
+  const btnSize = (s?.button_size || "xl") as "sm" | "default" | "lg" | "xl";
+  const btnLayout = s?.button_layout || "row";
+  const heroLayoutAlign = s?.hero_layout || "center";
+  const showStats = s?.show_hero_stats !== "false";
+
+  // Map button_style to CSS border-radius
+  const btnRoundedClass = btnStyle === "pill" ? "rounded-full" : btnStyle === "square" ? "rounded-none" : "rounded-lg";
+
+  // Map hero layout alignment
+  const heroAlignClass = heroLayoutAlign === "left" ? "text-left items-start" : heroLayoutAlign === "right" ? "text-right items-end" : "text-center items-center";
+
+  // Map hero title size to responsive classes  
+  const titleSizeMap: Record<string, string> = {
+    "5xl": "text-3xl md:text-4xl lg:text-5xl",
+    "6xl": "text-4xl md:text-5xl lg:text-6xl",
+    "7xl": "text-4xl md:text-6xl lg:text-7xl",
+    "8xl": "text-5xl md:text-7xl lg:text-8xl",
+    "9xl": "text-6xl md:text-8xl lg:text-9xl",
+  };
+  const titleClass = titleSizeMap[heroTitleSize] || titleSizeMap["9xl"];
+
+  const subtitleSizeMap: Record<string, string> = {
+    "sm": "text-xs md:text-sm",
+    "base": "text-sm md:text-base",
+    "lg": "text-base md:text-lg",
+    "xl": "text-lg md:text-xl",
+    "2xl": "text-xl md:text-2xl",
+  };
+  const subtitleClass = subtitleSizeMap[heroSubtitleSize] || subtitleSizeMap["xl"];
+
+  // Button layout classes
+  const btnLayoutClass = btnLayout === "column" ? "flex-col" : btnLayout === "grid" ? "flex-wrap" : "flex-row";
+
   const slug = studio?.slug || "";
   const base = slug ? `/${slug}` : "";
 
@@ -100,14 +137,15 @@ const Hero = () => {
       
       {/* Content */}
       <div className={cn(
-        "relative z-10 container mx-auto text-center",
+        "relative z-10 container mx-auto",
+        heroAlignClass,
         isMobileView ? "px-5" : "px-6"
       )}>
-        <div className="animate-slide-up">
+        <div className={cn("animate-slide-up flex flex-col", heroAlignClass)}>
           {/* Main title */}
           <h1 className={cn(
             "font-display text-foreground leading-none",
-            isMobileView ? "text-5xl mb-3" : "text-6xl md:text-8xl lg:text-9xl mb-6"
+            isMobileView ? "text-5xl mb-3" : `${titleClass} mb-6`
           )}>
             {heroLine1}
             <br />
@@ -116,8 +154,9 @@ const Hero = () => {
           
           {/* Subtitle */}
           <p className={cn(
-            "text-muted-foreground max-w-2xl mx-auto leading-relaxed",
-            isMobileView ? "text-sm mb-6" : "text-lg md:text-xl mb-10"
+            "text-muted-foreground max-w-2xl leading-relaxed",
+            heroLayoutAlign === "center" && "mx-auto",
+            isMobileView ? "text-sm mb-6" : `${subtitleClass} mb-10`
           )}>
             {heroSubtitle}
           </p>
@@ -175,13 +214,14 @@ const Hero = () => {
               )}
             </div>
           ) : (
-            /* Desktop: buttons - respect section visibility */
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+            /* Desktop: buttons - respect section visibility + advanced design */
+            <div className={cn("flex gap-4 mb-4", btnLayoutClass, heroLayoutAlign === "center" ? "justify-center" : heroLayoutAlign === "left" ? "justify-start" : "justify-end")}>
               {!isAdmin && showBooking && (
                 <Button 
                   variant="hero" 
-                  size="xl" 
+                  size={btnSize}
                   onClick={goToBooking}
+                  className={btnRoundedClass}
                 >
                   <Mic className="w-5 h-5" />
                   {t("hero.cta_book").toUpperCase()}
@@ -190,8 +230,9 @@ const Hero = () => {
               {showPricing && (
                 <Button 
                   variant="neon" 
-                  size="xl" 
+                  size={btnSize}
                   onClick={goToOffers}
+                  className={btnRoundedClass}
                 >
                   <Euro className="w-5 h-5" />
                   {t("quick_nav.offers").toUpperCase()}
@@ -200,9 +241,9 @@ const Hero = () => {
               {showGear && (
                 <Button 
                   variant="outline" 
-                  size="xl" 
+                  size={btnSize}
                   onClick={goToGear}
-                  className="border-primary/50 hover:bg-primary/10 hover:border-primary"
+                  className={cn("border-primary/50 hover:bg-primary/10 hover:border-primary", btnRoundedClass)}
                 >
                   <Headphones className="w-5 h-5" />
                   {t("hero.cta_discover").toUpperCase()}
@@ -211,9 +252,9 @@ const Hero = () => {
               {showInstrumentals && (
                 <Button 
                   variant="outline" 
-                  size="xl" 
+                  size={btnSize}
                   onClick={goToInstrumentals} 
-                  className="border-accent/50 hover:bg-accent/10 hover:border-accent"
+                  className={cn("border-accent/50 hover:bg-accent/10 hover:border-accent", btnRoundedClass)}
                 >
                   <Music className="w-5 h-5" />
                   {t("nav.instrumentals").toUpperCase()}
@@ -268,8 +309,8 @@ const Hero = () => {
 
           {!isAdmin && <div className={isMobileView ? "mb-4" : "mb-12"} />}
           
-          {/* Stats - Redesigned for mobile */}
-          <div className={cn(
+          {/* Stats - Conditionally shown */}
+          {showStats && <div className={cn(
             "grid grid-cols-3 max-w-xl mx-auto",
             isMobileView ? "gap-1 bg-card/50 rounded-xl p-4 backdrop-blur-sm border border-border/50" : "gap-8"
           )}>
@@ -307,7 +348,7 @@ const Hero = () => {
                 isMobileView ? "text-[10px] leading-tight" : "text-sm"
               )}>{isMobileView ? "Qualité" : "Studio quality"}</div>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
       

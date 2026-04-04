@@ -74,6 +74,17 @@ const StudioSettings = () => {
   const [footerText, setFooterText] = useState("");
   const [navbarStyle, setNavbarStyle] = useState("transparent");
 
+  // Design - Advanced
+  const [heroTitleSize, setHeroTitleSize] = useState("9xl");
+  const [heroSubtitleSize, setHeroSubtitleSize] = useState("xl");
+  const [bodyTextSize, setBodyTextSize] = useState("base");
+  const [sectionTitleSize, setSectionTitleSize] = useState("3xl");
+  const [buttonStyle, setButtonStyle] = useState("rounded");
+  const [buttonSize, setButtonSize] = useState("xl");
+  const [buttonLayout, setButtonLayout] = useState("row");
+  const [heroLayout, setHeroLayout] = useState("center");
+  const [showHeroStats, setShowHeroStats] = useState("true");
+
   useEffect(() => {
     if (studio) {
       setName(studio.name || "");
@@ -107,6 +118,16 @@ const StudioSettings = () => {
       setSocialSpotify((studio as any).social_spotify || "");
       setSocialWebsite((studio as any).social_website || "");
       setFooterText((studio as any).footer_text || "");
+      // Advanced design
+      setHeroTitleSize((studio as any).hero_title_size || "9xl");
+      setHeroSubtitleSize((studio as any).hero_subtitle_size || "xl");
+      setBodyTextSize((studio as any).body_text_size || "base");
+      setSectionTitleSize((studio as any).section_title_size || "3xl");
+      setButtonStyle((studio as any).button_style || "rounded");
+      setButtonSize((studio as any).button_size || "xl");
+      setButtonLayout((studio as any).button_layout || "row");
+      setHeroLayout((studio as any).hero_layout || "center");
+      setShowHeroStats((studio as any).show_hero_stats ?? "true");
     }
     // Load sensitive keys from DB
     if (studioId) {
@@ -187,6 +208,15 @@ const StudioSettings = () => {
           social_spotify: socialSpotify || null,
           social_website: socialWebsite || null,
           footer_text: footerText || null,
+          hero_title_size: heroTitleSize,
+          hero_subtitle_size: heroSubtitleSize,
+          body_text_size: bodyTextSize,
+          section_title_size: sectionTitleSize,
+          button_style: buttonStyle,
+          button_size: buttonSize,
+          button_layout: buttonLayout,
+          hero_layout: heroLayout,
+          show_hero_stats: showHeroStats,
         });
       }
 
@@ -439,6 +469,140 @@ const StudioSettings = () => {
                   <p style={{ fontFamily }} className="text-2xl font-bold text-white">{name || "Mon Studio"}</p>
                   <p style={{ fontFamily }} className="text-sm text-gray-300">Bienvenue dans notre espace créatif</p>
                 </div>
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* TEXT SIZES */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">📏 Tailles des textes</h3>
+                <p className="text-xs text-gray-400">Ajustez la taille des différents éléments textuels.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Titre Hero</label>
+                    <select value={heroTitleSize} onChange={(e) => setHeroTitleSize(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm">
+                      <option value="5xl">Petit (5xl)</option>
+                      <option value="6xl">Moyen (6xl)</option>
+                      <option value="7xl">Grand (7xl)</option>
+                      <option value="8xl">Très grand (8xl)</option>
+                      <option value="9xl">Énorme (9xl)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Sous-titre Hero</label>
+                    <select value={heroSubtitleSize} onChange={(e) => setHeroSubtitleSize(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm">
+                      <option value="sm">Petit (sm)</option>
+                      <option value="base">Normal (base)</option>
+                      <option value="lg">Moyen (lg)</option>
+                      <option value="xl">Grand (xl)</option>
+                      <option value="2xl">Très grand (2xl)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Titres de section</label>
+                    <select value={sectionTitleSize} onChange={(e) => setSectionTitleSize(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm">
+                      <option value="xl">Petit (xl)</option>
+                      <option value="2xl">Moyen (2xl)</option>
+                      <option value="3xl">Grand (3xl)</option>
+                      <option value="4xl">Très grand (4xl)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Texte courant</label>
+                    <select value={bodyTextSize} onChange={(e) => setBodyTextSize(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm">
+                      <option value="sm">Petit (sm)</option>
+                      <option value="base">Normal (base)</option>
+                      <option value="lg">Grand (lg)</option>
+                      <option value="xl">Très grand (xl)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* BUTTON STYLE */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">🔘 Style des boutons</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Forme</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: "rounded", label: "Arrondi", preview: "rounded-lg" },
+                      { id: "pill", label: "Pilule", preview: "rounded-full" },
+                      { id: "square", label: "Carré", preview: "rounded-none" },
+                    ].map((s) => (
+                      <button key={s.id} onClick={() => setButtonStyle(s.id)}
+                        className={`p-3 text-center text-sm font-medium transition border ${
+                          buttonStyle === s.id ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" : "bg-gray-800/50 text-gray-400 border-gray-700/50 hover:border-gray-600"
+                        }`}
+                        style={{ borderRadius: s.id === "rounded" ? "8px" : s.id === "pill" ? "9999px" : "0" }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Taille des boutons</label>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { id: "sm", label: "S" },
+                      { id: "default", label: "M" },
+                      { id: "lg", label: "L" },
+                      { id: "xl", label: "XL" },
+                    ].map((s) => (
+                      <button key={s.id} onClick={() => setButtonSize(s.id)}
+                        className={`p-2 text-center text-sm font-medium transition border rounded-lg ${
+                          buttonSize === s.id ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" : "bg-gray-800/50 text-gray-400 border-gray-700/50 hover:border-gray-600"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Disposition des boutons Hero</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: "row", label: "🔀 En ligne" },
+                      { id: "column", label: "📑 Empilés" },
+                      { id: "grid", label: "▦ Grille" },
+                    ].map((s) => (
+                      <button key={s.id} onClick={() => setButtonLayout(s.id)}
+                        className={`p-3 text-center text-sm font-medium transition border rounded-lg ${
+                          buttonLayout === s.id ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" : "bg-gray-800/50 text-gray-400 border-gray-700/50 hover:border-gray-600"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* HERO LAYOUT */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">🎯 Layout Hero</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: "center", label: "📍 Centré" },
+                    { id: "left", label: "◀️ Gauche" },
+                    { id: "right", label: "▶️ Droite" },
+                  ].map((s) => (
+                    <button key={s.id} onClick={() => setHeroLayout(s.id)}
+                      className={`p-3 text-center text-sm font-medium transition border rounded-lg ${
+                        heroLayout === s.id ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" : "bg-gray-800/50 text-gray-400 border-gray-700/50 hover:border-gray-600"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <SectionToggle label="📊 Statistiques prix" description="Afficher les prix et PRO dans le Hero" enabled={showHeroStats === "true"} onChange={(v) => setShowHeroStats(v ? "true" : "false")} />
               </div>
 
               <hr className="border-gray-700 my-6" />

@@ -171,6 +171,12 @@ export const StudioProvider = ({ children }: { children: ReactNode }) => {
       document.documentElement.style.setProperty("--studio-primary", studio.primary_color);
       document.documentElement.style.setProperty("--studio-secondary", studio.secondary_color);
       document.documentElement.style.setProperty("--studio-bg", studio.background_color);
+      // Apply font family
+      const s = studio as any;
+      if (s.font_family) {
+        document.documentElement.style.setProperty("--font-family", s.font_family);
+        document.body.style.fontFamily = `${s.font_family}, sans-serif`;
+      }
       document.title = studio.name;
     }
   }, [studio]);
