@@ -1,6 +1,5 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
 import AdminPanel from "@/components/AdminPanel";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -19,7 +18,6 @@ const Index = () => {
         </div>
         <Footer />
       </div>
-      {(studio as any)?.show_chatbot !== false && <ChatBot />}
       {isAdmin && <AdminPanel />}
     </main>
   );

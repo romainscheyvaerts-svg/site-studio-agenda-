@@ -18,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudio } from "@/hooks/useStudio";
 import Navbar from "@/components/Navbar";
-import ChatBot from "@/components/ChatBot";
 import WaveformDisplay from "@/components/studio/WaveformDisplay";
 import VintageKnob from "@/components/studio/VintageKnob";
 import VUMeter from "@/components/studio/VUMeter";
@@ -1122,7 +1121,6 @@ const Studio = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <Navbar />
-      {(studio as any)?.show_chatbot !== false && <ChatBot />}
       
       <div className="pt-16 flex flex-col h-screen">
         {/* Headphone Tip Alert */}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useStudio } from "@/hooks/useStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Settings, CreditCard, Calendar, Mail, Bot, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical } from "lucide-react";
+import { Save, Settings, CreditCard, Calendar, Mail, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const StudioSettings = () => {
@@ -41,8 +41,6 @@ const StudioSettings = () => {
   const [resendApiKey, setResendApiKey] = useState("");
   const [resendFromEmail, setResendFromEmail] = useState("");
 
-  // AI
-  const [geminiApiKey, setGeminiApiKey] = useState("");
 
   // Design - Hero
   const [heroTitleLine1, setHeroTitleLine1] = useState("");
@@ -55,7 +53,6 @@ const StudioSettings = () => {
   const [showPricing, setShowPricing] = useState(true);
   const [showInstrumentals, setShowInstrumentals] = useState(true);
   const [showGallery, setShowGallery] = useState(true);
-  const [showChatbot, setShowChatbot] = useState(true);
   const [showGear, setShowGear] = useState(true);
   const [showBooking, setShowBooking] = useState(true);
 
@@ -106,7 +103,6 @@ const StudioSettings = () => {
       setShowPricing((studio as any).show_pricing ?? true);
       setShowInstrumentals((studio as any).show_instrumentals ?? true);
       setShowGallery((studio as any).show_gallery ?? true);
-      setShowChatbot((studio as any).show_chatbot ?? true);
       setShowGear((studio as any).show_gear ?? true);
       setShowBooking((studio as any).show_booking ?? true);
       setFontFamily((studio as any).font_family || "Inter");
@@ -154,7 +150,6 @@ const StudioSettings = () => {
       setGoogleServiceAccountKey(data.google_service_account_key || "");
       setResendApiKey(data.resend_api_key || "");
       setResendFromEmail(data.resend_from_email || "");
-      setGeminiApiKey(data.gemini_api_key || "");
     }
   };
 
@@ -184,8 +179,6 @@ const StudioSettings = () => {
         });
       } else if (activeTab === "email") {
         Object.assign(updateData, { resend_api_key: resendApiKey || null, resend_from_email: resendFromEmail || null });
-      } else if (activeTab === "ai") {
-        Object.assign(updateData, { gemini_api_key: geminiApiKey || null });
       } else if (activeTab === "design") {
         Object.assign(updateData, {
           hero_title_line1: heroTitleLine1 || null,
@@ -196,7 +189,6 @@ const StudioSettings = () => {
           show_pricing: showPricing,
           show_instrumentals: showInstrumentals,
           show_gallery: showGallery,
-          show_chatbot: showChatbot,
           show_gear: showGear,
           show_booking: showBooking,
           font_family: fontFamily,
@@ -294,7 +286,6 @@ const StudioSettings = () => {
     { id: "payment", label: "Paiements", icon: CreditCard },
     { id: "google", label: "Google", icon: Calendar },
     { id: "email", label: "Emails", icon: Mail },
-    { id: "ai", label: "IA / Chatbot", icon: Bot },
   ];
 
   const SectionToggle = ({ label, description, enabled, onChange }: { label: string; description: string; enabled: boolean; onChange: (v: boolean) => void }) => (
@@ -635,7 +626,6 @@ const StudioSettings = () => {
                 <SectionToggle label="🖼️ Galerie" description="Photos/vidéos du studio" enabled={showGallery} onChange={setShowGallery} />
                 <SectionToggle label="🎧 Équipement" description="Liste du matériel du studio" enabled={showGear} onChange={setShowGear} />
                 <SectionToggle label="📅 Réservation" description="Calendrier de réservation" enabled={showBooking} onChange={setShowBooking} />
-                <SectionToggle label="🤖 Chatbot IA" description="Assistant IA pour les visiteurs" enabled={showChatbot} onChange={setShowChatbot} />
               </div>
 
               <hr className="border-gray-700 my-6" />
@@ -847,15 +837,6 @@ const StudioSettings = () => {
                 <h3 className="text-lg font-bold text-cyan-400">Footer personnalisé</h3>
                 <InputField label="Texte du footer (optionnel)" value={footerText} onChange={setFooterText} placeholder="© 2026 Mon Studio - Tous droits réservés" />
               </div>
-            </>
-          )}
-
-          {activeTab === "ai" && (
-            <>
-              <p className="text-sm text-gray-400 mb-4">
-                🤖 Ajoutez votre clé Gemini pour activer le chatbot IA sur votre page studio.
-              </p>
-              <InputField label="Google Gemini API Key" value={geminiApiKey} onChange={setGeminiApiKey} type="password" placeholder="AIza..." />
             </>
           )}
 
