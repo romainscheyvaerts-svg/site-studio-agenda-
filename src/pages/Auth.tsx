@@ -12,9 +12,11 @@ import { useTranslation } from "react-i18next";
 type AuthView = "login" | "signup" | "forgot-password" | "reset-password";
 
 const Auth = () => {
-  // Detect if we're inside a studio context (URL contains /s/:slug)
+  // Detect if we're inside a studio context (URL param or query string)
   const { studioSlug } = useParams<{ studioSlug: string }>();
-  const isPlatformAuth = !studioSlug;
+  const studioFromQuery = new URLSearchParams(window.location.search).get("studio");
+  const effectiveStudioSlug = studioSlug || studioFromQuery;
+  const isPlatformAuth = !effectiveStudioSlug;
   const [view, setView] = useState<AuthView>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,9 +52,11 @@ const Auth = () => {
     }
     
     const redirectAfterLogin = async (userId: string) => {
-      if (studioSlug) {
-        navigate(`/${studioSlug}`);
+      if (effectiveStudioSlug) {
+        // Client came from a studio page → redirect back to that studio
+        navigate(`/${effectiveStudioSlug}`);
       } else {
+        // Platform auth → check if user owns a studio
         const { data: membership } = await supabase
           .from("studio_members")
           .select("studio_id, studios(slug)")
@@ -364,7 +368,7 @@ const Auth = () => {
           <div className="bg-card border border-border rounded-2xl p-8">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-gold bg-clip-text text-transparent">
-                {isPlatformAuth ? "StudioBooking" : (studioSlug || "Studio")}
+                {isPlatformAuth ? "StudioBooking" : (effectiveStudioSlug || "Studio")}
               </h1>
               <p className="text-muted-foreground mt-2">
                 Créez un nouveau mot de passe
@@ -429,7 +433,7 @@ const Auth = () => {
           <div className="bg-card border border-border rounded-2xl p-8">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-gold bg-clip-text text-transparent">
-                {isPlatformAuth ? "StudioBooking" : (studioSlug || "Studio")}
+                {isPlatformAuth ? "StudioBooking" : (effectiveStudioSlug || "Studio")}
               </h1>
               <p className="text-muted-foreground mt-2">
                 Récupération de mot de passe
@@ -476,18 +480,18 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* Back button */}
         <button
-          onClick={() => navigate(studioSlug ? `/${studioSlug}` : "/")}
+          onClick={() => navigate(effectiveStudioSlug ? `/${effectiveStudioSlug}` : "/")}
           className="flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          {studioSlug ? "Retour au studio" : "Retour à l'accueil"}
+          {effectiveStudioSlug ? "Retour au studio" : "Retour à l'accueil"}
         </button>
 
         <div className="bg-card border border-border rounded-2xl p-8">
           {/* Logo/Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-gold bg-clip-text text-transparent">
-              {isPlatformAuth ? "StudioBooking" : (studioSlug || "Studio")}
+              {isPlatformAuth ? "StudioBooking" : (effectiveStudioSlug || "Studio")}
             </h1>
             <p className="text-muted-foreground mt-2">
               {view === "login" ? "Connectez-vous à votre compte" : "Créez votre compte"}
@@ -502,8 +506,8 @@ const Auth = () => {
             className="w-full mb-4 border-border hover:bg-muted"
             onClick={async () => {
               setLoading(true);
-              const redirectTo = studioSlug 
-                ? `${window.location.origin}/${studioSlug}`
+              const redirectTo = effectiveStudioSlug 
+                ? `${window.location.origin}/${effectiveStudioSlug}`
                 : `${window.location.origin}/auth`;
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',

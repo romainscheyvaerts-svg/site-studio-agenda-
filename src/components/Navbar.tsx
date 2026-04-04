@@ -633,7 +633,7 @@ const Navbar = () => {
               <>
                 <Button 
                   variant="outline" 
-                  onClick={() => navigate("/auth")}
+                  onClick={() => navigate(slug ? `/auth?studio=${slug}` : "/auth")}
                   className="flex items-center gap-2"
                 >
                   <User className="w-4 h-4" />
@@ -751,7 +751,7 @@ const Navbar = () => {
                     size="lg"
                     className="w-full h-14 text-lg"
                     onClick={() => {
-                      navigate("/auth");
+                      navigate(slug ? `/auth?studio=${slug}` : "/auth");
                       setIsMobileMenuOpen(false);
                     }}
                   >
