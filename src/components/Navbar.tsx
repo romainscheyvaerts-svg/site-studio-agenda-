@@ -258,8 +258,11 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const slug = studio?.slug || "";
+  const base = slug ? `/${slug}` : "";
+
   const goToPage = (path: string) => {
-    navigate(path);
+    navigate(`${base}${path}`);
     setIsMobileMenuOpen(false);
   };
 
@@ -556,7 +559,7 @@ const Navbar = () => {
               </button>
             ))}
             <button
-              onClick={() => navigate("/instrumentals")}
+              onClick={() => navigate(`${base}/instrumentals`)}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors relative group flex items-center gap-1"
             >
               <Music className="h-4 w-4" />
@@ -670,7 +673,7 @@ const Navbar = () => {
                 ))}
                 <button
                   onClick={() => {
-                    navigate("/instrumentals");
+                    navigate(`${base}/instrumentals`);
                     setIsMobileMenuOpen(false);
                   }}
                   className="text-left text-foreground hover:text-primary transition-colors py-4 flex items-center gap-3 text-xl font-display border-b border-border/50"

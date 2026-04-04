@@ -30,28 +30,31 @@ const Hero = () => {
   const heroLine1 = nameWords.length > 1 ? nameWords[0] : t("hero.title1");
   const heroLine2 = nameWords.length > 1 ? nameWords.slice(1).join(" ") : studioName || `${t("hero.title2")} ${t("hero.title3")}`;
 
+  const slug = studio?.slug || "";
+  const base = slug ? `/${slug}` : "";
+
   const goToBooking = () => {
-    navigate('/reservation');
+    navigate(`${base}/reservation`);
   };
 
   const goToGear = () => {
-    navigate('/arsenal');
+    navigate(`${base}/arsenal`);
   };
 
   const goToOffers = () => {
-    navigate('/offres');
+    navigate(`${base}/offres`);
   };
 
   const goToInstrumentals = () => {
-    navigate('/instrumentals');
+    navigate(`${base}/instrumentals`);
   };
 
   const goToDaw = () => {
-    navigate('/daw');
+    navigate(`${base}/daw`);
   };
 
   const openAdminCalendar = () => {
-    navigate('/reservation?openCalendar=true');
+    navigate(`${base}/reservation?openCalendar=true`);
   };
 
   const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
