@@ -37,7 +37,6 @@ import MyPurchases from "./pages/MyPurchases";
 import MyAccount from "./pages/MyAccount";
 import StudioSettings from "./pages/StudioSettings";
 import StudioVisualEditor from "./pages/StudioVisualEditor";
-import AdminFloatingButton from "./components/AdminFloatingButton";
 
 const queryClient = new QueryClient();
 
@@ -70,7 +69,6 @@ const StudioLayout = () => (
         <Route path="/auth" element={<Auth />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <AdminFloatingButton />
     </ViewModeProvider>
   </StudioProvider>
 );

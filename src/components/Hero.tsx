@@ -2,22 +2,15 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mic, Headphones, Music, CalendarDays, AudioLines, Euro, Calculator } from "lucide-react";
+import { Mic, Headphones, Music, CalendarDays, Euro, Calculator } from "lucide-react";
 import AdminQuickEventModal from "./AdminQuickEventModal";
-import { usePricing } from "@/hooks/usePricing";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useStudio } from "@/hooks/useStudio";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 const Hero = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { getEffectivePrice, loading } = usePricing();
   const { isMobileView } = useViewMode();
   const { studio, isStudioAdmin } = useStudio();
   const isAdmin = isStudioAdmin;
@@ -45,7 +38,6 @@ const Hero = () => {
   const btnSize = (s?.button_size || "xl") as "sm" | "default" | "lg" | "xl";
   const btnLayout = s?.button_layout || "row";
   const heroLayoutAlign = s?.hero_layout || "center";
-  const showStats = s?.show_hero_stats !== "false";
 
   // Map button_style to CSS border-radius
   const btnRoundedClass = btnStyle === "pill" ? "rounded-full" : btnStyle === "square" ? "rounded-none" : "rounded-lg";
@@ -94,16 +86,9 @@ const Hero = () => {
     navigate(`${base}/instrumentals`);
   };
 
-  const goToDaw = () => {
-    navigate(`${base}/daw`);
-  };
-
   const openAdminCalendar = () => {
     navigate(`${base}/reservation?openCalendar=true`);
   };
-
-  const priceWithEngineer = getEffectivePrice("with-engineer") || 45;
-  const priceWithoutEngineer = getEffectivePrice("without-engineer") || 22;
 
   return (
     <section id="hero" className={cn(
@@ -307,48 +292,6 @@ const Hero = () => {
             />
           )}
 
-          {!isAdmin && <div className={isMobileView ? "mb-4" : "mb-12"} />}
-          
-          {/* Stats - Conditionally shown */}
-          {showStats && <div className={cn(
-            "grid grid-cols-3 max-w-xl mx-auto",
-            isMobileView ? "gap-1 bg-card/50 rounded-xl p-4 backdrop-blur-sm border border-border/50" : "gap-8"
-          )}>
-            <div className="text-center">
-              <div className={cn(
-                "font-display text-primary text-glow-cyan",
-                isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
-              )}>
-                {loading ? "..." : `${priceWithEngineer}€`}
-              </div>
-              <div className={cn(
-                "text-muted-foreground",
-                isMobileView ? "text-[10px] leading-tight" : "text-sm"
-              )}>{isMobileView ? "/h ingé" : `${t("pricing.per_hour")} + eng.`}</div>
-            </div>
-            <div className={cn("text-center", isMobileView ? "border-x border-border/50" : "border-x border-border")}>
-              <div className={cn(
-                "font-display text-accent",
-                isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
-              )}>
-                {loading ? "..." : `${priceWithoutEngineer}€`}
-              </div>
-              <div className={cn(
-                "text-muted-foreground",
-                isMobileView ? "text-[10px] leading-tight" : "text-sm"
-              )}>{isMobileView ? "/h solo" : `${t("pricing.per_hour")} dry`}</div>
-            </div>
-            <div className="text-center">
-              <div className={cn(
-                "font-display text-foreground",
-                isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
-              )}>PRO</div>
-              <div className={cn(
-                "text-muted-foreground",
-                isMobileView ? "text-[10px] leading-tight" : "text-sm"
-              )}>{isMobileView ? "Qualité" : "Studio quality"}</div>
-            </div>
-          </div>}
         </div>
       </div>
       
