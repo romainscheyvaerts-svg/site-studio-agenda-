@@ -32,6 +32,12 @@ const Hero = () => {
   const heroSubtitle = s?.hero_subtitle || t("hero.description");
   const heroImageUrl = s?.hero_image_url || null;
 
+  // Section visibility settings
+  const showPricing = s?.show_pricing ?? true;
+  const showInstrumentals = s?.show_instrumentals ?? true;
+  const showGear = s?.show_gear ?? true;
+  const showBooking = s?.show_booking ?? true;
+
   const slug = studio?.slug || "";
   const base = slug ? `/${slug}` : "";
 
@@ -116,10 +122,10 @@ const Hero = () => {
             {heroSubtitle}
           </p>
           
-          {/* Mobile: Primary CTA buttons only (2 buttons) - Hide Book button for admins */}
+          {/* Mobile: CTA buttons - respect section visibility */}
           {isMobileView ? (
             <div className="space-y-3 mb-6">
-              {!isAdmin && (
+              {!isAdmin && showBooking && (
                 <Button 
                   variant="hero" 
                   size="lg" 
@@ -131,41 +137,47 @@ const Hero = () => {
                 </Button>
               )}
               <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  variant="neon" 
-                  size="default"
-                  onClick={goToOffers}
-                  className="h-12"
-                >
-                  <Euro className="w-4 h-4" />
-                  {t("quick_nav.offers").toUpperCase()}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="default"
-                  onClick={goToGear}
-                  className="h-12 border-primary/50"
-                >
-                  <Headphones className="w-4 h-4" />
-                  {t("quick_nav.studio").toUpperCase()}
-                </Button>
+                {showPricing && (
+                  <Button 
+                    variant="neon" 
+                    size="default"
+                    onClick={goToOffers}
+                    className="h-12"
+                  >
+                    <Euro className="w-4 h-4" />
+                    {t("quick_nav.offers").toUpperCase()}
+                  </Button>
+                )}
+                {showGear && (
+                  <Button 
+                    variant="outline" 
+                    size="default"
+                    onClick={goToGear}
+                    className="h-12 border-primary/50"
+                  >
+                    <Headphones className="w-4 h-4" />
+                    {t("quick_nav.studio").toUpperCase()}
+                  </Button>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  variant="outline" 
-                  size="default"
-                  onClick={goToInstrumentals}
-                  className="h-12 border-accent/50 text-accent"
-                >
-                  <Music className="w-4 h-4" />
-                  {t("quick_nav.beats").toUpperCase()}
-                </Button>
-              </div>
+              {showInstrumentals && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    size="default"
+                    onClick={goToInstrumentals}
+                    className="h-12 border-accent/50 text-accent"
+                  >
+                    <Music className="w-4 h-4" />
+                    {t("quick_nav.beats").toUpperCase()}
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
-            /* Desktop: All buttons in a row - Hide Book button for admins */
+            /* Desktop: buttons - respect section visibility */
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
-              {!isAdmin && (
+              {!isAdmin && showBooking && (
                 <Button 
                   variant="hero" 
                   size="xl" 
@@ -175,32 +187,38 @@ const Hero = () => {
                   {t("hero.cta_book").toUpperCase()}
                 </Button>
               )}
-              <Button 
-                variant="neon" 
-                size="xl" 
-                onClick={goToOffers}
-              >
-                <Euro className="w-5 h-5" />
-                {t("quick_nav.offers").toUpperCase()}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="xl" 
-                onClick={goToGear}
-                className="border-primary/50 hover:bg-primary/10 hover:border-primary"
-              >
-                <Headphones className="w-5 h-5" />
-                {t("hero.cta_discover").toUpperCase()}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="xl" 
-                onClick={goToInstrumentals} 
-                className="border-accent/50 hover:bg-accent/10 hover:border-accent"
-              >
-                <Music className="w-5 h-5" />
-                {t("nav.instrumentals").toUpperCase()}
-              </Button>
+              {showPricing && (
+                <Button 
+                  variant="neon" 
+                  size="xl" 
+                  onClick={goToOffers}
+                >
+                  <Euro className="w-5 h-5" />
+                  {t("quick_nav.offers").toUpperCase()}
+                </Button>
+              )}
+              {showGear && (
+                <Button 
+                  variant="outline" 
+                  size="xl" 
+                  onClick={goToGear}
+                  className="border-primary/50 hover:bg-primary/10 hover:border-primary"
+                >
+                  <Headphones className="w-5 h-5" />
+                  {t("hero.cta_discover").toUpperCase()}
+                </Button>
+              )}
+              {showInstrumentals && (
+                <Button 
+                  variant="outline" 
+                  size="xl" 
+                  onClick={goToInstrumentals} 
+                  className="border-accent/50 hover:bg-accent/10 hover:border-accent"
+                >
+                  <Music className="w-5 h-5" />
+                  {t("nav.instrumentals").toUpperCase()}
+                </Button>
+              )}
             </div>
           )}
 

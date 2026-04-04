@@ -265,12 +265,19 @@ const Navbar = () => {
     setIsMobileMenuOpen(false);
   };
 
+  // Section visibility
+  const st = studio as any;
+  const showGear = st?.show_gear ?? true;
+  const showPricing = st?.show_pricing ?? true;
+  const showBooking = st?.show_booking ?? true;
+  const showInstrumentals = st?.show_instrumentals ?? true;
+
   const navLinks = [
-    { label: t("nav.home"), path: "/" },
-    { label: t("nav.gear"), path: "/arsenal" },
-    { label: t("nav.pricing"), path: "/offres" },
-    { label: t("nav.booking"), path: "/reservation" },
-  ];
+    { label: t("nav.home"), path: "/", visible: true },
+    { label: t("nav.gear"), path: "/arsenal", visible: showGear },
+    { label: t("nav.pricing"), path: "/offres", visible: showPricing },
+    { label: t("nav.booking"), path: "/reservation", visible: showBooking },
+  ].filter(l => l.visible);
 
   // Admin Drive Dropdown Button (Desktop)
   const AdminDriveDropdown = () => (
@@ -557,14 +564,16 @@ const Navbar = () => {
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
               </button>
             ))}
-            <button
-              onClick={() => navigate(`${base}/instrumentals`)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors relative group flex items-center gap-1"
-            >
-              <Music className="h-4 w-4" />
-              {t("nav.instrumentals")}
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-neon-gold transition-all duration-300 group-hover:w-full" />
-            </button>
+            {showInstrumentals && (
+              <button
+                onClick={() => navigate(`${base}/instrumentals`)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors relative group flex items-center gap-1"
+              >
+                <Music className="h-4 w-4" />
+                {t("nav.instrumentals")}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-neon-gold transition-all duration-300 group-hover:w-full" />
+              </button>
+            )}
           </div>
 
           {/* Language switcher & Auth/CTA - Desktop only */}
@@ -670,16 +679,18 @@ const Navbar = () => {
                     {link.label.toUpperCase()}
                   </button>
                 ))}
-                <button
-                  onClick={() => {
-                    navigate(`${base}/instrumentals`);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="text-left text-foreground hover:text-primary transition-colors py-4 flex items-center gap-3 text-xl font-display border-b border-border/50"
-                >
-                  <Music className="h-5 w-5 text-accent" />
-                  {t("nav.instrumentals").toUpperCase()}
-                </button>
+                {showInstrumentals && (
+                  <button
+                    onClick={() => {
+                      navigate(`${base}/instrumentals`);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="text-left text-foreground hover:text-primary transition-colors py-4 flex items-center gap-3 text-xl font-display border-b border-border/50"
+                  >
+                    <Music className="h-5 w-5 text-accent" />
+                    {t("nav.instrumentals").toUpperCase()}
+                  </button>
+                )}
               </div>
               
               <div className="flex flex-col gap-3 mt-8">
