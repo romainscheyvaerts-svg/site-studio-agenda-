@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,7 +11,12 @@ const RegisterStudio = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(user ? 2 : 1); // Skip auth if already logged in
+  const [step, setStep] = useState(1);
+  
+  // Auto-skip to step 2 when user is already logged in
+  useEffect(() => {
+    if (user) setStep(2);
+  }, [user]);
   const [authMode, setAuthMode] = useState<"signup" | "login" | "forgot">("signup");
   const [forgotEmailSent, setForgotEmailSent] = useState(false);
   
