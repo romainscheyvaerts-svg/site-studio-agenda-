@@ -12,6 +12,7 @@ const RegisterStudio = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(user ? 2 : 1); // Skip auth if already logged in
+  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
   
   // Auth fields
   const [email, setEmail] = useState("");
@@ -35,6 +36,28 @@ const RegisterStudio = () => {
     setStudioName(name);
     if (!studioSlug || studioSlug === generateSlug(studioName)) {
       setStudioSlug(generateSlug(name));
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!email || !password) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast({ title: "Identifiants incorrects", description: "Email ou mot de passe incorrect.", variant: "destructive" });
+        } else {
+          toast({ title: "Erreur", description: error.message, variant: "destructive" });
+        }
+      } else {
+        setStep(2);
+        toast({ title: "Connecté !", description: "Configurez maintenant votre studio." });
+      }
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -169,7 +192,9 @@ const RegisterStudio = () => {
         <div className="w-full max-w-md">
           <h1 className="text-3xl font-bold mb-2 text-center">Créer mon studio</h1>
           <p className="text-gray-400 text-center mb-8">
-            {step === 1 ? "Étape 1/2 — Créez votre compte" : "Étape 2/2 — Configurez votre studio"}
+            {step === 1 
+              ? (authMode === "signup" ? "Étape 1/2 — Créez votre compte" : "Étape 1/2 — Connectez-vous")
+              : "Étape 2/2 — Configurez votre studio"}
           </p>
 
           {/* Progress */}
@@ -201,15 +226,23 @@ const RegisterStudio = () => {
                 />
               </div>
               <button
-                onClick={handleSignUp}
+                onClick={authMode === "signup" ? handleSignUp : handleLogin}
                 disabled={loading || !email || !password}
                 className="w-full bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-bold py-3 px-6 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? "Création..." : "Créer mon compte"} <ArrowRight className="w-5 h-5" />
+                {loading 
+                  ? (authMode === "signup" ? "Création..." : "Connexion...") 
+                  : (authMode === "signup" ? "Créer mon compte" : "Se connecter")} <ArrowRight className="w-5 h-5" />
               </button>
               <p className="text-center text-sm text-gray-500">
-                Déjà un compte ?{" "}
-                <Link to="/auth" className="text-cyan-400 hover:underline">Se connecter</Link>
+                {authMode === "signup" ? "Déjà un compte ?" : "Pas encore de compte ?"}{" "}
+                <button 
+                  type="button"
+                  onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
+                  className="text-cyan-400 hover:underline"
+                >
+                  {authMode === "signup" ? "Se connecter" : "Créer un compte"}
+                </button>
               </p>
             </div>
           )}
