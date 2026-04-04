@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Mic, Headphones, Music, CalendarDays, Euro, Calculator } from "lucide-react";
 import AdminQuickEventModal from "./AdminQuickEventModal";
+import { usePricing } from "@/hooks/usePricing";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useStudio } from "@/hooks/useStudio";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 const Hero = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { services, loading: pricingLoading, getEffectivePrice } = usePricing();
   const { isMobileView } = useViewMode();
   const { studio, isStudioAdmin } = useStudio();
   const isAdmin = isStudioAdmin;
@@ -89,6 +91,10 @@ const Hero = () => {
   const openAdminCalendar = () => {
     navigate(`${base}/reservation?openCalendar=true`);
   };
+
+  // Dynamic pricing stats: show up to 3 active services
+  const activeServices = services.slice(0, 3);
+  const colors = ["text-primary text-glow-cyan", "text-accent", "text-foreground"];
 
   return (
     <section id="hero" className={cn(
@@ -290,6 +296,44 @@ const Hero = () => {
                 setShowQuickEventModal(false);
               }}
             />
+          )}
+
+          {!isAdmin && <div className={isMobileView ? "mb-4" : "mb-12"} />}
+
+          {/* Dynamic Pricing Stats - only show if there are active services */}
+          {showPricing && activeServices.length > 0 && (
+            <div className={cn(
+              "grid max-w-xl mx-auto",
+              activeServices.length === 1 ? "grid-cols-1" : activeServices.length === 2 ? "grid-cols-2" : "grid-cols-3",
+              isMobileView ? "gap-1 bg-card/50 rounded-xl p-4 backdrop-blur-sm border border-border/50" : "gap-8"
+            )}>
+              {activeServices.map((service, index) => (
+                <div 
+                  key={service.id} 
+                  className={cn(
+                    "text-center",
+                    index > 0 && (isMobileView ? "border-l border-border/50" : "border-l border-border")
+                  )}
+                >
+                  <div className={cn(
+                    "font-display",
+                    colors[index % colors.length],
+                    isMobileView ? "text-2xl mb-0.5" : "text-4xl md:text-5xl mb-1"
+                  )}>
+                    {pricingLoading ? "..." : `${getEffectivePrice(service.service_key)}€`}
+                  </div>
+                  <div className={cn(
+                    "text-muted-foreground",
+                    isMobileView ? "text-[10px] leading-tight" : "text-sm"
+                  )}>
+                    {isMobileView 
+                      ? service.name_fr.length > 15 ? service.name_fr.substring(0, 15) + "…" : service.name_fr
+                      : `${service.price_unit === '/h' ? t("pricing.per_hour") : service.price_unit} · ${service.name_fr}`
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
         </div>
