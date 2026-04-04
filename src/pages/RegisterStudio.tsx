@@ -40,14 +40,45 @@ const RegisterStudio = () => {
 
   const handleSignUp = async () => {
     if (!email || !password) return;
+    if (password.length < 6) {
+      toast({ title: "Mot de passe trop court", description: "Min. 6 caractères", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/register-studio`,
+        }
+      });
       if (error) throw error;
-      setStep(2);
-      toast({ title: "Compte créé !", description: "Configurez maintenant votre studio." });
+      
+      // If user already has a session (auto-confirmed or already exists)
+      if (data.session) {
+        setStep(2);
+        toast({ title: "Compte créé !", description: "Configurez maintenant votre studio." });
+      } else {
+        // Email confirmation required
+        toast({ 
+          title: "📧 Vérifiez votre email", 
+          description: `Un lien de confirmation a été envoyé à ${email}. Cliquez dessus puis revenez ici.`,
+        });
+      }
     } catch (err: any) {
-      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+      if (err.message?.includes("already registered")) {
+        // Try to sign in instead
+        const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginErr) {
+          toast({ title: "Compte existant", description: "Un compte existe déjà. Vérifiez votre mot de passe.", variant: "destructive" });
+        } else {
+          setStep(2);
+          toast({ title: "Connecté !", description: "Configurez maintenant votre studio." });
+        }
+      } else {
+        toast({ title: "Erreur", description: err.message, variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }

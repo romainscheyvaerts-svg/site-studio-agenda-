@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,9 @@ import { useTranslation } from "react-i18next";
 type AuthView = "login" | "signup" | "forgot-password" | "reset-password";
 
 const Auth = () => {
+  // Detect if we're inside a studio context (URL contains /s/:slug)
+  const { studioSlug } = useParams<{ studioSlug: string }>();
+  const isPlatformAuth = !studioSlug;
   const [view, setView] = useState<AuthView>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,13 +49,35 @@ const Auth = () => {
       setView("reset-password");
     }
     
+    const redirectAfterLogin = async (userId: string) => {
+      if (studioSlug) {
+        // Inside a studio → go back to studio home
+        navigate(`/s/${studioSlug}`);
+      } else {
+        // Platform-level → find user's first studio
+        const { data: membership } = await supabase
+          .from("studio_members")
+          .select("studio_id, studios(slug)")
+          .eq("user_id", userId)
+          .limit(1)
+          .single();
+        
+        if (membership && (membership as any).studios?.slug) {
+          navigate(`/s/${(membership as any).studios.slug}`);
+        } else {
+          // No studio → redirect to register
+          navigate("/register-studio");
+        }
+      }
+    };
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           setView("reset-password");
         } else if (session?.user && view !== "reset-password") {
-          navigate("/");
+          redirectAfterLogin(session.user.id);
         }
       }
     );
@@ -60,7 +85,7 @@ const Auth = () => {
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user && view !== "reset-password") {
-        navigate("/");
+        redirectAfterLogin(session.user.id);
       }
     });
 
@@ -455,18 +480,18 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* Back button */}
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(studioSlug ? `/s/${studioSlug}` : "/")}
           className="flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Retour au site
+          {studioSlug ? "Retour au studio" : "Retour à l'accueil"}
         </button>
 
         <div className="bg-card border border-border rounded-2xl p-8">
           {/* Logo/Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-gold bg-clip-text text-transparent">
-              Make Music
+              {isPlatformAuth ? "StudioBooking" : (studioSlug || "Studio")}
             </h1>
             <p className="text-muted-foreground mt-2">
               {view === "login" ? "Connectez-vous à votre compte" : "Créez votre compte"}
@@ -481,10 +506,13 @@ const Auth = () => {
             className="w-full mb-4 border-border hover:bg-muted"
             onClick={async () => {
               setLoading(true);
+              const redirectTo = studioSlug 
+                ? `${window.location.origin}/s/${studioSlug}` 
+                : `${window.location.origin}/auth`;
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                  redirectTo: `${window.location.origin}/`,
+                  redirectTo,
                 },
               });
               if (error) {
