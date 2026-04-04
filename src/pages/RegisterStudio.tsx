@@ -12,7 +12,8 @@ const RegisterStudio = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(user ? 2 : 1); // Skip auth if already logged in
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
+  const [authMode, setAuthMode] = useState<"signup" | "login" | "forgot">("signup");
+  const [forgotEmailSent, setForgotEmailSent] = useState(false);
   
   // Auth fields
   const [email, setEmail] = useState("");
@@ -36,6 +37,26 @@ const RegisterStudio = () => {
     setStudioName(name);
     if (!studioSlug || studioSlug === generateSlug(studioName)) {
       setStudioSlug(generateSlug(name));
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({ title: "Email requis", description: "Entrez votre email pour recevoir le lien de réinitialisation.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+      setForgotEmailSent(true);
+      toast({ title: "📧 Email envoyé !", description: "Vérifiez votre boîte mail pour réinitialiser votre mot de passe." });
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -193,7 +214,9 @@ const RegisterStudio = () => {
           <h1 className="text-3xl font-bold mb-2 text-center">Créer mon studio</h1>
           <p className="text-gray-400 text-center mb-8">
             {step === 1 
-              ? (authMode === "signup" ? "Étape 1/2 — Créez votre compte" : "Étape 1/2 — Connectez-vous")
+              ? (authMode === "forgot" 
+                  ? "Réinitialisation du mot de passe" 
+                  : authMode === "signup" ? "Étape 1/2 — Créez votre compte" : "Étape 1/2 — Connectez-vous")
               : "Étape 2/2 — Configurez votre studio"}
           </p>
 
@@ -203,7 +226,60 @@ const RegisterStudio = () => {
             <div className={`h-1 flex-1 rounded ${step >= 2 ? "bg-cyan-500" : "bg-gray-700"}`} />
           </div>
 
-          {step === 1 && (
+          {step === 1 && authMode === "forgot" && (
+            <div className="space-y-4">
+              {forgotEmailSent ? (
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-3xl">📧</span>
+                  </div>
+                  <h3 className="text-xl font-bold">Email envoyé !</h3>
+                  <p className="text-gray-400">
+                    Si un compte existe avec <span className="text-cyan-400">{email}</span>, 
+                    vous recevrez un lien pour réinitialiser votre mot de passe. Vérifiez aussi vos spams.
+                  </p>
+                  <button
+                    onClick={() => { setAuthMode("login"); setForgotEmailSent(false); }}
+                    className="text-cyan-400 hover:underline flex items-center justify-center gap-2 mx-auto"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Retour à la connexion
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                      placeholder="votre@email.com"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Entrez l'email de votre compte pour recevoir un lien de réinitialisation.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleForgotPassword}
+                    disabled={loading || !email}
+                    className="w-full bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-600 hover:to-violet-600 text-white font-bold py-3 px-6 rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? "Envoi..." : "Envoyer le lien"} <ArrowRight className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("login")}
+                    className="w-full text-gray-400 hover:text-white flex items-center justify-center gap-2 text-sm"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Retour à la connexion
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {step === 1 && authMode !== "forgot" && (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
@@ -216,7 +292,18 @@ const RegisterStudio = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Mot de passe</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Mot de passe</label>
+                  {authMode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("forgot")}
+                      className="text-xs text-cyan-400 hover:underline"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  )}
+                </div>
                 <input
                   type="password"
                   value={password}
