@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useStudio } from "@/hooks/useStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Settings, CreditCard, Calendar, Mail, Bot, Palette, ArrowLeft } from "lucide-react";
+import { Save, Settings, CreditCard, Calendar, Mail, Bot, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const StudioSettings = () => {
@@ -44,6 +44,36 @@ const StudioSettings = () => {
   // AI
   const [geminiApiKey, setGeminiApiKey] = useState("");
 
+  // Design - Hero
+  const [heroTitleLine1, setHeroTitleLine1] = useState("");
+  const [heroTitleLine2, setHeroTitleLine2] = useState("");
+  const [heroSubtitle, setHeroSubtitle] = useState("");
+  const [heroImageUrl, setHeroImageUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+
+  // Design - Sections
+  const [showPricing, setShowPricing] = useState(true);
+  const [showInstrumentals, setShowInstrumentals] = useState(true);
+  const [showGallery, setShowGallery] = useState(true);
+  const [showChatbot, setShowChatbot] = useState(true);
+  const [showGear, setShowGear] = useState(true);
+  const [showBooking, setShowBooking] = useState(true);
+
+  // Design - Typography
+  const [fontFamily, setFontFamily] = useState("Inter");
+
+  // Design - Social
+  const [socialInstagram, setSocialInstagram] = useState("");
+  const [socialFacebook, setSocialFacebook] = useState("");
+  const [socialTiktok, setSocialTiktok] = useState("");
+  const [socialYoutube, setSocialYoutube] = useState("");
+  const [socialSpotify, setSocialSpotify] = useState("");
+  const [socialWebsite, setSocialWebsite] = useState("");
+
+  // Design - Footer
+  const [footerText, setFooterText] = useState("");
+  const [navbarStyle, setNavbarStyle] = useState("transparent");
+
   useEffect(() => {
     if (studio) {
       setName(studio.name || "");
@@ -56,6 +86,27 @@ const StudioSettings = () => {
       setPrimaryColor(studio.primary_color || "#06b6d4");
       setSecondaryColor(studio.secondary_color || "#8b5cf6");
       setBackgroundColor(studio.background_color || "#000000");
+      // Design fields
+      setHeroTitleLine1((studio as any).hero_title_line1 || "");
+      setHeroTitleLine2((studio as any).hero_title_line2 || "");
+      setHeroSubtitle((studio as any).hero_subtitle || "");
+      setHeroImageUrl((studio as any).hero_image_url || "");
+      setLogoUrl((studio as any).logo_url || "");
+      setShowPricing((studio as any).show_pricing ?? true);
+      setShowInstrumentals((studio as any).show_instrumentals ?? true);
+      setShowGallery((studio as any).show_gallery ?? true);
+      setShowChatbot((studio as any).show_chatbot ?? true);
+      setShowGear((studio as any).show_gear ?? true);
+      setShowBooking((studio as any).show_booking ?? true);
+      setFontFamily((studio as any).font_family || "Inter");
+      setNavbarStyle((studio as any).navbar_style || "transparent");
+      setSocialInstagram((studio as any).social_instagram || "");
+      setSocialFacebook((studio as any).social_facebook || "");
+      setSocialTiktok((studio as any).social_tiktok || "");
+      setSocialYoutube((studio as any).social_youtube || "");
+      setSocialSpotify((studio as any).social_spotify || "");
+      setSocialWebsite((studio as any).social_website || "");
+      setFooterText((studio as any).footer_text || "");
     }
     // Load sensitive keys from DB
     if (studioId) {
@@ -114,6 +165,29 @@ const StudioSettings = () => {
         Object.assign(updateData, { resend_api_key: resendApiKey || null, resend_from_email: resendFromEmail || null });
       } else if (activeTab === "ai") {
         Object.assign(updateData, { gemini_api_key: geminiApiKey || null });
+      } else if (activeTab === "design") {
+        Object.assign(updateData, {
+          hero_title_line1: heroTitleLine1 || null,
+          hero_title_line2: heroTitleLine2 || null,
+          hero_subtitle: heroSubtitle || null,
+          hero_image_url: heroImageUrl || null,
+          logo_url: logoUrl || null,
+          show_pricing: showPricing,
+          show_instrumentals: showInstrumentals,
+          show_gallery: showGallery,
+          show_chatbot: showChatbot,
+          show_gear: showGear,
+          show_booking: showBooking,
+          font_family: fontFamily,
+          navbar_style: navbarStyle,
+          social_instagram: socialInstagram || null,
+          social_facebook: socialFacebook || null,
+          social_tiktok: socialTiktok || null,
+          social_youtube: socialYoutube || null,
+          social_spotify: socialSpotify || null,
+          social_website: socialWebsite || null,
+          footer_text: footerText || null,
+        });
       }
 
       const { error } = await supabase.from("studios").update(updateData).eq("id", studioId);
@@ -138,12 +212,31 @@ const StudioSettings = () => {
 
   const tabs = [
     { id: "general", label: "Général", icon: Settings },
-    { id: "branding", label: "Apparence", icon: Palette },
+    { id: "design", label: "Design", icon: Layout },
+    { id: "branding", label: "Couleurs", icon: Palette },
     { id: "payment", label: "Paiements", icon: CreditCard },
     { id: "google", label: "Google", icon: Calendar },
     { id: "email", label: "Emails", icon: Mail },
     { id: "ai", label: "IA / Chatbot", icon: Bot },
   ];
+
+  const SectionToggle = ({ label, description, enabled, onChange }: { label: string; description: string; enabled: boolean; onChange: (v: boolean) => void }) => (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+      <div>
+        <p className="text-sm font-medium text-white">{label}</p>
+        <p className="text-xs text-gray-400">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!enabled)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+          enabled ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"
+        }`}
+      >
+        {enabled ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+        {enabled ? "Visible" : "Masqué"}
+      </button>
+    </div>
+  );
 
   const InputField = ({ label, value, onChange, type = "text", placeholder = "" }: any) => (
     <div>
@@ -284,6 +377,115 @@ const StudioSettings = () => {
               </p>
               <InputField label="Resend API Key" value={resendApiKey} onChange={setResendApiKey} type="password" placeholder="re_..." />
               <InputField label="Email expéditeur" value={resendFromEmail} onChange={setResendFromEmail} type="email" placeholder="noreply@votre-domaine.com" />
+            </>
+          )}
+
+          {activeTab === "design" && (
+            <>
+              {/* HERO */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                  <Image className="w-5 h-5" /> Hero (Bannière principale)
+                </h3>
+                <p className="text-xs text-gray-400">Personnalisez le titre et le sous-titre affichés en grand sur votre page.</p>
+                <InputField label="Titre ligne 1 (ex: STUDIO)" value={heroTitleLine1} onChange={setHeroTitleLine1} placeholder="Laissez vide = auto depuis le nom" />
+                <InputField label="Titre ligne 2 (ex: MAKE MUSIC)" value={heroTitleLine2} onChange={setHeroTitleLine2} placeholder="Laissez vide = auto depuis le nom" />
+                <InputField label="Sous-titre / description courte" value={heroSubtitle} onChange={setHeroSubtitle} placeholder="Un espace créatif équipé des meilleures technologies..." />
+                <InputField label="Image de fond (URL)" value={heroImageUrl} onChange={setHeroImageUrl} placeholder="https://..." />
+                <InputField label="Logo (URL)" value={logoUrl} onChange={setLogoUrl} placeholder="https://..." />
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* SECTIONS */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                  <Eye className="w-5 h-5" /> Sections visibles
+                </h3>
+                <p className="text-xs text-gray-400">Choisissez quelles sections afficher sur votre page studio.</p>
+                <SectionToggle label="📋 Tarifs / Offres" description="Section des prix et formules" enabled={showPricing} onChange={setShowPricing} />
+                <SectionToggle label="🎵 Instrumentales" description="Catalogue de beats à vendre" enabled={showInstrumentals} onChange={setShowInstrumentals} />
+                <SectionToggle label="🖼️ Galerie" description="Photos/vidéos du studio" enabled={showGallery} onChange={setShowGallery} />
+                <SectionToggle label="🎧 Équipement" description="Liste du matériel du studio" enabled={showGear} onChange={setShowGear} />
+                <SectionToggle label="📅 Réservation" description="Calendrier de réservation" enabled={showBooking} onChange={setShowBooking} />
+                <SectionToggle label="🤖 Chatbot IA" description="Assistant IA pour les visiteurs" enabled={showChatbot} onChange={setShowChatbot} />
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* TYPOGRAPHY */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                  <Type className="w-5 h-5" /> Typographie
+                </h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Police d'écriture</label>
+                  <select
+                    value={fontFamily}
+                    onChange={(e) => setFontFamily(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
+                  >
+                    <option value="Inter">Inter (Moderne)</option>
+                    <option value="Space Grotesk">Space Grotesk (Tech)</option>
+                    <option value="Poppins">Poppins (Arrondi)</option>
+                    <option value="Montserrat">Montserrat (Élégant)</option>
+                    <option value="Roboto">Roboto (Google)</option>
+                    <option value="Oswald">Oswald (Impact)</option>
+                    <option value="Playfair Display">Playfair Display (Serif)</option>
+                  </select>
+                </div>
+                <div className="p-4 rounded-xl bg-gray-800/50 border border-gray-700/50">
+                  <p className="text-gray-400 text-xs mb-1">Aperçu :</p>
+                  <p style={{ fontFamily }} className="text-2xl font-bold text-white">{name || "Mon Studio"}</p>
+                  <p style={{ fontFamily }} className="text-sm text-gray-300">Bienvenue dans notre espace créatif</p>
+                </div>
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* NAVBAR */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400">Style de la barre de navigation</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {(["transparent", "solid", "gradient"] as const).map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => setNavbarStyle(style)}
+                      className={`p-3 rounded-lg text-center text-sm font-medium transition border ${
+                        navbarStyle === style
+                          ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                          : "bg-gray-800/50 text-gray-400 border-gray-700/50 hover:border-gray-600"
+                      }`}
+                    >
+                      {style === "transparent" ? "🔍 Transparent" : style === "solid" ? "🟦 Solide" : "🌈 Dégradé"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* SOCIAL LINKS */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                  <Globe className="w-5 h-5" /> Réseaux sociaux
+                </h3>
+                <p className="text-xs text-gray-400">Ajoutez vos liens pour les afficher dans le footer.</p>
+                <InputField label="Instagram" value={socialInstagram} onChange={setSocialInstagram} placeholder="https://instagram.com/..." />
+                <InputField label="Facebook" value={socialFacebook} onChange={setSocialFacebook} placeholder="https://facebook.com/..." />
+                <InputField label="TikTok" value={socialTiktok} onChange={setSocialTiktok} placeholder="https://tiktok.com/@..." />
+                <InputField label="YouTube" value={socialYoutube} onChange={setSocialYoutube} placeholder="https://youtube.com/..." />
+                <InputField label="Spotify" value={socialSpotify} onChange={setSocialSpotify} placeholder="https://open.spotify.com/artist/..." />
+                <InputField label="Site web" value={socialWebsite} onChange={setSocialWebsite} placeholder="https://..." />
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* FOOTER */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400">Footer personnalisé</h3>
+                <InputField label="Texte du footer (optionnel)" value={footerText} onChange={setFooterText} placeholder="© 2026 Mon Studio - Tous droits réservés" />
+              </div>
             </>
           )}
 

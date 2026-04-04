@@ -24,11 +24,14 @@ const Hero = () => {
   const { studio } = useStudio();
   const [showQuickEventModal, setShowQuickEventModal] = useState(false);
 
-  // Split studio name into two lines for hero display
+  // Use custom hero titles from design settings, or auto-split from studio name
+  const s = studio as any;
   const studioName = studio?.name?.toUpperCase() || "";
   const nameWords = studioName.split(" ");
-  const heroLine1 = nameWords.length > 1 ? nameWords[0] : t("hero.title1");
-  const heroLine2 = nameWords.length > 1 ? nameWords.slice(1).join(" ") : studioName || `${t("hero.title2")} ${t("hero.title3")}`;
+  const heroLine1 = s?.hero_title_line1?.toUpperCase() || (nameWords.length > 1 ? nameWords[0] : t("hero.title1"));
+  const heroLine2 = s?.hero_title_line2?.toUpperCase() || (nameWords.length > 1 ? nameWords.slice(1).join(" ") : studioName || `${t("hero.title2")} ${t("hero.title3")}`);
+  const heroSubtitle = s?.hero_subtitle || t("hero.description");
+  const heroImageUrl = s?.hero_image_url || null;
 
   const slug = studio?.slug || "";
   const base = slug ? `/${slug}` : "";
@@ -65,8 +68,15 @@ const Hero = () => {
       "relative flex items-center justify-center overflow-hidden noise-bg",
       isMobileView ? "min-h-[100svh] pt-16 pb-6" : "min-h-screen"
     )}>
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/20 to-background" />
+      {/* Background image or gradient */}
+      {heroImageUrl ? (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImageUrl})` }} />
+          <div className="absolute inset-0 bg-black/60" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/20 to-background" />
+      )}
       
       {/* Animated grid - hidden on mobile for performance */}
       {!isMobileView && (
@@ -104,7 +114,7 @@ const Hero = () => {
             "text-muted-foreground max-w-2xl mx-auto leading-relaxed",
             isMobileView ? "text-sm mb-6" : "text-lg md:text-xl mb-10"
           )}>
-            {t("hero.description")}
+            {heroSubtitle}
           </p>
           
           {/* Mobile: Primary CTA buttons only (2 buttons) - Hide Book button for admins */}
