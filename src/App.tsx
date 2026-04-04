@@ -36,6 +36,7 @@ import Reservation from "./pages/Reservation";
 import MyPurchases from "./pages/MyPurchases";
 import MyAccount from "./pages/MyAccount";
 import StudioSettings from "./pages/StudioSettings";
+import StudioVisualEditor from "./pages/StudioVisualEditor";
 import AdminFloatingButton from "./components/AdminFloatingButton";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const StudioLayout = () => (
         <Route path="/booking-action" element={<BookingAction />} />
         <Route path="/booking-status" element={<BookingStatus />} />
         <Route path="/settings" element={<StudioSettings />} />
+        <Route path="/visual-editor" element={<StudioVisualEditor />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -412,6 +412,17 @@ const StudioSettings = () => {
 
           {activeTab === "design" && (
             <>
+              {/* VISUAL EDITOR LINK */}
+              <Link to={`/${studio?.slug}/visual-editor`}
+                className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/30 hover:border-cyan-400/50 transition mb-4 group">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-cyan-500 to-violet-500 flex items-center justify-center text-lg">🎨</div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition">Éditeur Visuel</p>
+                  <p className="text-xs text-gray-400">Personnalisez votre page avec un aperçu en temps réel</p>
+                </div>
+                <span className="text-cyan-400 text-lg">→</span>
+              </Link>
+
               {/* HERO */}
               <div className="space-y-3">
                 <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
