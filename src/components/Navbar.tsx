@@ -17,7 +17,6 @@ import { Menu, X, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2, Users, 
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useStudio } from "@/hooks/useStudio";
 import ViewModeToggle from "./ViewModeToggle";
@@ -48,9 +47,9 @@ interface ClientFolder {
 const Navbar = () => {
   const { t } = useTranslation();
   const { user, signOut, session } = useAuth();
-  const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
-  const { studio } = useStudio();
+  const { studio, isStudioAdmin } = useStudio();
+  const isAdmin = isStudioAdmin;
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);

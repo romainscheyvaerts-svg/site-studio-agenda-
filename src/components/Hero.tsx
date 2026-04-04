@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Mic, Headphones, Music, CalendarDays, AudioLines, Euro, Calculator } from "lucide-react";
 import AdminQuickEventModal from "./AdminQuickEventModal";
 import { usePricing } from "@/hooks/usePricing";
-import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useStudio } from "@/hooks/useStudio";
 import { cn } from "@/lib/utils";
@@ -19,9 +18,9 @@ const Hero = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { getEffectivePrice, loading } = usePricing();
-  const { isAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
-  const { studio } = useStudio();
+  const { studio, isStudioAdmin } = useStudio();
+  const isAdmin = isStudioAdmin;
   const [showQuickEventModal, setShowQuickEventModal] = useState(false);
 
   // Use custom hero titles from design settings, or auto-split from studio name

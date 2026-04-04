@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Settings } from "lucide-react";
-import { useAdmin } from "@/hooks/useAdmin";
+import { useStudio } from "@/hooks/useStudio";
 import AdminPanel from "./AdminPanel";
 import { cn } from "@/lib/utils";
 
 const AdminFloatingButton = () => {
-  const { isAdmin } = useAdmin();
+  const { isStudioAdmin } = useStudio();
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  // Only show for admins
-  if (!isAdmin) return null;
+  // Only show for studio admins (owner or admin of this studio)
+  if (!isStudioAdmin) return null;
 
   return (
     <>
