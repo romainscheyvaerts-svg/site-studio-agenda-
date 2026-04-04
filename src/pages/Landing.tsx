@@ -1,10 +1,17 @@
-import { Link } from "react-router-dom";
-import { Music, Calendar, CreditCard, Shield, Headphones, ArrowRight, Check } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Music, Calendar, CreditCard, Shield, Headphones, ArrowRight, Check, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Landing = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isSuperAdmin = user?.email === "romain.scheyvaerts@gmail.com";
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black text-white">
       {/* Hero */}
@@ -22,9 +29,17 @@ const Landing = () => {
               </Link>
             )}
             {user ? (
-              <Link to="/register-studio" className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
-                Mon studio
-              </Link>
+              <>
+                <Link to="/register-studio" className="px-4 py-2 text-sm bg-cyan-500 hover:bg-cyan-600 rounded-lg transition font-medium">
+                  Mon studio
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition flex items-center gap-1"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Déconnexion
+                </button>
+              </>
             ) : (
               <>
                 <Link to="/auth" className="px-4 py-2 text-sm text-gray-300 hover:text-white transition">
