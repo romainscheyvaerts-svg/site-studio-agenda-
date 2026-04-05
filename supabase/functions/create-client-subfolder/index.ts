@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PARENT_FOLDER_ID = "1hmo7HY7xX_mvXXm6vUCRuR2HB6C49Y-r";
+// Parent folder ID will be fetched from studio config in database
 
 interface ServiceAccountCredentials {
   client_email: string;
@@ -81,18 +81,43 @@ serve(async (req) => {
     
     console.log("[CREATE-SUBFOLDER] Creating subfolder for:", clientEmail, "date:", sessionDate);
 
-    const serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    // Initialize Supabase
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get Google credentials from studio config in database
+    let serviceAccountKeyStr: string | null = null;
+    let PARENT_FOLDER_ID: string | null = null;
+
+    // Try to get config from first studio (since this is called from admin context)
+    const { data: studioData } = await supabase
+      .from("studios")
+      .select("google_drive_parent_folder_id, google_service_account_key")
+      .not("google_drive_parent_folder_id", "is", null)
+      .not("google_service_account_key", "is", null)
+      .limit(1)
+      .maybeSingle();
+
+    if (studioData) {
+      PARENT_FOLDER_ID = studioData.google_drive_parent_folder_id;
+      serviceAccountKeyStr = studioData.google_service_account_key;
+    }
+
+    // Fallback to env vars
     if (!serviceAccountKeyStr) {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
+      serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    }
+    if (!PARENT_FOLDER_ID) {
+      PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+    }
+
+    if (!serviceAccountKeyStr || !PARENT_FOLDER_ID) {
+      throw new Error("Drive not configured (no studio config, no env vars)");
     }
 
     const credentials = JSON.parse(serviceAccountKeyStr);
     const accessToken = await getAccessToken(credentials);
-
-    // Initialize Supabase to check for existing client folder
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if client already has a folder
     const { data: existingFolder } = await supabase

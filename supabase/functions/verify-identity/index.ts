@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,8 +20,26 @@ const verifyIdentitySchema = z.object({
   userName: z.string().optional(),
 });
 
-// Parent folder for all client folders
-const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Parent folder ID fetched dynamically from studio config
+async function getParentFolderId(): Promise<string | null> {
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+    const { data: studioData } = await supabaseClient
+      .from("studios")
+      .select("google_drive_parent_folder_id")
+      .not("google_drive_parent_folder_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return studioData?.google_drive_parent_folder_id || Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+  } catch (e) {
+    console.error("[DRIVE] Error fetching parent folder ID:", e);
+    return Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+  }
+}
 
 // Escape single quotes in Drive API query values to prevent injection
 function escapeDriveQueryValue(value: string): string {
@@ -248,8 +267,14 @@ serve(async (req) => {
     // Determine client folder name
     const clientFolderName = userName || userEmail?.split("@")[0] || formName.replace(/[^a-zA-Z0-9\s]/g, "").substring(0, 30);
     
+    // Get parent folder ID from studio config
+    const parentFolderId = await getParentFolderId();
+    if (!parentFolderId) {
+      throw new Error("Google Drive parent folder not configured");
+    }
+    
     // Find or create client folder
-    const clientFolderId = await findOrCreateFolder(accessToken, clientFolderName, PARENT_FOLDER_ID);
+    const clientFolderId = await findOrCreateFolder(accessToken, clientFolderName, parentFolderId);
     
     // Find or create ID subfolder
     const idFolderId = await findOrCreateFolder(accessToken, "ID", clientFolderId);

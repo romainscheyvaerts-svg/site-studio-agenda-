@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Parent folder ID will be fetched from studio config in database
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -74,7 +74,8 @@ async function getDriveAccessToken(serviceAccountKey: string): Promise<string> {
 async function createClientDriveFolder(
   supabaseClient: any,
   accessToken: string,
-  booking: any
+  booking: any,
+  parentFolderId: string
 ): Promise<{ clientFolderLink: string; subfolderLink: string } | null> {
   try {
     const clientEmailRaw = booking.client_email;
@@ -129,7 +130,7 @@ async function createClientDriveFolder(
           body: JSON.stringify({
             name: clientEmail,
             mimeType: "application/vnd.google-apps.folder",
-            parents: [PARENT_FOLDER_ID],
+            parents: [parentFolderId],
           }),
         });
 
@@ -177,7 +178,7 @@ async function createClientDriveFolder(
         body: JSON.stringify({
           name: clientEmail, // Use email as folder name to avoid duplicates (case sensitivity)
           mimeType: "application/vnd.google-apps.folder",
-          parents: [PARENT_FOLDER_ID],
+          parents: [parentFolderId],
         }),
       });
 
@@ -755,25 +756,51 @@ serve(async (req) => {
       let driveLink: string | undefined = undefined;
       let clientRootDriveLink: string | undefined = undefined;
 
-      if (serviceAccountKey) {
+      // Try to get studio config from database for Drive parent folder
+      let studioServiceAccountKey = serviceAccountKey;
+      let studioCalendarId = calendarId;
+      let parentFolderId: string | null = null;
+
+      // Try to get config from booking's studio or first configured studio
+      const { data: studioData } = await supabaseClient
+        .from("studios")
+        .select("google_drive_parent_folder_id, google_service_account_key, google_calendar_id")
+        .not("google_drive_parent_folder_id", "is", null)
+        .not("google_service_account_key", "is", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (studioData) {
+        parentFolderId = studioData.google_drive_parent_folder_id;
+        if (studioData.google_service_account_key) studioServiceAccountKey = studioData.google_service_account_key;
+        if (studioData.google_calendar_id) studioCalendarId = studioData.google_calendar_id;
+      }
+
+      const effectiveServiceAccountKey = studioServiceAccountKey || serviceAccountKey;
+
+      if (effectiveServiceAccountKey) {
         // Get access tokens for Calendar and Drive
-        const calendarAccessToken = await getAccessToken(serviceAccountKey);
-        const driveAccessToken = await getDriveAccessToken(serviceAccountKey);
+        const calendarAccessToken = await getAccessToken(effectiveServiceAccountKey);
+        const driveAccessToken = await getDriveAccessToken(effectiveServiceAccountKey);
         
         // Add to Google Calendar
-        if (calendarId) {
-          googleEventId = await addToGoogleCalendar(calendarAccessToken, calendarId, booking);
+        if (studioCalendarId || calendarId) {
+          googleEventId = await addToGoogleCalendar(calendarAccessToken, studioCalendarId || calendarId!, booking);
         }
         
         // Create Google Drive folder for client
-        const driveFolderResult = await createClientDriveFolder(supabaseClient, driveAccessToken, booking);
-        if (driveFolderResult) {
-          driveLink = driveFolderResult.subfolderLink;
-          clientRootDriveLink = driveFolderResult.clientFolderLink;
-          logStep("Drive folder created", {
-            clientFolder: driveFolderResult.clientFolderLink,
-            sessionFolder: driveFolderResult.subfolderLink
-          });
+        if (parentFolderId) {
+          const driveFolderResult = await createClientDriveFolder(supabaseClient, driveAccessToken, booking, parentFolderId);
+          if (driveFolderResult) {
+            driveLink = driveFolderResult.subfolderLink;
+            clientRootDriveLink = driveFolderResult.clientFolderLink;
+            logStep("Drive folder created", {
+              clientFolder: driveFolderResult.clientFolderLink,
+              sessionFolder: driveFolderResult.subfolderLink
+            });
+          }
+        } else {
+          logStep("No parent folder ID configured for Drive");
         }
       }
 

@@ -122,7 +122,21 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[BOOKING-NOTIFICATION] ${step}${detailsStr}`);
 };
 
-const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Parent folder ID fetched dynamically from studio config
+async function getParentFolderId(supabaseClient: any): Promise<string | null> {
+  try {
+    const { data: studioData } = await supabaseClient
+      .from("studios")
+      .select("google_drive_parent_folder_id")
+      .not("google_drive_parent_folder_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return studioData?.google_drive_parent_folder_id || Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+  } catch (e) {
+    console.error("[DRIVE] Error fetching parent folder ID:", e);
+    return Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+  }
+}
 
 async function getGoogleAccessToken(serviceAccountKey: string, scope: string): Promise<string> {
   const key = JSON.parse(serviceAccountKey);
@@ -198,6 +212,13 @@ async function createClientDriveFolder(
     const clientEmail = (clientEmailRaw || "").toLowerCase().trim();
     const clientName = booking.clientName;
     const sessionDate = booking.date;
+
+    // Fetch parent folder ID from studio config
+    const PARENT_FOLDER_ID = await getParentFolderId(supabaseClient);
+    if (!PARENT_FOLDER_ID) {
+      logStep("No parent folder ID configured in studio settings");
+      return null;
+    }
 
     const { data: existingFolder } = await supabaseClient
       .from("client_drive_folders")

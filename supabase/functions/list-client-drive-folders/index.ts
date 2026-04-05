@@ -6,14 +6,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Parent folder ID for all client folders (CLOUD CLIENT MAKE MUSIC)
-// Can be set via environment variable or use default
-const PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
-
 // Initialize Supabase client with service role key
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Get studio Drive config from database
+async function getStudioDriveConfig(userId: string): Promise<{ parentFolderId: string; serviceAccountKey: string } | null> {
+  // Find the studio this user belongs to
+  const { data: roleData } = await supabase
+    .from("user_roles")
+    .select("studio_id")
+    .eq("user_id", userId)
+    .in("role", ["admin", "superadmin"])
+    .limit(1)
+    .maybeSingle();
+
+  if (!roleData?.studio_id) {
+    console.log("[LIST-CLIENT-FOLDERS] No studio found for user");
+    return null;
+  }
+
+  const { data: studioData } = await supabase
+    .from("studios")
+    .select("google_drive_parent_folder_id, google_service_account_key")
+    .eq("id", roleData.studio_id)
+    .single();
+
+  if (!studioData?.google_drive_parent_folder_id || !studioData?.google_service_account_key) {
+    console.log("[LIST-CLIENT-FOLDERS] Studio Drive not configured");
+    return null;
+  }
+
+  return {
+    parentFolderId: studioData.google_drive_parent_folder_id,
+    serviceAccountKey: studioData.google_service_account_key,
+  };
+}
 
 // Check if user has admin or superadmin role in database (same as scan-drive-instrumentals)
 async function isUserAdmin(userId: string): Promise<boolean> {
@@ -131,15 +160,32 @@ serve(async (req) => {
       }
     }
 
-    // Get Google credentials
-    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountKey) {
-      console.error("[LIST-CLIENT-FOLDERS] GOOGLE_SERVICE_ACCOUNT_KEY not configured");
+    // Get Google credentials from studio config in database
+    if (!userId) {
       return new Response(
-        JSON.stringify({ success: false, error: "Drive integration not configured", folders: [] }),
+        JSON.stringify({ success: false, error: "Not authenticated", folders: [] }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const driveConfig = await getStudioDriveConfig(userId);
+    if (!driveConfig) {
+      // Fallback to env vars for backward compatibility
+      const envServiceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+      const envParentFolderId = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID");
+      if (!envServiceAccountKey || !envParentFolderId) {
+        console.error("[LIST-CLIENT-FOLDERS] Drive not configured (no studio config, no env vars)");
+        return new Response(
+          JSON.stringify({ success: false, error: "Drive integration not configured", folders: [] }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Use env vars as fallback (shouldn't happen normally)
+      console.log("[LIST-CLIENT-FOLDERS] Using env vars as fallback");
+    }
+
+    const serviceAccountKey = driveConfig?.serviceAccountKey || Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY")!;
+    const PARENT_FOLDER_ID = driveConfig?.parentFolderId || Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID")!;
 
     console.log("[LIST-CLIENT-FOLDERS] Getting access token...");
 

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -223,8 +224,27 @@ serve(async (req) => {
     const credentials = JSON.parse(credentialsStr);
     const accessToken = await getAccessToken(credentials);
 
-    // Parent folder for all client folders
-    const parentFolderId = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+    // Parent folder fetched from studio config in database
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+    let parentFolderId: string | null = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+    try {
+      const { data: studioData } = await supabaseClient
+        .from("studios")
+        .select("google_drive_parent_folder_id")
+        .not("google_drive_parent_folder_id", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (studioData?.google_drive_parent_folder_id) {
+        parentFolderId = studioData.google_drive_parent_folder_id;
+      }
+    } catch (e) { console.error("[DRIVE] Error fetching studio config:", e); }
+    if (!parentFolderId) {
+      throw new Error("Google Drive parent folder not configured");
+    }
     const clientFolderName = userName || userEmail || "Anonymous";
 
     // Handle different actions

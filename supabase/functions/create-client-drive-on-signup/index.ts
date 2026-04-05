@@ -6,8 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Correct parent folder for all client folders
-const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Parent folder ID will be fetched from studio config in database
 
 interface ServiceAccountCredentials {
   client_email: string;
@@ -133,10 +132,42 @@ serve(async (req) => {
       );
     }
 
-    // Get Google credentials
-    const serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    // Get Google credentials from studio config in database
+    // Find the studio this user belongs to (check user_roles or use first studio)
+    let serviceAccountKeyStr: string | null = null;
+    let PARENT_FOLDER_ID: string | null = null;
+
+    // Try to find studio via user_roles
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("studio_id")
+      .eq("user_id", userData.user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (roleData?.studio_id) {
+      const { data: studioData } = await supabase
+        .from("studios")
+        .select("google_drive_parent_folder_id, google_service_account_key")
+        .eq("id", roleData.studio_id)
+        .single();
+
+      if (studioData) {
+        PARENT_FOLDER_ID = studioData.google_drive_parent_folder_id;
+        serviceAccountKeyStr = studioData.google_service_account_key;
+      }
+    }
+
+    // Fallback to env vars
     if (!serviceAccountKeyStr) {
-      console.error("[CREATE-DRIVE-ON-SIGNUP] GOOGLE_SERVICE_ACCOUNT_KEY not configured");
+      serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    }
+    if (!PARENT_FOLDER_ID) {
+      PARENT_FOLDER_ID = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+    }
+
+    if (!serviceAccountKeyStr || !PARENT_FOLDER_ID) {
+      console.error("[CREATE-DRIVE-ON-SIGNUP] Drive not configured (no studio config, no env vars)");
       return new Response(
         JSON.stringify({ error: "Drive integration not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -147,7 +178,7 @@ serve(async (req) => {
     const accessToken = await getAccessToken(credentials);
 
     // Create new client folder with email as name
-    console.log("[CREATE-DRIVE-ON-SIGNUP] Creating new Drive folder for:", userEmail);
+    console.log("[CREATE-DRIVE-ON-SIGNUP] Creating new Drive folder for:", userEmail, "in parent:", PARENT_FOLDER_ID);
     
     const createFolderResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
       method: "POST",

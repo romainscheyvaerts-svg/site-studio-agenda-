@@ -208,8 +208,23 @@ const createDriveFolderForClient = async (
   supabaseClient: any,
   booking: any,
 ): Promise<string | null> => {
-  const parentFolderId =
-    Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID") || "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+  // Get parent folder ID from studio config in database, fallback to env var
+  let parentFolderId = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID") || null;
+  try {
+    const { data: studioData } = await supabaseClient
+      .from("studios")
+      .select("google_drive_parent_folder_id")
+      .not("google_drive_parent_folder_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (studioData?.google_drive_parent_folder_id) {
+      parentFolderId = studioData.google_drive_parent_folder_id;
+    }
+  } catch (e) { console.error("[DRIVE] Error fetching studio config:", e); }
+  if (!parentFolderId) {
+    console.error("[DRIVE] No parent folder ID configured");
+    return null;
+  }
 
   try {
     const accessToken = await getGoogleAccessToken("https://www.googleapis.com/auth/drive");

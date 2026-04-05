@@ -648,8 +648,16 @@ async function scheduleInternalWorkSessions(
 
 // ============ GOOGLE DRIVE INTEGRATION ============
 
-// Root folder ID for all client folders
-const CLIENT_DRIVE_ROOT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
+// Root folder ID will be fetched from studio config in database
+async function getClientDriveRootFolderId(): Promise<string | null> {
+  const { data: studioData } = await supabase
+    .from("studios")
+    .select("google_drive_parent_folder_id")
+    .not("google_drive_parent_folder_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  return studioData?.google_drive_parent_folder_id || Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+}
 
 interface ClientDriveFolder {
   id: string;
@@ -893,8 +901,13 @@ async function createClientSessionFolder(
     clientFolderLink = existingFolder.drive_folder_link;
     console.log(`[DRIVE] Using existing client folder: ${clientFolderId}`);
   } else {
+    // Get root folder ID from studio config
+    const rootFolderId = await getClientDriveRootFolderId();
+    if (!rootFolderId) {
+      throw new Error("Google Drive root folder not configured");
+    }
     // Create new client folder under root
-    const clientFolder = await createDriveFolder(accessToken, clientName, CLIENT_DRIVE_ROOT_FOLDER_ID);
+    const clientFolder = await createDriveFolder(accessToken, clientName, rootFolderId);
     clientFolderId = clientFolder.id;
     clientFolderLink = clientFolder.webViewLink;
 

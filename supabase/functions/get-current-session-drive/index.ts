@@ -6,9 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Parent folder ID for all client folders (CLOUD CLIENT MAKE MUSIC)
-const PARENT_FOLDER_ID = "1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh";
-const PARENT_FOLDER_LINK = `https://drive.google.com/drive/folders/${PARENT_FOLDER_ID}`;
+// Parent folder ID will be fetched from studio config in database
 
 interface CalendarEvent {
   id?: string;
@@ -177,6 +175,40 @@ serve(async (req) => {
       );
     }
     
+    // Get studio Drive config from database based on user's studio
+    let serviceAccountKey: string | null = null;
+    let parentFolderId: string | null = null;
+    let studioCalendarId: string | null = null;
+
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("studio_id")
+      .eq("user_id", userData.user.id)
+      .in("role", ["admin", "superadmin"])
+      .limit(1)
+      .maybeSingle();
+
+    if (roleData?.studio_id) {
+      const { data: studioData } = await supabase
+        .from("studios")
+        .select("google_drive_parent_folder_id, google_service_account_key, google_calendar_id")
+        .eq("id", roleData.studio_id)
+        .single();
+
+      if (studioData) {
+        parentFolderId = studioData.google_drive_parent_folder_id;
+        serviceAccountKey = studioData.google_service_account_key;
+        studioCalendarId = studioData.google_calendar_id;
+      }
+    }
+
+    // Fallback to env vars
+    if (!serviceAccountKey) serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    if (!parentFolderId) parentFolderId = Deno.env.get("GOOGLE_DRIVE_CLIENTS_FOLDER_ID") || null;
+    if (!studioCalendarId) studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID") || null;
+
+    const PARENT_FOLDER_LINK = parentFolderId ? `https://drive.google.com/drive/folders/${parentFolderId}` : "";
+
     // Always return the parent folder link for admins
     const result: {
       parentFolderLink: string;
@@ -191,12 +223,8 @@ serve(async (req) => {
       hasCurrentSession: false,
     };
     
-    // Get Google Calendar configuration
-    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
-    
     if (!serviceAccountKey || !studioCalendarId) {
-      console.log("[GET-CURRENT-SESSION-DRIVE] Calendar not configured");
+      console.log("[GET-CURRENT-SESSION-DRIVE] Calendar/Drive not configured");
       return new Response(
         JSON.stringify(result),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

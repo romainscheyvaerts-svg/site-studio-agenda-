@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useStudio } from "@/hooks/useStudio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Settings, CreditCard, Calendar, Mail, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical, Copy, ExternalLink, Check } from "lucide-react";
+import { Save, Settings, CreditCard, Calendar, Mail, Palette, ArrowLeft, Layout, Eye, EyeOff, Type, Globe, Image, Euro, Plus, Trash2, GripVertical, Copy, ExternalLink, Check, HelpCircle, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const StudioSettings = () => {
@@ -320,6 +320,37 @@ const StudioSettings = () => {
     </div>
   );
 
+  const InfoBubble = ({ children }: { children: React.ReactNode }) => {
+    const [open, setOpen] = useState(false);
+    return (
+      <div className="relative inline-block">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="text-gray-500 hover:text-cyan-400 transition focus:outline-none"
+          title="Aide"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute left-6 top-0 z-50 w-80 max-h-[70vh] overflow-y-auto bg-gray-800 border border-cyan-500/30 rounded-xl shadow-2xl shadow-cyan-500/10 p-4 text-sm text-gray-200 animate-in fade-in slide-in-from-left-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="absolute top-2 right-2 text-gray-500 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              {children}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -589,11 +620,104 @@ const StudioSettings = () => {
               <p className="text-sm text-gray-400 mb-4">
                 📅 Connectez votre Google Calendar et Google Drive pour synchroniser les réservations et stocker les fichiers clients.
               </p>
-              <InputField label="Google Calendar ID (principal)" value={googleCalendarId} onChange={setGoogleCalendarId} placeholder="xxx@group.calendar.google.com" />
-              <InputField label="Google Calendar ID (patron)" value={googlePatronCalendarId} onChange={setGooglePatronCalendarId} placeholder="xxx@group.calendar.google.com" />
-              <InputField label="Google Drive Parent Folder ID" value={googleDriveFolderId} onChange={setGoogleDriveFolderId} placeholder="1ABC..." />
+
+              {/* Google Calendar ID (principal) */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Clé Service Account (JSON)</label>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Google Calendar ID (principal)</label>
+                  <InfoBubble>
+                    <p className="font-semibold mb-1">📅 Comment trouver votre Calendar ID ?</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Allez sur <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Calendar → Paramètres</a></li>
+                      <li>Cliquez sur le calendrier souhaité dans la colonne gauche</li>
+                      <li>Descendez jusqu'à <strong>"Intégrer l'agenda"</strong></li>
+                      <li>Copiez l'<strong>ID de l'agenda</strong> (format : <code className="bg-gray-900 px-1 rounded">xxx@group.calendar.google.com</code>)</li>
+                    </ol>
+                    <p className="text-xs mt-2 text-gray-400">💡 Ce calendrier sera utilisé pour afficher les créneaux disponibles et créer les événements de session.</p>
+                  </InfoBubble>
+                </div>
+                <input
+                  type="text"
+                  value={googleCalendarId}
+                  onChange={(e: any) => setGoogleCalendarId(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
+                  placeholder="xxx@group.calendar.google.com"
+                />
+              </div>
+
+              {/* Google Calendar ID (patron) */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Google Calendar ID (patron)</label>
+                  <InfoBubble>
+                    <p className="font-semibold mb-1">👤 Calendar ID du patron / propriétaire</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Allez sur <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Calendar → Paramètres</a></li>
+                      <li>Sélectionnez le calendrier <strong>personnel</strong> du patron</li>
+                      <li>Copiez l'<strong>ID de l'agenda</strong></li>
+                    </ol>
+                    <p className="text-xs mt-2 text-gray-400">💡 Optionnel — Permet d'ajouter aussi les sessions au calendrier personnel du gérant. Laissez vide si non nécessaire.</p>
+                  </InfoBubble>
+                </div>
+                <input
+                  type="text"
+                  value={googlePatronCalendarId}
+                  onChange={(e: any) => setGooglePatronCalendarId(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
+                  placeholder="xxx@group.calendar.google.com"
+                />
+              </div>
+
+              {/* Google Drive Parent Folder ID */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Google Drive Parent Folder ID</label>
+                  <InfoBubble>
+                    <p className="font-semibold mb-1">📁 Comment trouver l'ID du dossier Drive ?</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Allez sur <a href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Drive</a></li>
+                      <li>Créez ou ouvrez le <strong>dossier parent</strong> qui contiendra les dossiers de vos clients</li>
+                      <li>L'ID est dans l'URL : <code className="bg-gray-900 px-1 rounded text-xs">drive.google.com/drive/folders/<strong className="text-cyan-400">1ABC...XYZ</strong></code></li>
+                      <li>Copiez cette partie de l'URL (la longue chaîne après <code>/folders/</code>)</li>
+                    </ol>
+                    <p className="text-xs mt-2 text-gray-400">💡 Chaque nouveau client aura automatiquement un sous-dossier créé dans ce dossier parent.</p>
+                  </InfoBubble>
+                </div>
+                <input
+                  type="text"
+                  value={googleDriveFolderId}
+                  onChange={(e: any) => setGoogleDriveFolderId(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
+                  placeholder="1ABC..."
+                />
+              </div>
+
+              {/* Clé Service Account (JSON) */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Clé Service Account (JSON)</label>
+                  <InfoBubble>
+                    <p className="font-semibold mb-1">🔑 Comment obtenir la clé Service Account ?</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Allez sur <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Cloud Console → Service Accounts</a></li>
+                      <li>Créez un projet ou sélectionnez votre projet existant</li>
+                      <li>Cliquez sur <strong>"Créer un compte de service"</strong></li>
+                      <li>Donnez-lui un nom (ex: <em>studio-booking</em>)</li>
+                      <li>Allez dans l'onglet <strong>"Clés"</strong> → <strong>"Ajouter une clé"</strong> → <strong>"JSON"</strong></li>
+                      <li>Un fichier <code className="bg-gray-900 px-1 rounded">.json</code> sera téléchargé — <strong>collez son contenu ici</strong></li>
+                    </ol>
+                    <div className="mt-2 pt-2 border-t border-gray-700">
+                      <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ APIs à activer :</p>
+                      <ul className="text-xs space-y-1">
+                        <li>• <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Calendar API</a></li>
+                        <li>• <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Drive API</a></li>
+                      </ul>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-gray-700">
+                      <p className="text-xs text-gray-400">💡 Partagez aussi votre calendrier et dossier Drive avec l'email du compte de service (visible dans le JSON sous <code className="bg-gray-900 px-1 rounded">client_email</code>).</p>
+                    </div>
+                  </InfoBubble>
+                </div>
                 <textarea
                   value={googleServiceAccountKey}
                   onChange={(e) => setGoogleServiceAccountKey(e.target.value)}
