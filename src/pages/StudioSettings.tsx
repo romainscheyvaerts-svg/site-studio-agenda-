@@ -72,6 +72,25 @@ const StudioSettings = () => {
   const [footerText, setFooterText] = useState("");
   const [navbarStyle, setNavbarStyle] = useState("transparent");
 
+  // Helper: extract Calendar ID from iframe embed URL or raw ID
+  const extractCalendarId = (input: string): string => {
+    if (!input) return "";
+    const trimmed = input.trim();
+    // If it contains iframe or embed URL, extract the src parameter
+    const srcMatch = trimmed.match(/[?&]src=([^&"'\s]+)/);
+    if (srcMatch) {
+      return decodeURIComponent(srcMatch[1]);
+    }
+    // If it's a full URL like https://calendar.google.com/calendar/embed?src=...
+    try {
+      const url = new URL(trimmed);
+      const srcParam = url.searchParams.get("src");
+      if (srcParam) return srcParam;
+    } catch {}
+    // Otherwise return as-is (already a Calendar ID)
+    return trimmed;
+  };
+
   // Design - Advanced
   const [heroTitleSize, setHeroTitleSize] = useState("9xl");
   const [heroSubtitleSize, setHeroSubtitleSize] = useState("xl");
@@ -172,9 +191,14 @@ const StudioSettings = () => {
           paypal_client_secret: paypalClientSecret || null,
         });
       } else if (activeTab === "google") {
+        // Auto-extract calendar IDs from iframe/embed URLs
+        const cleanCalendarId = extractCalendarId(googleCalendarId);
+        const cleanPatronCalendarId = extractCalendarId(googlePatronCalendarId);
+        if (cleanCalendarId !== googleCalendarId) setGoogleCalendarId(cleanCalendarId);
+        if (cleanPatronCalendarId !== googlePatronCalendarId) setGooglePatronCalendarId(cleanPatronCalendarId);
         Object.assign(updateData, { 
-          google_calendar_id: googleCalendarId || null,
-          google_patron_calendar_id: googlePatronCalendarId || null,
+          google_calendar_id: cleanCalendarId || null,
+          google_patron_calendar_id: cleanPatronCalendarId || null,
           google_drive_parent_folder_id: googleDriveFolderId || null,
           google_service_account_key: googleServiceAccountKey || null,
         });
@@ -703,9 +727,13 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                   type="text"
                   value={googleCalendarId}
                   onChange={(e: any) => setGoogleCalendarId(e.target.value)}
+                  onBlur={() => setGoogleCalendarId(extractCalendarId(googleCalendarId))}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
-                  placeholder="xxx@group.calendar.google.com"
+                  placeholder="xxx@group.calendar.google.com — ou collez l'URL iframe"
                 />
+                {googleCalendarId && googleCalendarId.includes("iframe") && (
+                  <p className="text-xs text-amber-400 mt-1">⚠️ URL iframe détectée — elle sera convertie en Calendar ID à la sauvegarde</p>
+                )}
               </div>
 
               {/* Google Calendar ID (patron) */}
@@ -726,8 +754,9 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                   type="text"
                   value={googlePatronCalendarId}
                   onChange={(e: any) => setGooglePatronCalendarId(e.target.value)}
+                  onBlur={() => setGooglePatronCalendarId(extractCalendarId(googlePatronCalendarId))}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
-                  placeholder="xxx@group.calendar.google.com"
+                  placeholder="xxx@group.calendar.google.com — ou collez l'URL iframe"
                 />
               </div>
 
