@@ -402,5 +402,158 @@
     "account_exists_desc": "An account already exists with this email. Try logging in.",
     "signup_error": "Sign up error",
     "error_occurred": "An error occurred."
+  },
+  "landing": {
+    "badge": "The booking platform for studios",
+    "hero_title": "Your studio deserves a professional agenda",
+    "hero_desc": "Online booking, automatic payments, Google Calendar, client management — all-in-one for only",
+    "month": "month",
+    "cta_start": "Start for free",
+    "cta_discover": "Discover features",
+    "cta_trial": "14-day free trial • No credit card required",
+    "login": "Login",
+    "logout": "Logout",
+    "create_studio": "Create my studio",
+    "my_studio": "My studio",
+    "features_title": "Everything your studio needs",
+    "features_desc": "A complete platform to manage your bookings and grow your studio.",
+    "learn_more": "Learn more",
+    "back_home": "Back to home",
+    "what_it_does": "How it works",
+    "how_to_configure": "How to configure",
+    "feature_not_found": "This feature does not exist.",
+    "pricing_title": "Simple and transparent pricing",
+    "pricing_desc": "No hidden fees. Cancel anytime.",
+    "pricing_all_included": "All included, unlimited clients",
+    "footer": "Booking platform for recording studios",
+    "pricing_features": {
+      "booking": "Online booking calendar",
+      "stripe": "Stripe & PayPal payments",
+      "gcal": "Google Calendar sync",
+      "gdrive": "Google Drive client folders",
+      "emails": "Customizable automatic emails",
+      "chatbot": "Built-in AI chatbot",
+      "instrumentals": "Beat store",
+      "gallery": "Photo gallery",
+      "multilang": "Multi-language (FR/EN/NL/ES)",
+      "support": "Technical support"
+    },
+    "features": {
+      "agenda": {
+        "title": "Online Calendar",
+        "desc": "Google Calendar sync, automatic time slots, conflict management.",
+        "details": [
+          "Automatic booking slots based on your availability",
+          "Two-way sync with Google Calendar in real time",
+          "Automatic schedule conflict detection",
+          "Day, week and month views to manage your sessions",
+          "Your clients book directly online 24/7",
+          "Automatic notifications for new bookings"
+        ],
+        "howto": [
+          "Log in to your dashboard and go to Settings > Google Calendar",
+          "Click 'Connect Google Calendar' and authorize access",
+          "Set your opening hours in Settings > Availability",
+          "Choose minimum and maximum slot durations",
+          "Your calendar syncs automatically — clients see your availability in real time"
+        ]
+      },
+      "payments": {
+        "title": "Integrated Payments",
+        "desc": "Stripe & PayPal, automatic deposits, one-click refunds.",
+        "details": [
+          "Accept credit card payments via Stripe",
+          "PayPal option for more client flexibility",
+          "Automatic deposits (50%, 80% or fixed amount) at booking",
+          "One-click refunds from your dashboard",
+          "Invoices generated automatically for each transaction",
+          "Financial dashboard with revenue tracking"
+        ],
+        "howto": [
+          "Go to Settings > Payments",
+          "Click 'Connect Stripe' and follow the Stripe account setup steps",
+          "Configure your desired deposit percentage (50%, 80% or fixed amount)",
+          "Optional: Add your PayPal account in Settings > PayPal",
+          "Payments go directly to your bank account linked to Stripe"
+        ]
+      },
+      "instrumentals": {
+        "title": "Beat Store",
+        "desc": "Built-in store with licenses, download and payment.",
+        "details": [
+          "Beat store integrated into your studio website",
+          "License system (Lease, Premium, Exclusive) with configurable prices",
+          "Audio player with beat previews",
+          "Automatic download after payment",
+          "WAV, MP3 and stems file management",
+          "Sales and revenue tracking per beat"
+        ],
+        "howto": [
+          "Go to the 'Instrumentals' section of your dashboard",
+          "Click 'Add a beat' and upload your audio file",
+          "Set prices for each license type (Lease, Premium, Exclusive)",
+          "Add a cover image and description",
+          "Optional: Upload stems for the Exclusive license",
+          "Publish — your store is live!"
+        ]
+      },
+      "security": {
+        "title": "Secure Data",
+        "desc": "Each studio has its own isolated and secured data.",
+        "details": [
+          "Complete data isolation: each studio has its own space",
+          "Secure authentication with email confirmation",
+          "Google OAuth login available for convenience",
+          "Encryption of sensitive data (payments, client information)",
+          "Row Level Security (RLS) on Supabase to protect every query",
+          "Daily automatic backups"
+        ],
+        "howto": [
+          "Your data is automatically secured as soon as you create your studio",
+          "Enable Google authentication in Settings > Security",
+          "Set a strong password (min. 12 characters, 1 uppercase, 1 special)",
+          "Regularly check access in Settings > Team Members",
+          "Your clients' data is isolated — no other studio can access it"
+        ]
+      },
+      "chatbot": {
+        "title": "AI Chatbot",
+        "desc": "Smart assistant to qualify your clients 24/7.",
+        "details": [
+          "AI chatbot available 24/7 on your studio page",
+          "Answers frequently asked questions (rates, availability, equipment)",
+          "Qualifies prospects and guides them to booking",
+          "Customizable with your studio's information",
+          "Conversation history viewable in the dashboard",
+          "Reduces time spent answering the same questions"
+        ],
+        "howto": [
+          "Go to Settings > AI Chatbot",
+          "Enable the chatbot and configure the welcome message",
+          "Add key information: rates, hours, equipment, address",
+          "Customize answers to frequently asked questions",
+          "The chatbot automatically appears on your public page"
+        ]
+      },
+      "emails": {
+        "title": "Automatic Emails",
+        "desc": "Confirmations, reminders and customizable invoices.",
+        "details": [
+          "Automatic confirmation email after each booking",
+          "Reminders sent 24h and 1h before the session",
+          "PDF invoice generated and sent automatically",
+          "Follow-up email after the session to retain your clients",
+          "Customizable templates with your studio name and logo",
+          "Complete history of sent emails"
+        ],
+        "howto": [
+          "Emails are enabled by default when you create your studio",
+          "Customize templates in Settings > Emails",
+          "Add your logo and edit confirmation texts",
+          "Configure reminders: 24h before, 1h before, or both",
+          "Optional: Add a custom post-session follow-up message"
+        ]
+      }
+    }
   }
 }

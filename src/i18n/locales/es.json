@@ -363,5 +363,158 @@
     "account_exists_desc": "Ya existe una cuenta con este correo. Intenta iniciar sesión.",
     "signup_error": "Error de registro",
     "error_occurred": "Ocurrió un error."
+  },
+  "landing": {
+    "badge": "La plataforma de reservas para estudios",
+    "hero_title": "Tu estudio merece una agenda profesional",
+    "hero_desc": "Reservas en línea, pagos automáticos, Google Calendar, gestión de clientes — todo en uno por solo",
+    "month": "mes",
+    "cta_start": "Empezar gratis",
+    "cta_discover": "Descubrir funcionalidades",
+    "cta_trial": "14 días de prueba gratis • Sin tarjeta de crédito",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "create_studio": "Crear mi estudio",
+    "my_studio": "Mi estudio",
+    "features_title": "Todo lo que tu estudio necesita",
+    "features_desc": "Una plataforma completa para gestionar tus reservas y hacer crecer tu estudio.",
+    "learn_more": "Saber más",
+    "back_home": "Volver al inicio",
+    "what_it_does": "Cómo funciona",
+    "how_to_configure": "Cómo configurar",
+    "feature_not_found": "Esta funcionalidad no existe.",
+    "pricing_title": "Un precio simple y transparente",
+    "pricing_desc": "Sin cargos ocultos. Cancelable en cualquier momento.",
+    "pricing_all_included": "Todo incluido, clientes ilimitados",
+    "footer": "Plataforma de reservas para estudios de grabación",
+    "pricing_features": {
+      "booking": "Agenda de reservas en línea",
+      "stripe": "Pagos con Stripe y PayPal",
+      "gcal": "Sincronización con Google Calendar",
+      "gdrive": "Carpetas Google Drive para clientes",
+      "emails": "Emails automáticos personalizables",
+      "chatbot": "Chatbot IA integrado",
+      "instrumentals": "Venta de instrumentales",
+      "gallery": "Galería de fotos",
+      "multilang": "Multi-idioma (FR/EN/NL/ES)",
+      "support": "Soporte técnico"
+    },
+    "features": {
+      "agenda": {
+        "title": "Agenda en línea",
+        "desc": "Sincronización con Google Calendar, horarios automáticos, gestión de conflictos.",
+        "details": [
+          "Horarios de reserva automáticos basados en tu disponibilidad",
+          "Sincronización bidireccional con Google Calendar en tiempo real",
+          "Detección automática de conflictos de horarios",
+          "Vistas de día, semana y mes para gestionar tus sesiones",
+          "Tus clientes reservan directamente en línea 24/7",
+          "Notificaciones automáticas para nuevas reservas"
+        ],
+        "howto": [
+          "Inicia sesión en tu panel y ve a Configuración > Google Calendar",
+          "Haz clic en 'Conectar Google Calendar' y autoriza el acceso",
+          "Define tus horarios de apertura en Configuración > Disponibilidad",
+          "Elige la duración mínima y máxima de los horarios",
+          "Tu agenda se sincroniza automáticamente — los clientes ven tu disponibilidad en tiempo real"
+        ]
+      },
+      "payments": {
+        "title": "Pagos integrados",
+        "desc": "Stripe y PayPal, anticipos automáticos, reembolsos en un clic.",
+        "details": [
+          "Acepta pagos con tarjeta de crédito a través de Stripe",
+          "Opción PayPal para más flexibilidad para tus clientes",
+          "Anticipos automáticos (50%, 80% o monto fijo) al reservar",
+          "Reembolsos en un clic desde tu panel",
+          "Facturas generadas automáticamente para cada transacción",
+          "Panel financiero con seguimiento de ingresos"
+        ],
+        "howto": [
+          "Ve a Configuración > Pagos",
+          "Haz clic en 'Conectar Stripe' y sigue los pasos de configuración de la cuenta Stripe",
+          "Configura el porcentaje de anticipo deseado (50%, 80% o monto fijo)",
+          "Opcional: Agrega tu cuenta PayPal en Configuración > PayPal",
+          "Los pagos llegan directamente a tu cuenta bancaria vinculada a Stripe"
+        ]
+      },
+      "instrumentals": {
+        "title": "Venta de instrumentales",
+        "desc": "Tienda integrada con licencias, descarga y pago.",
+        "details": [
+          "Tienda de beats integrada en tu sitio web del estudio",
+          "Sistema de licencias (Lease, Premium, Exclusive) con precios configurables",
+          "Reproductor de audio con vista previa de beats",
+          "Descarga automática después del pago",
+          "Gestión de archivos WAV, MP3 y stems",
+          "Seguimiento de ventas e ingresos por beat"
+        ],
+        "howto": [
+          "Ve a la sección 'Instrumentales' de tu panel",
+          "Haz clic en 'Agregar un beat' y sube tu archivo de audio",
+          "Define los precios para cada tipo de licencia (Lease, Premium, Exclusive)",
+          "Agrega una imagen de portada y una descripción",
+          "Opcional: Sube los stems para la licencia Exclusive",
+          "¡Publica — tu tienda está en línea!"
+        ]
+      },
+      "security": {
+        "title": "Datos seguros",
+        "desc": "Cada estudio tiene sus propios datos aislados y seguros.",
+        "details": [
+          "Aislamiento completo de datos: cada estudio tiene su propio espacio",
+          "Autenticación segura con confirmación por correo electrónico",
+          "Inicio de sesión con Google OAuth disponible",
+          "Cifrado de datos sensibles (pagos, información de clientes)",
+          "Row Level Security (RLS) en Supabase para proteger cada consulta",
+          "Copias de seguridad automáticas diarias"
+        ],
+        "howto": [
+          "Tus datos se aseguran automáticamente al crear tu estudio",
+          "Activa la autenticación de Google en Configuración > Seguridad",
+          "Configura una contraseña segura (mín. 12 caracteres, 1 mayúscula, 1 especial)",
+          "Revisa regularmente los accesos en Configuración > Miembros del equipo",
+          "Los datos de tus clientes están aislados — ningún otro estudio tiene acceso"
+        ]
+      },
+      "chatbot": {
+        "title": "Chatbot IA",
+        "desc": "Asistente inteligente para calificar a tus clientes 24/7.",
+        "details": [
+          "Chatbot IA disponible 24/7 en tu página de estudio",
+          "Responde preguntas frecuentes (tarifas, disponibilidad, equipo)",
+          "Califica prospectos y los guía hacia la reserva",
+          "Personalizable con la información de tu estudio",
+          "Historial de conversaciones consultable en el panel",
+          "Reduce el tiempo dedicado a responder las mismas preguntas"
+        ],
+        "howto": [
+          "Ve a Configuración > Chatbot IA",
+          "Activa el chatbot y configura el mensaje de bienvenida",
+          "Agrega información clave: tarifas, horarios, equipo, dirección",
+          "Personaliza las respuestas a las preguntas frecuentes",
+          "El chatbot aparece automáticamente en tu página pública"
+        ]
+      },
+      "emails": {
+        "title": "Emails automáticos",
+        "desc": "Confirmaciones, recordatorios y facturas personalizables.",
+        "details": [
+          "Email de confirmación automático después de cada reserva",
+          "Recordatorios enviados 24h y 1h antes de la sesión",
+          "Factura PDF generada y enviada automáticamente",
+          "Email de seguimiento después de la sesión para fidelizar a tus clientes",
+          "Plantillas personalizables con el nombre y logo de tu estudio",
+          "Historial completo de emails enviados"
+        ],
+        "howto": [
+          "Los emails se activan por defecto al crear tu estudio",
+          "Personaliza las plantillas en Configuración > Emails",
+          "Agrega tu logo y modifica los textos de confirmación",
+          "Configura los recordatorios: 24h antes, 1h antes, o ambos",
+          "Opcional: Agrega un mensaje de seguimiento personalizado post-sesión"
+        ]
+      }
+    }
   }
 }

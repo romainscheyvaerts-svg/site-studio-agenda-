@@ -363,5 +363,158 @@
     "account_exists_desc": "Er bestaat al een account met deze e-mail. Probeer in te loggen.",
     "signup_error": "Registratiefout",
     "error_occurred": "Er is een fout opgetreden."
+  },
+  "landing": {
+    "badge": "Het boekingsplatform voor studio's",
+    "hero_title": "Uw studio verdient een professionele agenda",
+    "hero_desc": "Online boeken, automatische betalingen, Google Calendar, klantenbeheer — alles-in-één voor slechts",
+    "month": "maand",
+    "cta_start": "Gratis beginnen",
+    "cta_discover": "Functies ontdekken",
+    "cta_trial": "14 dagen gratis uitproberen • Geen creditcard nodig",
+    "login": "Inloggen",
+    "logout": "Uitloggen",
+    "create_studio": "Mijn studio aanmaken",
+    "my_studio": "Mijn studio",
+    "features_title": "Alles wat uw studio nodig heeft",
+    "features_desc": "Een compleet platform om uw boekingen te beheren en uw studio te laten groeien.",
+    "learn_more": "Meer lezen",
+    "back_home": "Terug naar start",
+    "what_it_does": "Hoe het werkt",
+    "how_to_configure": "Hoe configureren",
+    "feature_not_found": "Deze functie bestaat niet.",
+    "pricing_title": "Eenvoudige en transparante prijs",
+    "pricing_desc": "Geen verborgen kosten. Op elk moment opzegbaar.",
+    "pricing_all_included": "Alles inbegrepen, onbeperkt aantal klanten",
+    "footer": "Boekingsplatform voor opnamestudio's",
+    "pricing_features": {
+      "booking": "Online boekingsagenda",
+      "stripe": "Stripe & PayPal betalingen",
+      "gcal": "Google Calendar synchronisatie",
+      "gdrive": "Google Drive klantenmappen",
+      "emails": "Aanpasbare automatische e-mails",
+      "chatbot": "Ingebouwde AI-chatbot",
+      "instrumentals": "Instrumentals verkoop",
+      "gallery": "Fotogalerij",
+      "multilang": "Meertalig (FR/EN/NL/ES)",
+      "support": "Technische ondersteuning"
+    },
+    "features": {
+      "agenda": {
+        "title": "Online Agenda",
+        "desc": "Google Calendar synchronisatie, automatische tijdsloten, conflictbeheer.",
+        "details": [
+          "Automatische boekingssloten op basis van uw beschikbaarheid",
+          "Tweerichtings synchronisatie met Google Calendar in realtime",
+          "Automatische detectie van roosterconflicten",
+          "Dag-, week- en maandweergave om uw sessies te beheren",
+          "Uw klanten boeken direct online 24/7",
+          "Automatische meldingen voor nieuwe boekingen"
+        ],
+        "howto": [
+          "Log in op uw dashboard en ga naar Instellingen > Google Calendar",
+          "Klik op 'Google Calendar verbinden' en autoriseer de toegang",
+          "Stel uw openingstijden in bij Instellingen > Beschikbaarheid",
+          "Kies de minimum en maximum duur van tijdsloten",
+          "Uw agenda wordt automatisch gesynchroniseerd — klanten zien uw beschikbaarheid in realtime"
+        ]
+      },
+      "payments": {
+        "title": "Geïntegreerde Betalingen",
+        "desc": "Stripe & PayPal, automatische aanbetalingen, terugbetalingen in één klik.",
+        "details": [
+          "Accepteer creditcardbetalingen via Stripe",
+          "PayPal-optie voor meer flexibiliteit voor uw klanten",
+          "Automatische aanbetalingen (50%, 80% of vast bedrag) bij boeking",
+          "Terugbetalingen in één klik vanuit uw dashboard",
+          "Facturen automatisch gegenereerd voor elke transactie",
+          "Financieel dashboard met opbrengstoverzicht"
+        ],
+        "howto": [
+          "Ga naar Instellingen > Betalingen",
+          "Klik op 'Stripe verbinden' en volg de Stripe-accountconfiguratie",
+          "Configureer het gewenste aanbetalingspercentage (50%, 80% of vast bedrag)",
+          "Optioneel: Voeg uw PayPal-account toe bij Instellingen > PayPal",
+          "Betalingen gaan rechtstreeks naar uw bankrekening gekoppeld aan Stripe"
+        ]
+      },
+      "instrumentals": {
+        "title": "Instrumentals Verkoop",
+        "desc": "Geïntegreerde winkel met licenties, download en betaling.",
+        "details": [
+          "Beats winkel geïntegreerd in uw studiowebsite",
+          "Licentiesysteem (Lease, Premium, Exclusive) met configureerbare prijzen",
+          "Audiospeler met beat previews",
+          "Automatische download na betaling",
+          "WAV, MP3 en stems bestandsbeheer",
+          "Verkoop- en opbrengstoverzicht per beat"
+        ],
+        "howto": [
+          "Ga naar het gedeelte 'Instrumentals' van uw dashboard",
+          "Klik op 'Beat toevoegen' en upload uw audiobestand",
+          "Stel prijzen in voor elk licentietype (Lease, Premium, Exclusive)",
+          "Voeg een omslagafbeelding en beschrijving toe",
+          "Optioneel: Upload stems voor de Exclusive licentie",
+          "Publiceer — uw winkel is online!"
+        ]
+      },
+      "security": {
+        "title": "Beveiligde Gegevens",
+        "desc": "Elke studio heeft zijn eigen geïsoleerde en beveiligde gegevens.",
+        "details": [
+          "Volledige gegevensisolatie: elke studio heeft zijn eigen ruimte",
+          "Veilige authenticatie met e-mailbevestiging",
+          "Google OAuth inloggen beschikbaar voor gemak",
+          "Versleuteling van gevoelige gegevens (betalingen, klantinformatie)",
+          "Row Level Security (RLS) op Supabase om elke query te beschermen",
+          "Dagelijkse automatische back-ups"
+        ],
+        "howto": [
+          "Uw gegevens worden automatisch beveiligd zodra u uw studio aanmaakt",
+          "Schakel Google-authenticatie in bij Instellingen > Beveiliging",
+          "Stel een sterk wachtwoord in (min. 12 tekens, 1 hoofdletter, 1 speciaal teken)",
+          "Controleer regelmatig de toegang bij Instellingen > Teamleden",
+          "De gegevens van uw klanten zijn geïsoleerd — geen andere studio heeft er toegang toe"
+        ]
+      },
+      "chatbot": {
+        "title": "AI Chatbot",
+        "desc": "Slimme assistent om uw klanten 24/7 te kwalificeren.",
+        "details": [
+          "AI-chatbot 24/7 beschikbaar op uw studiopagina",
+          "Beantwoordt veelgestelde vragen (tarieven, beschikbaarheid, apparatuur)",
+          "Kwalificeert prospects en leidt hen naar de boeking",
+          "Aanpasbaar met de informatie van uw studio",
+          "Gespreksgeschiedenis raadpleegbaar in het dashboard",
+          "Vermindert de tijd die besteed wordt aan het beantwoorden van dezelfde vragen"
+        ],
+        "howto": [
+          "Ga naar Instellingen > AI Chatbot",
+          "Schakel de chatbot in en configureer het welkomstbericht",
+          "Voeg belangrijke informatie toe: tarieven, openingstijden, apparatuur, adres",
+          "Pas antwoorden op veelgestelde vragen aan",
+          "De chatbot verschijnt automatisch op uw openbare pagina"
+        ]
+      },
+      "emails": {
+        "title": "Automatische E-mails",
+        "desc": "Bevestigingen, herinneringen en aanpasbare facturen.",
+        "details": [
+          "Automatische bevestigingsmail na elke boeking",
+          "Herinneringen 24u en 1u voor de sessie verstuurd",
+          "PDF-factuur automatisch gegenereerd en verstuurd",
+          "Opvolg-e-mail na de sessie om uw klanten te behouden",
+          "Aanpasbare templates met uw studionaam en logo",
+          "Volledig overzicht van verzonden e-mails"
+        ],
+        "howto": [
+          "E-mails worden standaard ingeschakeld bij het aanmaken van uw studio",
+          "Pas templates aan bij Instellingen > E-mails",
+          "Voeg uw logo toe en bewerk bevestigingsteksten",
+          "Configureer herinneringen: 24u ervoor, 1u ervoor, of beide",
+          "Optioneel: Voeg een aangepast opvolgbericht toe na de sessie"
+        ]
+      }
+    }
   }
 }

@@ -32,6 +32,8 @@ import {
   Plus,
   ChevronsUpDown,
   User,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import ModernCalendar from "./ModernCalendar";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
@@ -40,7 +42,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition" | "custom" | null;
+type SessionType = string | null;
 
 interface ClientInfo {
   id: string;
@@ -61,8 +63,23 @@ interface AdminPriceCalculatorProps {
     date?: string;
     time?: string;
   }) => void;
-  onEventCreated?: () => void; // Callback to refresh calendar after event creation
+  onEventCreated?: () => void;
 }
+
+// Icon mapping for known service keys
+const serviceIconMap: Record<string, LucideIcon> = {
+  "with-engineer": Mic,
+  "without-engineer": Building2,
+  "mixing": Music,
+  "mastering": Headphones,
+  "analog-mastering": Disc,
+  "podcast": Radio,
+  "composition": Music,
+};
+
+const getServiceIcon = (serviceKey: string): LucideIcon => {
+  return serviceIconMap[serviceKey] || Wrench;
+};
 
 const AdminPriceCalculator = ({
   selectedDate: externalDate,
@@ -72,7 +89,7 @@ const AdminPriceCalculator = ({
   onEventCreated
 }: AdminPriceCalculatorProps) => {
   const { toast } = useToast();
-  const { getPrice } = usePricing();
+  const { getPrice, services: dbServices, loading: loadingServices } = usePricing();
 
   const [selectedService, setSelectedService] = useState<SessionType>(null);
   const [hours, setHours] = useState(externalDuration || 2);
@@ -174,30 +191,58 @@ const AdminPriceCalculator = ({
     return getPrice(selectedService);
   }, [getPrice, selectedService]);
 
+  // Build dynamic services list from DB + always "Autre Service"
+  const services = useMemo(() => {
+    const dynamicServices: Array<{
+      id: string;
+      icon: LucideIcon;
+      label: string;
+      color: string;
+      priceUnit: string;
+    }> = dbServices.map((s, index) => ({
+      id: s.service_key,
+      icon: getServiceIcon(s.service_key),
+      label: s.name_fr.toUpperCase(),
+      color: index % 2 === 0 ? "primary" : "accent",
+      priceUnit: s.price_unit,
+    }));
+    // Always add "Autre Service" at the end
+    dynamicServices.push({
+      id: "custom",
+      icon: Plus,
+      label: "AUTRE SERVICE",
+      color: "secondary",
+      priceUnit: "fixed",
+    });
+    return dynamicServices;
+  }, [dbServices]);
+
+  // Get the selected DB service for unit info
+  const selectedDbService = useMemo(() => {
+    if (!selectedService || selectedService === "custom") return null;
+    return dbServices.find(s => s.service_key === selectedService) || null;
+  }, [selectedService, dbServices]);
+
   const formatServicePrice = useCallback(
-    (service: Exclude<SessionType, null>) => {
-      const price = getPrice(service);
-      if (service === "with-engineer" || service === "without-engineer") return `${price}€/h`;
-      if (service === "podcast") return `${price}€/min`;
+    (serviceKey: string) => {
+      const price = getPrice(serviceKey);
+      const dbSvc = dbServices.find(s => s.service_key === serviceKey);
+      if (dbSvc?.price_unit === "hourly") return `${price}€/h`;
+      if (dbSvc?.price_unit === "per_minute") return `${price}€/min`;
       return `${price}€`;
     },
-    [getPrice]
+    [getPrice, dbServices]
   );
 
-  const serviceLabels: Record<string, string> = {
-    "with-engineer": "Avec Ingénieur",
-    "without-engineer": "Location Sèche",
-    "mixing": "Mixage",
-    "mastering": "Mastering",
-    "analog-mastering": "Mastering Analogique",
-    "podcast": "Mixage Podcast",
-    "composition": "Composition",
-    "custom": customServiceName || "Autre service",
-  };
+  // Dynamic service labels from DB
+  const serviceLabels: Record<string, string> = useMemo(() => {
+    const labels: Record<string, string> = { "custom": customServiceName || "Autre service" };
+    dbServices.forEach(s => { labels[s.service_key] = s.name_fr; });
+    return labels;
+  }, [dbServices, customServiceName]);
 
-  const isHourlyService =
-    selectedService === "with-engineer" || selectedService === "without-engineer";
-  const isPodcast = selectedService === "podcast";
+  const isHourlyService = selectedDbService?.price_unit === "hourly";
+  const isPodcast = selectedDbService?.price_unit === "per_minute";
   const isCustomService = selectedService === "custom";
 
   const totalPrice = useMemo(() => {
@@ -226,9 +271,10 @@ const AdminPriceCalculator = ({
   const handleServiceClick = (service: SessionType) => {
     setSelectedService(service);
     // Notify parent of price calculation when service is selected
-    if (onPriceCalculated) {
+    if (onPriceCalculated && service) {
       const price = getPrice(service);
-      const isHourly = service === "with-engineer" || service === "without-engineer";
+      const svc = dbServices.find(s => s.service_key === service);
+      const isHourly = svc?.price_unit === "hourly";
       const calculatedTotal = isHourly ? hours * price : price;
       const calculatedFinal =
         discountPercent > 0
@@ -271,72 +317,69 @@ const AdminPriceCalculator = ({
     }
   };
 
-  const services = [
-    { id: "with-engineer" as SessionType, icon: Mic, label: "AVEC INGÉNIEUR", color: "primary" },
-    { id: "without-engineer" as SessionType, icon: Building2, label: "LOCATION SÈCHE", color: "accent" },
-    { id: "mixing" as SessionType, icon: Music, label: "MIXAGE", color: "primary" },
-    { id: "mastering" as SessionType, icon: Headphones, label: "MASTERING", color: "primary" },
-    { id: "analog-mastering" as SessionType, icon: Disc, label: "MASTERING ANALOGIQUE", color: "accent" },
-    { id: "podcast" as SessionType, icon: Radio, label: "PODCAST", color: "primary" },
-    { id: "composition" as SessionType, icon: Music, label: "COMPOSITION", color: "primary" },
-    { id: "custom" as SessionType, icon: Plus, label: "AUTRE SERVICE", color: "secondary" },
-  ] as const;
-
   return (
     <div className="space-y-6">
-      {/* Service selector buttons */}
+      {/* Service selector buttons - dynamically from DB */}
       <div>
         <Label className="text-sm text-muted-foreground mb-3 block flex items-center gap-2">
           <Calculator className="w-4 h-4" />
           Sélectionnez un service pour ouvrir l'agenda et calculer le prix
         </Label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {services.map((service) => {
-            const Icon = service.icon;
-            const isSelected = selectedService === service.id;
-            const isCustom = service.id === "custom";
-            return (
-              <button
-                key={service.id}
-                type="button"
-                onClick={() => handleServiceClick(service.id)}
-                className={cn(
-                  "p-4 rounded-xl border-2 text-left transition-all duration-300",
-                  isSelected
-                    ? isCustom
-                      ? "border-purple-500 bg-purple-500/10 box-glow-purple"
-                      : service.color === "accent"
-                        ? "border-accent bg-accent/10 box-glow-gold"
-                        : "border-primary bg-primary/10 box-glow-cyan"
-                    : isCustom 
-                      ? "border-dashed border-purple-500/50 bg-purple-500/5 hover:border-purple-500"
-                      : "border-border bg-card hover:border-primary/50"
-                )}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon
-                    className={cn(
-                      "w-4 h-4",
-                      isCustom ? "text-purple-500" : service.color === "accent" ? "text-accent" : "text-primary"
-                    )}
-                  />
-                  <span className="font-display text-sm text-foreground">{service.label}</span>
-                </div>
-                <span
+
+        {loadingServices ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Chargement des services...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {services.map((service) => {
+              const Icon = service.icon;
+              const isSelected = selectedService === service.id;
+              const isCustom = service.id === "custom";
+              return (
+                <button
+                  key={service.id}
+                  type="button"
+                  onClick={() => handleServiceClick(service.id)}
                   className={cn(
-                    "text-xs font-semibold",
-                    isCustom ? "text-purple-500" : service.color === "accent" ? "text-accent" : "text-primary"
+                    "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                    isSelected
+                      ? isCustom
+                        ? "border-purple-500 bg-purple-500/10 box-glow-purple"
+                        : service.color === "accent"
+                          ? "border-accent bg-accent/10 box-glow-gold"
+                          : "border-primary bg-primary/10 box-glow-cyan"
+                      : isCustom 
+                        ? "border-dashed border-purple-500/50 bg-purple-500/5 hover:border-purple-500"
+                        : "border-border bg-card hover:border-primary/50"
                   )}
                 >
-                  {isCustom ? "Prix manuel" : formatServicePrice(service.id)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon
+                      className={cn(
+                        "w-4 h-4",
+                        isCustom ? "text-purple-500" : service.color === "accent" ? "text-accent" : "text-primary"
+                      )}
+                    />
+                    <span className="font-display text-sm text-foreground">{service.label}</span>
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs font-semibold",
+                      isCustom ? "text-purple-500" : service.color === "accent" ? "text-accent" : "text-primary"
+                    )}
+                  >
+                    {isCustom ? "Prix manuel" : formatServicePrice(service.id)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Podcast duration input - only for podcast service */}
+      {/* Podcast / per_minute duration input */}
       {isPodcast && (
         <div className="p-4 rounded-xl bg-secondary/50 border border-border">
           <Label className="text-sm text-muted-foreground mb-2 block">
@@ -480,7 +523,7 @@ const AdminPriceCalculator = ({
         </div>
       )}
 
-      {/* Price calculation summary - always show for hourly services when selected, for others always */}
+      {/* Price calculation summary */}
       {selectedService && (
         <div className="p-6 rounded-xl bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-green-500/10 border border-green-500/30">
           <h4 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
@@ -493,7 +536,7 @@ const AdminPriceCalculator = ({
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Service:</span>
-                <span className="text-foreground font-medium">{serviceLabels[selectedService]}</span>
+                <span className="text-foreground font-medium">{serviceLabels[selectedService] || selectedService}</span>
               </div>
               
               {isHourlyService && (
@@ -740,16 +783,8 @@ const AdminPriceCalculator = ({
                     onClick={async () => {
                       setCreatingEvent(true);
                       try {
-                        const sessionLabelsForTitle: Record<string, string> = {
-                          "with-engineer": "Session avec ingénieur",
-                          "without-engineer": "Location sèche",
-                          "mixing": "Mixage",
-                          "mastering": "Mastering",
-                          "analog-mastering": "Mastering analogique",
-                          "podcast": "Podcast",
-                          "composition": "Composition",
-                          "custom": customServiceName || "Autre service"
-                        };
+                        // Use dynamic labels from DB for event title
+                        const eventServiceLabel = serviceLabels[selectedService!] || selectedService || "Service";
 
                         // Calculate hours for event
                         const eventHours = isCustomService 
@@ -763,8 +798,8 @@ const AdminPriceCalculator = ({
                         const title = customTitle.trim()
                           ? customTitle.trim()
                           : clientName
-                            ? `${sessionLabelsForTitle[selectedService!]} - ${clientName}`
-                            : sessionLabelsForTitle[selectedService!];
+                            ? `${eventServiceLabel} - ${clientName}`
+                            : eventServiceLabel;
 
                         // Get current session and token
                         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -775,7 +810,6 @@ const AdminPriceCalculator = ({
                         });
 
                         if (sessionError || !sessionData.session) {
-                          // Try to refresh
                           console.log("[ADMIN-EVENT] Trying to refresh session...");
                           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
                           if (refreshError || !refreshData.session) {
@@ -784,7 +818,6 @@ const AdminPriceCalculator = ({
                           }
                         }
 
-                        // Get fresh session after potential refresh
                         const { data: freshSession } = await supabase.auth.getSession();
                         const accessToken = freshSession?.session?.access_token;
                         
@@ -794,13 +827,12 @@ const AdminPriceCalculator = ({
 
                         console.log("[ADMIN-EVENT] Calling function with token length:", accessToken.length);
 
-                        // Create the calendar event with explicit headers
                         const { data, error } = await supabase.functions.invoke("create-admin-event", {
                           body: {
                             title,
                             clientName: clientName || "",
                             clientEmail: clientEmail || undefined,
-                            description: `Prix: ${finalPrice}€${discountPercent > 0 ? ` (remise ${discountPercent}%)` : ''}\nService: ${sessionLabelsForTitle[selectedService!]}\n${clientEmail ? `Email: ${clientEmail}` : ''}`,
+                            description: `Prix: ${finalPrice}€${discountPercent > 0 ? ` (remise ${discountPercent}%)` : ''}\nService: ${eventServiceLabel}\n${clientEmail ? `Email: ${clientEmail}` : ''}`,
                             date: selectedDate,
                             time: selectedTime,
                             hours: eventHours,

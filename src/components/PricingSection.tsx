@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio, PenTool, Package } from "lucide-react";
+import { Check, Mic, Building2, Music2, Sparkles, Disc3, Radio, PenTool, Package, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import QuoteRequestDialog from "./QuoteRequestDialog";
 import { supabase } from "@/integrations/supabase/client";

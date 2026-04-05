@@ -506,19 +506,31 @@ const Auth = () => {
             className="w-full mb-4 border-border hover:bg-muted"
             onClick={async () => {
               setLoading(true);
-              const redirectTo = effectiveStudioSlug 
-                ? `${window.location.origin}/${effectiveStudioSlug}`
-                : `${window.location.origin}/auth`;
-              const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                  redirectTo,
-                },
-              });
-              if (error) {
+              try {
+                const redirectTo = effectiveStudioSlug 
+                  ? `${window.location.origin}/${effectiveStudioSlug}`
+                  : `${window.location.origin}/auth`;
+                const { error } = await supabase.auth.signInWithOAuth({
+                  provider: 'google',
+                  options: {
+                    redirectTo,
+                  },
+                });
+                if (error) {
+                  const msg = error.message.includes("provider is not enabled")
+                    ? "La connexion Google n'est pas encore configurée. Veuillez utiliser votre email et mot de passe."
+                    : error.message;
+                  toast({
+                    title: "Connexion Google indisponible",
+                    description: msg,
+                    variant: "destructive",
+                  });
+                  setLoading(false);
+                }
+              } catch (err: any) {
                 toast({
                   title: "Erreur",
-                  description: error.message,
+                  description: "Impossible de se connecter avec Google. Veuillez réessayer.",
                   variant: "destructive",
                 });
                 setLoading(false);

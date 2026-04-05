@@ -467,5 +467,158 @@
     "account_exists_desc": "Un compte existe déjà avec cet email. Essayez de vous connecter.",
     "signup_error": "Erreur d'inscription",
     "error_occurred": "Une erreur est survenue."
+  },
+  "landing": {
+    "badge": "La plateforme de booking pour studios",
+    "hero_title": "Votre studio mérite un agenda professionnel",
+    "hero_desc": "Réservation en ligne, paiements automatiques, Google Calendar, gestion des clients — tout en un pour seulement",
+    "month": "mois",
+    "cta_start": "Commencer gratuitement",
+    "cta_discover": "Découvrir les fonctionnalités",
+    "cta_trial": "14 jours d'essai gratuit • Aucune carte requise",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "create_studio": "Créer mon studio",
+    "my_studio": "Mon studio",
+    "features_title": "Tout ce dont votre studio a besoin",
+    "features_desc": "Une plateforme complète pour gérer vos réservations et développer votre studio.",
+    "learn_more": "En savoir plus",
+    "back_home": "Retour à l'accueil",
+    "what_it_does": "Comment ça fonctionne",
+    "how_to_configure": "Comment configurer",
+    "feature_not_found": "Cette fonctionnalité n'existe pas.",
+    "pricing_title": "Un prix simple et transparent",
+    "pricing_desc": "Pas de frais cachés. Annulable à tout moment.",
+    "pricing_all_included": "Tout inclus, nombre de clients illimité",
+    "footer": "Plateforme de réservation pour studios d'enregistrement",
+    "pricing_features": {
+      "booking": "Agenda de réservation en ligne",
+      "stripe": "Paiements Stripe & PayPal",
+      "gcal": "Synchronisation Google Calendar",
+      "gdrive": "Dossiers Google Drive clients",
+      "emails": "Emails automatiques personnalisables",
+      "chatbot": "Chatbot IA intégré",
+      "instrumentals": "Vente d'instrumentaux",
+      "gallery": "Galerie photos",
+      "multilang": "Multi-langue (FR/EN/NL/ES)",
+      "support": "Support technique"
+    },
+    "features": {
+      "agenda": {
+        "title": "Agenda en ligne",
+        "desc": "Synchronisation Google Calendar, créneaux automatiques, gestion des conflits.",
+        "details": [
+          "Créneaux de réservation automatiques basés sur vos disponibilités",
+          "Synchronisation bidirectionnelle avec Google Calendar en temps réel",
+          "Détection automatique des conflits d'horaires",
+          "Vue jour, semaine et mois pour gérer vos sessions",
+          "Vos clients réservent directement en ligne 24h/24",
+          "Notifications automatiques pour les nouvelles réservations"
+        ],
+        "howto": [
+          "Connectez-vous à votre dashboard et allez dans Paramètres > Google Calendar",
+          "Cliquez sur 'Connecter Google Calendar' et autorisez l'accès",
+          "Définissez vos horaires d'ouverture dans Paramètres > Disponibilités",
+          "Choisissez la durée minimum et maximum des créneaux",
+          "Votre agenda est automatiquement synchronisé — les clients voient vos disponibilités en temps réel"
+        ]
+      },
+      "payments": {
+        "title": "Paiements intégrés",
+        "desc": "Stripe & PayPal, acomptes automatiques, remboursements en un clic.",
+        "details": [
+          "Acceptez les paiements par carte bancaire via Stripe",
+          "Option PayPal pour offrir plus de flexibilité à vos clients",
+          "Acomptes automatiques (50%, 80% ou montant fixe) lors de la réservation",
+          "Remboursements en un clic depuis votre dashboard",
+          "Factures générées automatiquement pour chaque transaction",
+          "Tableau de bord financier avec suivi des revenus"
+        ],
+        "howto": [
+          "Allez dans Paramètres > Paiements",
+          "Cliquez sur 'Connecter Stripe' et suivez les étapes de création de compte Stripe",
+          "Configurez le pourcentage d'acompte souhaité (50%, 80% ou montant fixe)",
+          "Optionnel : Ajoutez votre compte PayPal dans Paramètres > PayPal",
+          "Les paiements arrivent directement sur votre compte bancaire lié à Stripe"
+        ]
+      },
+      "instrumentals": {
+        "title": "Vente d'instrumentaux",
+        "desc": "Boutique intégrée avec licences, téléchargement et paiement.",
+        "details": [
+          "Boutique d'instrumentaux intégrée à votre site studio",
+          "Système de licences (Lease, Premium, Exclusive) avec prix configurables",
+          "Lecteur audio avec prévisualisation des beats",
+          "Téléchargement automatique après paiement",
+          "Gestion des fichiers WAV, MP3 et stems",
+          "Suivi des ventes et revenus par instrumental"
+        ],
+        "howto": [
+          "Allez dans la section 'Instrumentaux' de votre dashboard",
+          "Cliquez sur 'Ajouter un instrumental' et uploadez votre fichier audio",
+          "Définissez les prix pour chaque type de licence (Lease, Premium, Exclusive)",
+          "Ajoutez une image de couverture et une description",
+          "Optionnel : Uploadez les stems pour la licence Exclusive",
+          "Publiez — votre boutique est en ligne !"
+        ]
+      },
+      "security": {
+        "title": "Données sécurisées",
+        "desc": "Chaque studio a ses propres données isolées et sécurisées.",
+        "details": [
+          "Isolation complète des données : chaque studio a son propre espace",
+          "Authentification sécurisée avec confirmation par email",
+          "Connexion Google OAuth disponible pour plus de confort",
+          "Chiffrement des données sensibles (paiements, informations clients)",
+          "Row Level Security (RLS) sur Supabase pour protéger chaque requête",
+          "Sauvegardes automatiques quotidiennes"
+        ],
+        "howto": [
+          "Vos données sont automatiquement sécurisées dès la création de votre studio",
+          "Activez l'authentification Google dans Paramètres > Sécurité",
+          "Configurez un mot de passe fort (min. 12 caractères, 1 majuscule, 1 spécial)",
+          "Vérifiez régulièrement les accès dans Paramètres > Membres de l'équipe",
+          "Les données de vos clients sont isolées — aucun autre studio n'y a accès"
+        ]
+      },
+      "chatbot": {
+        "title": "Chatbot IA",
+        "desc": "Assistant intelligent pour qualifier vos clients 24/7.",
+        "details": [
+          "Chatbot IA disponible 24h/24 sur votre page studio",
+          "Répond aux questions fréquentes (tarifs, disponibilités, équipement)",
+          "Qualifie les prospects et les guide vers la réservation",
+          "Personnalisable avec les informations de votre studio",
+          "Historique des conversations consultable dans le dashboard",
+          "Réduction du temps passé à répondre aux mêmes questions"
+        ],
+        "howto": [
+          "Allez dans Paramètres > Chatbot IA",
+          "Activez le chatbot et configurez le message d'accueil",
+          "Ajoutez les informations clés : tarifs, horaires, équipement, adresse",
+          "Personnalisez les réponses aux questions fréquentes",
+          "Le chatbot apparaît automatiquement sur votre page publique"
+        ]
+      },
+      "emails": {
+        "title": "Emails automatiques",
+        "desc": "Confirmations, rappels et factures personnalisables.",
+        "details": [
+          "Email de confirmation automatique après chaque réservation",
+          "Rappels envoyés 24h et 1h avant la session",
+          "Facture PDF générée et envoyée automatiquement",
+          "Email de suivi après la session pour fidéliser vos clients",
+          "Templates personnalisables avec le nom et logo de votre studio",
+          "Historique complet des emails envoyés"
+        ],
+        "howto": [
+          "Les emails sont activés par défaut dès la création de votre studio",
+          "Personnalisez les templates dans Paramètres > Emails",
+          "Ajoutez votre logo et modifiez les textes de confirmation",
+          "Configurez les rappels : 24h avant, 1h avant, ou les deux",
+          "Optionnel : Ajoutez un message de suivi post-session personnalisé"
+        ]
+      }
+    }
   }
 }

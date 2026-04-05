@@ -934,6 +934,34 @@ export type Database = {
           is_active: boolean
           created_at: string
           updated_at: string
+          hero_title_line1: string | null
+          hero_title_line2: string | null
+          hero_subtitle: string | null
+          hero_image_url: string | null
+          hero_title_size: string
+          hero_subtitle_size: string
+          body_text_size: string
+          section_title_size: string
+          button_style: string
+          button_size: string
+          button_layout: string
+          hero_layout: string
+          show_hero_stats: string
+          navbar_style: string
+          show_pricing: boolean
+          show_instrumentals: boolean
+          show_gallery: boolean
+          show_gear: boolean
+          show_booking: boolean
+          show_chatbot: boolean
+          font_family: string
+          social_instagram: string | null
+          social_facebook: string | null
+          social_tiktok: string | null
+          social_youtube: string | null
+          social_spotify: string | null
+          social_website: string | null
+          footer_text: string | null
         }
         Insert: {
           id?: string
