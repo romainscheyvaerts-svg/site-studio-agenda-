@@ -598,18 +598,81 @@ const StudioSettings = () => {
               <p className="text-sm text-gray-400 mb-4">
                 💳 Configurez vos propres comptes Stripe et PayPal pour recevoir les paiements de vos clients directement sur votre compte.
               </p>
+
+              {/* STRIPE */}
               <div className="border-b border-gray-800 pb-4 mb-4">
                 <h3 className="font-semibold text-cyan-400 mb-3">Stripe</h3>
-                <InputField label="Clé publique (pk_...)" value={stripePublishableKey} onChange={setStripePublishableKey} placeholder="pk_live_..." />
+
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="block text-sm font-medium text-gray-300">Clé publique (pk_...)</label>
+                    <InfoBubble>
+                      <p className="font-semibold mb-1">💳 Clé publique Stripe</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <li>Connectez-vous sur <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Stripe Dashboard → API Keys</a></li>
+                        <li>Copiez la <strong>"Publishable key"</strong> (commence par <code className="bg-gray-900 px-1 rounded">pk_live_</code> ou <code className="bg-gray-900 px-1 rounded">pk_test_</code>)</li>
+                      </ol>
+                      <p className="text-xs mt-2 text-gray-400">💡 Utilisez les clés <code className="bg-gray-900 px-1 rounded">pk_test_</code> pour tester, puis passez en <code className="bg-gray-900 px-1 rounded">pk_live_</code> pour la production.</p>
+                    </InfoBubble>
+                  </div>
+                  <input type="text" value={stripePublishableKey} onChange={(e: any) => setStripePublishableKey(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="pk_live_..." />
+                </div>
+
                 <div className="mt-3">
-                  <InputField label="Clé secrète (sk_...)" value={stripeSecretKey} onChange={setStripeSecretKey} type="password" placeholder="sk_live_..." />
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="block text-sm font-medium text-gray-300">Clé secrète (sk_...)</label>
+                    <InfoBubble>
+                      <p className="font-semibold mb-1">🔒 Clé secrète Stripe</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <li>Sur le même <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Stripe Dashboard → API Keys</a></li>
+                        <li>Cliquez sur <strong>"Reveal live key"</strong> (ou test key)</li>
+                        <li>Copiez la <strong>"Secret key"</strong> (commence par <code className="bg-gray-900 px-1 rounded">sk_live_</code> ou <code className="bg-gray-900 px-1 rounded">sk_test_</code>)</li>
+                      </ol>
+                      <div className="mt-2 pt-2 border-t border-gray-700">
+                        <p className="text-xs font-semibold text-amber-400">⚠️ Ne partagez jamais cette clé publiquement ! Elle permet de gérer les paiements sur votre compte.</p>
+                      </div>
+                    </InfoBubble>
+                  </div>
+                  <input type="password" value={stripeSecretKey} onChange={(e: any) => setStripeSecretKey(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="sk_live_..." />
                 </div>
               </div>
+
+              {/* PAYPAL */}
               <div>
                 <h3 className="font-semibold text-cyan-400 mb-3">PayPal</h3>
-                <InputField label="Client ID" value={paypalClientId} onChange={setPaypalClientId} placeholder="AX..." />
+
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="block text-sm font-medium text-gray-300">Client ID</label>
+                    <InfoBubble>
+                      <p className="font-semibold mb-1">🅿️ PayPal Client ID</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <li>Connectez-vous sur <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">PayPal Developer → Applications</a></li>
+                        <li>Cliquez sur votre application (ou créez-en une : <strong>"Create App"</strong>)</li>
+                        <li>Copiez le <strong>"Client ID"</strong> affiché</li>
+                      </ol>
+                      <p className="text-xs mt-2 text-gray-400">💡 Basculez entre <strong>"Sandbox"</strong> (test) et <strong>"Live"</strong> (production) en haut de la page.</p>
+                    </InfoBubble>
+                  </div>
+                  <input type="text" value={paypalClientId} onChange={(e: any) => setPaypalClientId(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="AX..." />
+                </div>
+
                 <div className="mt-3">
-                  <InputField label="Client Secret" value={paypalClientSecret} onChange={setPaypalClientSecret} type="password" placeholder="EK..." />
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="block text-sm font-medium text-gray-300">Client Secret</label>
+                    <InfoBubble>
+                      <p className="font-semibold mb-1">🔐 PayPal Client Secret</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <li>Sur la même page <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">PayPal Developer → votre app</a></li>
+                        <li>Cliquez sur <strong>"Show"</strong> à côté de <strong>"Secret"</strong></li>
+                        <li>Copiez la clé secrète</li>
+                      </ol>
+                      <div className="mt-2 pt-2 border-t border-gray-700">
+                        <p className="text-xs font-semibold text-amber-400">⚠️ Gardez cette clé confidentielle. Elle donne accès à votre compte PayPal.</p>
+                      </div>
+                    </InfoBubble>
+                  </div>
+                  <input type="password" value={paypalClientSecret} onChange={(e: any) => setPaypalClientSecret(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="EK..." />
                 </div>
               </div>
             </>
@@ -733,8 +796,47 @@ const StudioSettings = () => {
               <p className="text-sm text-gray-400 mb-4">
                 ✉️ Configurez Resend pour envoyer des emails de confirmation automatiques à vos clients.
               </p>
-              <InputField label="Resend API Key" value={resendApiKey} onChange={setResendApiKey} type="password" placeholder="re_..." />
-              <InputField label="Email expéditeur" value={resendFromEmail} onChange={setResendFromEmail} type="email" placeholder="noreply@votre-domaine.com" />
+
+              {/* Resend API Key */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Resend API Key</label>
+                  <InfoBubble>
+                    <p className="font-semibold mb-1">📧 Comment obtenir une clé API Resend ?</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Créez un compte sur <a href="https://resend.com/signup" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">resend.com</a></li>
+                      <li>Allez dans <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">API Keys</a></li>
+                      <li>Cliquez sur <strong>"Create API Key"</strong></li>
+                      <li>Donnez un nom (ex: <em>studio-emails</em>) et copiez la clé (commence par <code className="bg-gray-900 px-1 rounded">re_</code>)</li>
+                    </ol>
+                    <div className="mt-2 pt-2 border-t border-gray-700">
+                      <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ Configuration du domaine requise :</p>
+                      <p className="text-xs text-gray-400">Pour envoyer des emails depuis votre propre domaine, ajoutez-le dans <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Resend → Domains</a> et configurez les enregistrements DNS (SPF, DKIM, DMARC).</p>
+                    </div>
+                    <p className="text-xs mt-2 text-gray-400">💡 Le plan gratuit Resend permet d'envoyer jusqu'à 3 000 emails/mois.</p>
+                  </InfoBubble>
+                </div>
+                <input type="password" value={resendApiKey} onChange={(e: any) => setResendApiKey(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="re_..." />
+              </div>
+
+              {/* Email expéditeur */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-gray-300">Email expéditeur</label>
+                  <InfoBubble>
+                    <p className="font-semibold mb-1">📬 Email d'expédition</p>
+                    <p className="text-xs mb-2">C'est l'adresse qui apparaîtra comme expéditeur dans les emails reçus par vos clients.</p>
+                    <ul className="text-xs space-y-1">
+                      <li>• <strong>Avec domaine vérifié :</strong> <code className="bg-gray-900 px-1 rounded">noreply@votre-domaine.com</code></li>
+                      <li>• <strong>Sans domaine :</strong> <code className="bg-gray-900 px-1 rounded">onboarding@resend.dev</code> (par défaut, pour tester)</li>
+                    </ul>
+                    <div className="mt-2 pt-2 border-t border-gray-700">
+                      <p className="text-xs text-gray-400">💡 Pour une meilleure délivrabilité, vérifiez votre domaine dans <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Resend → Domains</a> et utilisez une adresse de ce domaine.</p>
+                    </div>
+                  </InfoBubble>
+                </div>
+                <input type="email" value={resendFromEmail} onChange={(e: any) => setResendFromEmail(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="noreply@votre-domaine.com" />
+              </div>
             </>
           )}
 
