@@ -720,6 +720,14 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                       <li>Descendez jusqu'à <strong>"Intégrer l'agenda"</strong></li>
                       <li>Copiez l'<strong>ID de l'agenda</strong> (format : <code className="bg-gray-900 px-1 rounded">xxx@group.calendar.google.com</code>)</li>
                     </ol>
+                    <div className="mt-2 pt-2 border-t border-gray-700">
+                      <p className="text-xs font-semibold text-green-400 mb-1">✅ Vous pouvez aussi coller directement :</p>
+                      <ul className="text-xs space-y-1 text-gray-300">
+                        <li>• L'<strong>URL d'intégration iframe</strong> (le code copié depuis "Intégrer l'agenda")</li>
+                        <li>• L'<strong>URL publique</strong> du calendrier</li>
+                      </ul>
+                      <p className="text-xs text-gray-400 mt-1">Le Calendar ID sera extrait automatiquement ! 🎉</p>
+                    </div>
                     <p className="text-xs mt-2 text-gray-400">💡 Ce calendrier sera utilisé pour afficher les créneaux disponibles et créer les événements de session.</p>
                   </InfoBubble>
                 </div>
