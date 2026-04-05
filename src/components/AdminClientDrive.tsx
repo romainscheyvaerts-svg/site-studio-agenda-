@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FolderOpen, Search, Calendar, Music, Mic2, Radio } from "lucide-react";
+import { Loader2, FolderOpen, Search, Calendar, Music, Mic2, Radio, AlertTriangle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useStudio } from "@/hooks/useStudio";
 
 interface ClientDriveFolder {
   id: string;
@@ -40,14 +41,43 @@ const SESSION_TYPE_ICONS: Record<string, { icon: typeof Mic2; label: string; col
 
 const AdminClientDrive = () => {
   const { toast } = useToast();
+  const { studio } = useStudio();
   const [folders, setFolders] = useState<ClientDriveFolder[]>([]);
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Vérifier si Google Drive est configuré pour ce studio
+  const isDriveConfigured = studio?.google_drive_parent_folder_id && studio?.google_service_account_key;
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (isDriveConfigured) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [isDriveConfigured]);
+
+  // Si Google Drive n'est pas configuré, afficher un message
+  if (!isDriveConfigured) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-4">
+        <div className="p-4 rounded-full bg-amber-500/10">
+          <AlertTriangle className="w-8 h-8 text-amber-400" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-lg text-white mb-1">Google Drive non configuré</h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Veuillez configurer votre Google Drive dans les paramètres du studio pour gérer les dossiers clients.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+          <Settings className="w-3.5 h-3.5" />
+          <span>Paramètres → Google → Configurer le Drive</span>
+        </div>
+      </div>
+    );
+  }
 
   const fetchData = async () => {
     try {

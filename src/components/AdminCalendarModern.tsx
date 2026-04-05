@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import AdminEventEditPanel from "./AdminEventEditPanel";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useViewMode } from "@/hooks/useViewMode";
+import { useStudio } from "@/hooks/useStudio";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -86,6 +87,11 @@ const AdminCalendarModern = ({
   const { toast } = useToast();
   const { isSuperAdmin } = useAdmin();
   const { isMobileView } = useViewMode();
+  const { studio } = useStudio();
+
+  // Vérifier si Google Calendar est configuré pour ce studio
+  const isCalendarConfigured = studio?.google_calendar_id && studio?.google_service_account_key;
+
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
@@ -117,10 +123,11 @@ const AdminCalendarModern = ({
   const touchStartYRef = useRef<number>(0);
   const isSwipingRef = useRef<boolean>(false);
   const lastScrollLeftRef = useRef<number>(0);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
+    if (!isCalendarConfigured) { setLoading(false); return; }
     setLoading(true);
     try {
       let startDate: Date;
@@ -1313,7 +1320,23 @@ const AdminCalendarModern = ({
       </div>
 
       {/* Calendar Content */}
-      {loading ? (
+      {!isCalendarConfigured ? (
+        <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-4">
+          <div className="p-4 rounded-full bg-amber-500/10">
+            <CalendarIcon className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg text-white mb-1">Google Calendar non configuré</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Veuillez configurer votre Google Calendar dans les paramètres du studio pour afficher et gérer l'agenda.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Paramètres → Google → Configurer le Calendar</span>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
           <span className="ml-2 text-muted-foreground text-sm">Chargement...</span>

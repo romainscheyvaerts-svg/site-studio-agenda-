@@ -18,7 +18,16 @@ export interface Studio {
   phone: string | null;
   email: string | null;
   stripe_publishable_key: string | null;
+  stripe_secret_key: string | null;
+  paypal_client_id: string | null;
+  paypal_client_secret: string | null;
   google_calendar_id: string | null;
+  google_patron_calendar_id: string | null;
+  google_drive_parent_folder_id: string | null;
+  google_service_account_key: string | null;
+  resend_api_key: string | null;
+  resend_from_email: string | null;
+  gemini_api_key: string | null;
   subscription_status: string;
   is_active: boolean;
 }

@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus, FolderOpen, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Clock, X, Trash2, Calendar, Plus, FolderOpen, Pencil, AlertTriangle, Settings } from "lucide-react";
 import { format, addDays, startOfDay, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import AdminEventEditPanel from "./AdminEventEditPanel";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useStudio } from "@/hooks/useStudio";
 interface TimeSlot {
   hour: number;
   available: boolean;
@@ -49,6 +50,11 @@ const AdminCalendar = ({
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
   const { isSuperAdmin } = useAdmin();
+  const { studio } = useStudio();
+
+  // Vérifier si Google Calendar est configuré pour ce studio
+  const isCalendarConfigured = studio?.google_calendar_id && studio?.google_service_account_key;
+
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +85,7 @@ const AdminCalendar = ({
 
   // Fetch availability data
   const fetchAvailability = useCallback(async () => {
+    if (!isCalendarConfigured) return;
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("get-weekly-availability", {
@@ -96,11 +103,15 @@ const AdminCalendar = ({
     } finally {
       setLoading(false);
     }
-  }, [weekStart, isSuperAdmin]);
+  }, [weekStart, isSuperAdmin, isCalendarConfigured]);
 
   useEffect(() => {
-    fetchAvailability();
-  }, [fetchAvailability]);
+    if (isCalendarConfigured) {
+      fetchAvailability();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchAvailability, isCalendarConfigured]);
 
   // Auto-scroll to 8am on mount
   useEffect(() => {
@@ -257,6 +268,29 @@ const AdminCalendar = ({
 
   // Show fewer days on mobile
   const displayDays = availability.slice(0, isMobileView ? 3 : 7);
+
+  // Si Google Calendar n'est pas configuré, afficher un message
+  if (!isCalendarConfigured) {
+    return (
+      <div className={cn("bg-card rounded-2xl border border-amber-500/30", isMobileView ? "p-4" : "p-6")}>
+        <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-4">
+          <div className="p-4 rounded-full bg-amber-500/10">
+            <AlertTriangle className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg text-white mb-1">Google Calendar non configuré</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Veuillez configurer votre Google Calendar dans les paramètres du studio pour afficher et gérer l'agenda.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+            <Settings className="w-3.5 h-3.5" />
+            <span>Paramètres → Google → Configurer le Calendar</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("bg-card rounded-2xl border border-primary/30 box-glow-cyan", isMobileView ? "p-3" : "p-6")}>
