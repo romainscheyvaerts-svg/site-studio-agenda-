@@ -365,7 +365,7 @@ const StudioSettings = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                const studioUrl = `${window.location.origin}/${studio?.slug}`;
+                const studioUrl = `https://site-studio-agenda.art/${studio?.slug}`;
                 navigator.clipboard.writeText(studioUrl);
                 setCopied(true);
                 toast({ title: "✅ Lien copié !", description: studioUrl });
@@ -413,7 +413,7 @@ const StudioSettings = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">URL de votre studio</label>
                 <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-                  <span className="px-3 text-gray-500 text-sm">studiobooking.com/</span>
+                  <span className="px-3 text-gray-500 text-sm">site-studio-agenda.art/</span>
                   <input
                     type="text"
                     value={slug}
