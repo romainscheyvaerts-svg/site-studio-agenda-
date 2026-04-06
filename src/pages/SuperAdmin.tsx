@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Headphones, Check, X, Clock, Building2, MapPin, Phone, Mail, Shield } from "lucide-react";
+import { Headphones, Check, X, Clock, Building2, MapPin, Phone, Mail, Shield, Pause, Play, Trash2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -136,6 +136,65 @@ const SuperAdmin = () => {
     }
   };
 
+  const handleSuspend = async (studio: StudioRequest) => {
+    if (!confirm(`⚠️ Suspendre "${studio.name}" ?\n\nLa page du studio sera temporairement inaccessible aux clients.`)) return;
+    setProcessingId(studio.id);
+    try {
+      const { error } = await supabase
+        .from("studios")
+        .update({ subscription_status: "suspended" })
+        .eq("id", studio.id);
+      if (error) throw error;
+      toast({ title: "⏸️ Studio suspendu", description: `"${studio.name}" est temporairement désactivé.` });
+      setStudios(prev => prev.map(s => s.id === studio.id ? { ...s, subscription_status: "suspended" } : s));
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReactivate = async (studio: StudioRequest) => {
+    setProcessingId(studio.id);
+    try {
+      const { error } = await supabase
+        .from("studios")
+        .update({ subscription_status: "trialing" })
+        .eq("id", studio.id);
+      if (error) throw error;
+      toast({ title: "✅ Studio réactivé", description: `"${studio.name}" est de nouveau accessible.` });
+      setStudios(prev => prev.map(s => s.id === studio.id ? { ...s, subscription_status: "trialing" } : s));
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDelete = async (studio: StudioRequest) => {
+    if (!confirm(`🗑️ SUPPRIMER DÉFINITIVEMENT "${studio.name}" ?\n\n⚠️ Cette action est IRRÉVERSIBLE !\nToutes les données du studio (événements, réservations, services...) seront supprimées.`)) return;
+    if (!confirm(`Confirmez-vous la suppression définitive de "${studio.name}" ?\n\nTapez OK pour confirmer.`)) return;
+    
+    setProcessingId(studio.id);
+    try {
+      // Delete related data first (use any to bypass missing types)
+      await (supabase as any).from("studio_events").delete().eq("studio_id", studio.id);
+      await supabase.from("studio_members").delete().eq("studio_id", studio.id);
+      await (supabase as any).from("services").delete().eq("studio_id", studio.id);
+      
+      // Delete the studio
+      const { error } = await supabase.from("studios").delete().eq("id", studio.id);
+      if (error) throw error;
+      
+      toast({ title: "🗑️ Studio supprimé", description: `"${studio.name}" a été définitivement supprimé.` });
+      setStudios(prev => prev.filter(s => s.id !== studio.id));
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   if (!user || user.email !== SUPER_ADMIN_EMAIL) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -157,6 +216,8 @@ const SuperAdmin = () => {
         return <span className="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400 flex items-center gap-1"><Check className="w-3 h-3" /> Approuvé</span>;
       case "active":
         return <span className="px-2 py-1 rounded-full text-xs bg-cyan-500/20 text-cyan-400 flex items-center gap-1"><Check className="w-3 h-3" /> Actif</span>;
+      case "suspended":
+        return <span className="px-2 py-1 rounded-full text-xs bg-orange-500/20 text-orange-400 flex items-center gap-1"><Pause className="w-3 h-3" /> Suspendu</span>;
       case "rejected":
         return <span className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400 flex items-center gap-1"><X className="w-3 h-3" /> Refusé</span>;
       default:
@@ -293,13 +354,72 @@ const SuperAdmin = () => {
                     </div>
                   )}
 
-                  {studio.subscription_status === "trialing" && (
-                    <Link 
-                      to={`/${studio.slug}`}
-                      className="text-cyan-400 hover:underline text-sm ml-4"
-                    >
-                      Voir le studio →
-                    </Link>
+                  {/* Actions for active/trialing studios */}
+                  {["trialing", "active"].includes(studio.subscription_status) && (
+                    <div className="flex flex-col gap-2 ml-4 items-end">
+                      <Link 
+                        to={`/${studio.slug}`}
+                        className="text-cyan-400 hover:underline text-sm"
+                      >
+                        Voir le studio →
+                      </Link>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSuspend(studio)}
+                          disabled={processingId === studio.id}
+                          className="bg-orange-600/20 hover:bg-orange-600/40 text-orange-400 border border-orange-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Pause className="w-3 h-3" /> Suspendre
+                        </button>
+                        <button
+                          onClick={() => handleDelete(studio)}
+                          disabled={processingId === studio.id}
+                          className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" /> Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions for suspended studios */}
+                  {studio.subscription_status === "suspended" && (
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleReactivate(studio)}
+                        disabled={processingId === studio.id}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Play className="w-3 h-3" /> Réactiver
+                      </button>
+                      <button
+                        onClick={() => handleDelete(studio)}
+                        disabled={processingId === studio.id}
+                        className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" /> Supprimer
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Actions for rejected studios */}
+                  {studio.subscription_status === "rejected" && (
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleApprove(studio)}
+                        disabled={processingId === studio.id}
+                        className="bg-green-600/20 hover:bg-green-600/40 text-green-400 border border-green-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Check className="w-3 h-3" /> Approuver
+                      </button>
+                      <button
+                        onClick={() => handleDelete(studio)}
+                        disabled={processingId === studio.id}
+                        className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" /> Supprimer
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

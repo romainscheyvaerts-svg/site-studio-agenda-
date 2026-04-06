@@ -102,6 +102,12 @@ export const StudioProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
         return;
       }
+      if (studioData.subscription_status === "suspended") {
+        setError("Ce studio est temporairement suspendu. Veuillez réessayer plus tard.");
+        setStudio(null);
+        setLoading(false);
+        return;
+      }
       if (!["active", "trialing"].includes(studioData.subscription_status)) {
         setError("Ce studio n'est plus actif");
         setStudio(null);
