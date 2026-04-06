@@ -739,66 +739,6 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                 />
               </div>
 
-              {/* Clé Service Account (JSON) */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-300">Clé Service Account (JSON)</label>
-                  <InfoBubble>
-                    <p className="font-semibold mb-1">🔑 Comment obtenir la clé Service Account ?</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Allez sur <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Cloud Console → Service Accounts</a></li>
-                      <li>Créez un projet ou sélectionnez votre projet existant</li>
-                      <li>Cliquez sur <strong>"Créer un compte de service"</strong></li>
-                      <li>Donnez-lui un nom (ex: <em>studio-booking</em>)</li>
-                      <li>Allez dans l'onglet <strong>"Clés"</strong> → <strong>"Ajouter une clé"</strong> → <strong>"JSON"</strong></li>
-                      <li>Un fichier <code className="bg-gray-900 px-1 rounded">.json</code> sera téléchargé — <strong>collez son contenu ici</strong></li>
-                    </ol>
-                    <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ API à activer :</p>
-                      <ul className="text-xs space-y-1">
-                        <li>• <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Drive API</a></li>
-                      </ul>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs text-gray-400">💡 Partagez votre dossier Drive avec l'email du compte de service (visible dans le JSON sous <code className="bg-gray-900 px-1 rounded">client_email</code>).</p>
-                    </div>
-                  </InfoBubble>
-                </div>
-                <textarea
-                  value={googleServiceAccountKey}
-                  onChange={(e) => setGoogleServiceAccountKey(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm font-mono h-32"
-                  placeholder='{"type": "service_account", ...}'
-                />
-                {/* Prominent sharing reminder */}
-                {googleServiceAccountKey && (() => {
-                  try {
-                    const parsed = JSON.parse(googleServiceAccountKey);
-                    if (parsed.client_email) {
-                      return (
-                        <div className="mt-2 p-3 bg-amber-900/30 border border-amber-500/50 rounded-lg">
-                          <p className="text-xs font-bold text-amber-400 mb-1">⚠️ N'oubliez pas de partager votre dossier Google Drive avec :</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="text-sm text-cyan-400 bg-gray-900 px-2 py-1 rounded flex-1 break-all">{parsed.client_email}</code>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(parsed.client_email);
-                                toast({ title: "Copié !", description: "Email du service account copié dans le presse-papier" });
-                              }}
-                              className="shrink-0 px-2 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-xs rounded transition-colors"
-                            >
-                              📋 Copier
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-2">→ Google Drive → Clic droit sur le dossier → Partager → Ajouter cette adresse avec le rôle <strong className="text-white">"Éditeur"</strong></p>
-                        </div>
-                      );
-                    }
-                  } catch {}
-                  return null;
-                })()}
-              </div>
             </>
           )}
 
