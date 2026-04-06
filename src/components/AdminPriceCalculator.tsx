@@ -866,6 +866,7 @@ const AdminPriceCalculator = ({
                               includeStripeLink: includeStripeLink && finalPrice > 0,
                               includeDriveLink,
                               customMessage,
+                              studioId: studio?.id,
                             },
                           });
                           setSendingEmail(false);

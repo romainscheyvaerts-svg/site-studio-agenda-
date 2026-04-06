@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { renderEmailHtml, TemplateVariables } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,8 +41,18 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const ADMIN_EMAILS = ["prod.makemusic@gmail.com", "kazamzamka@gmail.com", "romain.scheyvaerts@gmail.com"];
-    if (!user.email || !ADMIN_EMAILS.includes(user.email)) {
+    // Check admin role via user_roles or studio_members
+    const { data: platformRoles } = await supabaseAdmin
+      .from("user_roles").select("role").eq("user_id", user.id)
+      .in("role", ["admin", "superadmin"]);
+    
+    const { data: studioRoles } = await supabaseAdmin
+      .from("studio_members").select("role").eq("user_id", user.id)
+      .in("role", ["owner", "admin"]);
+    
+    const isAdmin = (platformRoles && platformRoles.length > 0) || (studioRoles && studioRoles.length > 0);
+    
+    if (!isAdmin) {
       throw new Error("Admin access required");
     }
 
@@ -58,30 +67,93 @@ serve(async (req) => {
       includeStripeLink,
       includeDriveLink,
       customMessage,
+      studioId,
     } = await req.json();
 
-    logStep("Request data", { clientEmail, sessionType, totalPrice, includeStripeLink, includeDriveLink });
+    logStep("Request data", { clientEmail, sessionType, totalPrice, includeStripeLink, includeDriveLink, studioId });
 
     if (!clientEmail) {
       throw new Error("Client email is required");
     }
 
+    // Fetch studio configuration (Resend API key, from email, etc.)
+    let studioData: any = null;
+    if (studioId) {
+      const { data } = await supabaseAdmin
+        .from("studios")
+        .select("name, email, resend_api_key, resend_from_email, stripe_secret_key")
+        .eq("id", studioId)
+        .single();
+      studioData = data;
+    }
+
+    // If no studioId, try to find the studio from the admin's membership
+    if (!studioData) {
+      const { data: membership } = await supabaseAdmin
+        .from("studio_members")
+        .select("studio_id")
+        .eq("user_id", user.id)
+        .in("role", ["owner", "admin"])
+        .limit(1)
+        .single();
+
+      if (membership?.studio_id) {
+        const { data } = await supabaseAdmin
+          .from("studios")
+          .select("name, email, resend_api_key, resend_from_email, stripe_secret_key")
+          .eq("id", membership.studio_id)
+          .single();
+        studioData = data;
+      }
+    }
+
+    logStep("Studio data", { 
+      hasStudioData: !!studioData, 
+      hasResendKey: !!studioData?.resend_api_key,
+      fromEmail: studioData?.resend_from_email,
+      studioName: studioData?.name 
+    });
+
+    // Get Resend API key: first from studio DB, then from env
+    const resendApiKey = studioData?.resend_api_key || Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      throw new Error("RESEND_API_KEY not configured. Please set it in Studio Settings > Emails.");
+    }
+
+    // Get from email: from studio DB, then from env, then default
+    const configuredFromEmail = studioData?.resend_from_email || Deno.env.get("RESEND_FROM_EMAIL");
+    const studioName = studioData?.name || "Studio";
+    const studioEmail = studioData?.email || "noreply@studio.com";
+
+    // Determine the from address
+    // Resend requires sending from a verified domain, not gmail
+    let fromAddress: string;
+    if (configuredFromEmail && !configuredFromEmail.includes("gmail.com") && !configuredFromEmail.includes("hotmail.") && !configuredFromEmail.includes("yahoo.")) {
+      // Use the configured from email (should be a verified domain)
+      fromAddress = configuredFromEmail.includes("<") ? configuredFromEmail : `${studioName} <${configuredFromEmail}>`;
+    } else {
+      // Fallback: use Resend's onboarding address for testing
+      fromAddress = `${studioName} <onboarding@resend.dev>`;
+      logStep("WARNING: Using Resend onboarding email. Configure a verified domain email in Studio Settings.");
+    }
+
+    logStep("From address resolved", { fromAddress });
+
     // Generate Stripe payment link if requested
     let stripePaymentUrl = null;
     if (includeStripeLink && totalPrice > 0) {
-      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+      const stripeKey = studioData?.stripe_secret_key || Deno.env.get("STRIPE_SECRET_KEY");
       if (stripeKey) {
         try {
           const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
           
-          // Create a payment link for the amount
           const paymentLink = await stripe.paymentLinks.create({
             line_items: [
               {
                 price_data: {
                   currency: 'eur',
                   product_data: {
-                    name: `Session ${sessionType} - Make Music Studio`,
+                    name: `Session ${sessionType} - ${studioName}`,
                     description: sessionDate ? `${sessionDate} à ${sessionTime || 'horaire à confirmer'}` : 'Session studio',
                   },
                   unit_amount: Math.round(totalPrice * 100),
@@ -95,12 +167,11 @@ serve(async (req) => {
           logStep("Stripe payment link created", { url: stripePaymentUrl });
         } catch (stripeError) {
           console.error("Stripe error:", stripeError);
-          // Continue without Stripe link
         }
       }
     }
 
-    // Create Drive folder if requested OR use existing folder link passed in request
+    // Create Drive folder if requested
     let driveFolderLink = null;
     if (includeDriveLink && clientEmail) {
       try {
@@ -117,34 +188,18 @@ serve(async (req) => {
           }
         );
 
-        logStep("create-client-subfolder response", {
-          folderData: JSON.stringify(folderData),
-          folderError: folderError ? JSON.stringify(folderError) : null
-        });
-
-        // create-client-subfolder returns subfolderLink (session-specific) and clientFolderLink (main client folder)
         if (folderError) {
-          logStep("Drive folder error from function", { error: JSON.stringify(folderError) });
+          logStep("Drive folder error", { error: JSON.stringify(folderError) });
         } else if (folderData?.subfolderLink || folderData?.clientFolderLink) {
           driveFolderLink = folderData.subfolderLink || folderData.clientFolderLink;
           logStep("Drive folder link set", { link: driveFolderLink });
-        } else {
-          logStep("No drive folder link in response", { folderData: JSON.stringify(folderData) });
         }
       } catch (driveError) {
         logStep("Drive folder exception", { error: driveError instanceof Error ? driveError.message : String(driveError) });
-        // Continue without Drive link
       }
     }
 
-    // Send email
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY not configured");
-    }
-
-    const resend = new Resend(resendApiKey);
-
+    // Service labels
     const serviceLabels: Record<string, string> = {
       "with-engineer": "Session avec ingénieur son",
       "without-engineer": "Location sèche",
@@ -166,28 +221,13 @@ serve(async (req) => {
         return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
       };
 
-      const calendarTitle = encodeURIComponent(`Session Make Music - ${serviceLabels[sessionType] || sessionType}`);
-      const calendarDetails = encodeURIComponent(`Session de ${hours || 1}h au studio Make Music.\n\nMontant: ${totalPrice}€\n\nAdresse: Rue du Sceptre 22, 1050 Ixelles, Bruxelles`);
-      const calendarLocation = encodeURIComponent("Rue du Sceptre 22, 1050 Ixelles, Bruxelles");
+      const calendarTitle = encodeURIComponent(`Session ${studioName} - ${serviceLabels[sessionType] || sessionType}`);
+      const calendarDetails = encodeURIComponent(`Session de ${hours || 1}h au studio ${studioName}.\n\nMontant: ${totalPrice}€`);
 
-      googleCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${calendarDetails}&location=${calendarLocation}`;
+      googleCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${calendarDetails}`;
     }
 
-    // Prepare template variables
-    const templateVars: TemplateVariables = {
-      client_name: clientName || 'Artiste',
-      client_email: clientEmail,
-      service_type: serviceLabels[sessionType] || sessionType,
-      session_date: sessionDate,
-      start_time: sessionTime,
-      amount_paid: String(totalPrice),
-      total_amount: String(totalPrice),
-      drive_link: driveFolderLink,
-      calendar_link: googleCalendarLink,
-      message: customMessage,
-    };
-
-    // Build extra content for template
+    // Build email HTML
     const extraContentHtml = `
       ${customMessage ? `
       <div style="background: rgba(124, 58, 237, 0.2); border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 0 0 20px 0;">
@@ -222,21 +262,8 @@ serve(async (req) => {
       ` : ''}
     `;
 
-    // Try to use template from database
-    const templateResult = await renderEmailHtml("admin_session_email", templateVars, { extraContent: extraContentHtml });
-
-    let emailSubject: string;
-    let emailHtml: string;
-
-    if (templateResult) {
-      emailSubject = templateResult.subject;
-      emailHtml = templateResult.html;
-      logStep("Using database template for admin_session_email");
-    } else {
-      // Fallback to hardcoded template
-      logStep("Using fallback template for admin_session_email");
-      emailSubject = `🎵 Make Music - ${serviceLabels[sessionType] || sessionType}`;
-      emailHtml = `
+    const emailSubject = `🎵 ${studioName} - ${serviceLabels[sessionType] || sessionType}`;
+    const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -247,7 +274,7 @@ serve(async (req) => {
   <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
 
     <div style="background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); padding: 30px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">🎵 Make Music</h1>
+      <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">🎵 ${studioName}</h1>
       <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">Détails de votre session</p>
     </div>
 
@@ -258,65 +285,49 @@ serve(async (req) => {
 
       ${extraContentHtml}
 
-      <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 20px; margin: 30px 0 0 0;">
-        <h3 style="color: #ffffff; margin: 0 0 10px 0; font-size: 16px;">📍 Adresse du studio</h3>
-        <p style="color: #a0a0a0; margin: 0 0 10px 0; font-size: 14px;">
-          Rue du Sceptre 22, 1050 Ixelles, Bruxelles
-        </p>
-        <a href="https://maps.google.com/?q=Rue+du+Sceptre+22,+1050+Ixelles,+Bruxelles" style="color: #00d4ff; font-size: 14px; text-decoration: none;">
-          🗺️ Voir sur Google Maps
-        </a>
-      </div>
     </div>
 
     <div style="background: rgba(0,0,0,0.3); padding: 25px 30px; text-align: center;">
       <p style="color: #888; margin: 0; font-size: 12px;">
-        Make Music Studio • Rue du Sceptre 22, 1050 Ixelles, Bruxelles
-      </p>
-      <p style="color: #888; margin: 10px 0 0 0; font-size: 12px;">
-        📧 prod.makemusic@gmail.com • 📞 +32 476 09 41 72
+        ${studioName}
       </p>
     </div>
   </div>
 </body>
 </html>
-      `;
-    }
+    `;
 
-    // Send to client
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@studiomakemusic.com";
-    const fromAddress = fromEmail.includes("<") ? fromEmail : `Make Music Studio <${fromEmail}>`;
-    const adminEmailAddress = "prod.makemusic@gmail.com";
-    
-    logStep("Sending email", { from: fromAddress, to: clientEmail });
-    
+    // Send email via Resend
+    const resend = new Resend(resendApiKey);
+
+    logStep("Sending email", { from: fromAddress, to: clientEmail, subject: emailSubject });
+
     const { data: clientEmailData, error: clientEmailError } = await resend.emails.send({
       from: fromAddress,
       to: [clientEmail],
-      reply_to: adminEmailAddress,
+      reply_to: studioEmail,
       subject: emailSubject,
       html: emailHtml,
     });
 
     if (clientEmailError) {
       logStep("Client email error", JSON.stringify(clientEmailError));
-      throw new Error("Failed to send email to client");
+      throw new Error(`Failed to send email: ${JSON.stringify(clientEmailError)}`);
     }
 
     logStep("Email sent to client", { id: clientEmailData?.id });
 
-    // Send copy to admin
-    const { data: adminCopyData, error: adminCopyError } = await resend.emails.send({
-      from: fromAddress,
-      to: [adminEmailAddress],
-      subject: `[COPIE] Email envoyé à ${clientEmail} - ${emailSubject}`,
-      html: emailHtml,
-    });
-
-    if (adminCopyError) {
-      logStep("Admin copy error (non-blocking)", JSON.stringify(adminCopyError));
-    } else {
-      logStep("Copy sent to admin", { id: adminCopyData?.id });
+    // Send copy to admin/studio
+    try {
+      await resend.emails.send({
+        from: fromAddress,
+        to: [studioEmail],
+        subject: `[COPIE] Email envoyé à ${clientEmail} - ${emailSubject}`,
+        html: emailHtml,
+      });
+      logStep("Copy sent to studio admin");
+    } catch (copyErr) {
+      logStep("Admin copy error (non-blocking)", { error: String(copyErr) });
     }
 
     return new Response(
