@@ -775,52 +775,10 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
 
           {activeTab === "email" && (
             <>
-              <p className="text-sm text-gray-400 mb-4">
-                ✉️ Configurez Resend pour envoyer des emails de confirmation automatiques à vos clients.
-              </p>
-
-              {/* Resend API Key */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-300">Resend API Key</label>
-                  <InfoBubble>
-                    <p className="font-semibold mb-1">📧 Comment obtenir une clé API Resend ?</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Créez un compte sur <a href="https://resend.com/signup" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">resend.com</a></li>
-                      <li>Allez dans <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">API Keys</a></li>
-                      <li>Cliquez sur <strong>"Create API Key"</strong></li>
-                      <li>Donnez un nom (ex: <em>studio-emails</em>) et copiez la clé (commence par <code className="bg-gray-900 px-1 rounded">re_</code>)</li>
-                    </ol>
-                    <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ Configuration du domaine requise :</p>
-                      <p className="text-xs text-gray-400">Pour envoyer des emails depuis votre propre domaine, ajoutez-le dans <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Resend → Domains</a> et configurez les enregistrements DNS (SPF, DKIM, DMARC).</p>
-                    </div>
-                    <p className="text-xs mt-2 text-gray-400">💡 Le plan gratuit Resend permet d'envoyer jusqu'à 3 000 emails/mois.</p>
-                  </InfoBubble>
-                </div>
-                <input type="password" value={resendApiKey} onChange={(e: any) => setResendApiKey(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="re_..." />
+              <div className="p-4 rounded-xl bg-green-900/20 border border-green-500/30 mb-4">
+                <p className="text-sm text-green-400">✅ <strong>Les emails sont automatiquement configurés</strong> — aucune clé API nécessaire !</p>
+                <p className="text-xs text-gray-400 mt-1">Les emails de confirmation de session sont envoyés automatiquement via la plateforme. Personnalisez le contenu ci-dessous.</p>
               </div>
-
-              {/* Email expéditeur */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-300">Email expéditeur</label>
-                  <InfoBubble>
-                    <p className="font-semibold mb-1">📬 Email d'expédition</p>
-                    <p className="text-xs mb-2">C'est l'adresse qui apparaîtra comme expéditeur dans les emails reçus par vos clients.</p>
-                    <ul className="text-xs space-y-1">
-                      <li>• <strong>Avec domaine vérifié :</strong> <code className="bg-gray-900 px-1 rounded">noreply@votre-domaine.com</code></li>
-                      <li>• <strong>Sans domaine :</strong> <code className="bg-gray-900 px-1 rounded">onboarding@resend.dev</code> (par défaut, pour tester)</li>
-                    </ul>
-                    <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs text-gray-400">💡 Pour une meilleure délivrabilité, vérifiez votre domaine dans <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Resend → Domains</a> et utilisez une adresse de ce domaine.</p>
-                    </div>
-                  </InfoBubble>
-                </div>
-                <input type="email" value={resendFromEmail} onChange={(e: any) => setResendFromEmail(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="noreply@votre-domaine.com" />
-              </div>
-
-              <hr className="border-gray-700 my-6" />
 
               {/* EMAIL TEMPLATE CUSTOMIZATION */}
               <div className="space-y-4">
