@@ -34,6 +34,7 @@ import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useStudio } from "@/hooks/useStudio";
 import {
   Dialog,
   DialogContent,
@@ -100,8 +101,8 @@ const CALENDAR_COLORS = [
   { id: "11", name: "Tomate", color: "bg-red-500", hex: "#d50000" },
 ];
 
-const ModernCalendar = ({ 
-  onSelectSlot, 
+const ModernCalendar = ({
+  onSelectSlot,
   selectedDate: externalSelectedDate, 
   selectedTime: externalSelectedTime,
   selectionMode = false 
@@ -109,6 +110,7 @@ const ModernCalendar = ({
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
   const { isSuperAdmin } = useAdmin();
+  const { studio } = useStudio();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
@@ -148,8 +150,9 @@ const ModernCalendar = ({
       const { data, error } = await supabase.functions.invoke("get-weekly-availability", {
         body: {
           startDate: format(startDate, "yyyy-MM-dd"),
-          days: 45, // Current month + next month buffer
-          includeSuperadminCalendars: isSuperAdmin, // Only superadmins see 2nd/3rd calendars
+          days: 45,
+          includeSuperadminCalendars: isSuperAdmin,
+          studioId: studio?.id,
         },
       });
 
@@ -317,6 +320,7 @@ const ModernCalendar = ({
           startTime: startTimeStr,
           endTime: endTimeStr,
           colorId: editEventColorId,
+          studioId: studio?.id,
         },
       });
 
@@ -365,6 +369,7 @@ const ModernCalendar = ({
           clientEmail: "admin@makemusicstudio.be",
           sessionType: "with-engineer",
           colorId: eventColorId,
+          studioId: studio?.id,
         },
       });
 
@@ -395,7 +400,7 @@ const ModernCalendar = ({
     setDeletingEvent(true);
     try {
       const { error } = await supabase.functions.invoke("delete-admin-event", {
-        body: { eventId },
+        body: { eventId, studioId: studio?.id },
       });
 
       if (error) throw error;

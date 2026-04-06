@@ -12,6 +12,7 @@ import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useStudio } from "@/hooks/useStudio";
 
 // Types pour le panneau Drive
 interface ClientDriveFolder {
@@ -96,6 +97,7 @@ const VIPCalendar = ({
   const { toast } = useToast();
   const { isMobileView } = useViewMode();
   const { isSuperAdmin } = useAdmin();
+  const { studio } = useStudio();
   const [weekStart, setWeekStart] = useState<Date>(startOfDay(new Date()));
   const [availability, setAvailability] = useState<DayAvailability[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +132,8 @@ const VIPCalendar = ({
           body: {
             startDate: weekStart.toISOString().split("T")[0],
             days: 14,
-            includeSuperadminCalendars: isSuperAdmin, // Only superadmins see 2nd/3rd calendars
+            includeSuperadminCalendars: isSuperAdmin,
+            studioId: studio?.id,
           },
         });
 
@@ -267,6 +270,7 @@ const VIPCalendar = ({
           clientName: eventName.trim(),
           clientEmail: "admin@makemusicstudio.be",
           sessionType: "with-engineer",
+          studioId: studio?.id,
         },
       });
 
@@ -287,6 +291,7 @@ const VIPCalendar = ({
         body: {
           startDate: weekStart.toISOString().split("T")[0],
           days: 14,
+          studioId: studio?.id,
         },
       });
       setAvailability(refreshData.data?.availability || []);
@@ -323,7 +328,7 @@ const VIPCalendar = ({
 
     try {
       const { data, error } = await supabase.functions.invoke("delete-admin-event", {
-        body: { eventId: slot.eventId },
+        body: { eventId: slot.eventId, studioId: studio?.id },
       });
 
       if (error) {
@@ -371,7 +376,7 @@ const VIPCalendar = ({
         if (slot.eventId) {
           try {
             const { error } = await supabase.functions.invoke("delete-admin-event", {
-              body: { eventId: slot.eventId },
+              body: { eventId: slot.eventId, studioId: studio?.id },
             });
             if (!error) successCount++;
             else errorCount++;
@@ -409,6 +414,7 @@ const VIPCalendar = ({
       body: {
         startDate: weekStart.toISOString().split("T")[0],
         days: 14,
+        studioId: studio?.id,
       },
     });
     setAvailability(refreshData.data?.availability || []);

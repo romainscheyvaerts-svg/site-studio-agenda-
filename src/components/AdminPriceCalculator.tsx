@@ -41,6 +41,7 @@ import AdminPaymentQRCode from "./AdminPaymentQRCode";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
+import { useStudio } from "@/hooks/useStudio";
 
 type SessionType = string | null;
 
@@ -88,6 +89,7 @@ const AdminPriceCalculator = ({
   onPriceCalculated,
   onEventCreated
 }: AdminPriceCalculatorProps) => {
+  const { studio } = useStudio();
   const { toast } = useToast();
   const { getPrice, services: dbServices, loading: loadingServices } = usePricing();
 
@@ -829,6 +831,7 @@ const AdminPriceCalculator = ({
 
                         const { data, error } = await supabase.functions.invoke("create-admin-event", {
                           body: {
+                            studioId: studio?.id,
                             title,
                             clientName: clientName || "",
                             clientEmail: clientEmail || undefined,
