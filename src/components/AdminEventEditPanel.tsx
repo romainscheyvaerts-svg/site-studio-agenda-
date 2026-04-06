@@ -501,6 +501,7 @@ const AdminEventEditPanel = ({
             includeStripeLink: includeStripeLink && totalPrice > 0,
             includeDriveLink,
             customMessage: notes,
+            studioId: studio?.id,
           },
         });
 
@@ -572,6 +573,7 @@ const AdminEventEditPanel = ({
           includeStripeLink: includeStripeLink && totalPrice > 0,
           includeDriveLink,
           customMessage: notes,
+          studioId: studio?.id,
         },
       });
 
