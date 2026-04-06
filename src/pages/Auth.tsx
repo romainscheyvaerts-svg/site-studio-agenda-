@@ -56,7 +56,15 @@ const Auth = () => {
         // Client came from a studio page → redirect back to that studio
         navigate(`/${effectiveStudioSlug}`);
       } else {
-        // Platform auth → check if user owns a studio
+        // Check if user came from a studio (saved in localStorage)
+        const savedStudio = localStorage.getItem("auth_return_studio");
+        if (savedStudio) {
+          localStorage.removeItem("auth_return_studio");
+          navigate(`/${savedStudio}`);
+          return;
+        }
+        
+        // Platform auth → check if user owns/admin a studio
         const { data: membership } = await supabase
           .from("studio_members")
           .select("studio_id, studios(slug)")
@@ -67,7 +75,9 @@ const Auth = () => {
         if (membership && (membership as any).studios?.slug) {
           navigate(`/${(membership as any).studios.slug}`);
         } else {
-          navigate("/register-studio");
+          // User is a client, not a studio owner → go to landing page
+          // Only /register-studio is for users who explicitly want to create a studio
+          navigate("/");
         }
       }
     };
@@ -245,7 +255,14 @@ const Auth = () => {
           return;
         }
 
-        const redirectUrl = `${window.location.origin}/`;
+        // Save studio context for redirect after email confirmation
+        if (effectiveStudioSlug) {
+          localStorage.setItem("auth_return_studio", effectiveStudioSlug);
+        }
+        
+        const redirectUrl = effectiveStudioSlug 
+          ? `${window.location.origin}/${effectiveStudioSlug}`
+          : `${window.location.origin}/`;
         
         const { error } = await supabase.auth.signUp({
           email,
@@ -255,6 +272,7 @@ const Auth = () => {
             data: {
               full_name: fullName.trim(),
               phone: phone.trim(),
+              ...(effectiveStudioSlug ? { registered_from_studio: effectiveStudioSlug } : {}),
             },
           },
         });
