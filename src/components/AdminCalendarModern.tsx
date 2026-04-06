@@ -153,6 +153,7 @@ const AdminCalendarModern = ({
           startDate: format(startDate, "yyyy-MM-dd"),
           days,
           includeSuperadminCalendars: isSuperAdmin,
+          studioId: studio?.id,
         },
       });
 
@@ -375,7 +376,7 @@ const AdminCalendarModern = ({
       console.log("[DELETE] Calling delete-admin-event function with eventId:", eventId);
       
       const { data, error } = await supabase.functions.invoke("delete-admin-event", {
-        body: { eventId },
+        body: { eventId, studioId: studio?.id },
       });
 
       console.log("[DELETE] Response data:", data);

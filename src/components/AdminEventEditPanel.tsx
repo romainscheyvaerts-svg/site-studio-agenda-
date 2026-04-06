@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useStudio } from "@/hooks/useStudio";
 import { usePricing } from "@/hooks/usePricing";
 import AdminInvoiceGenerator from "./AdminInvoiceGenerator";
 import {
@@ -72,6 +73,7 @@ const AdminEventEditPanel = ({
   onCancel,
 }: AdminEventEditPanelProps) => {
   const { toast } = useToast();
+  const { studio } = useStudio();
   const [loading, setLoading] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -436,6 +438,7 @@ const AdminEventEditPanel = ({
             assignedAdminId: selectedAdminId || undefined,
             serviceType: selectedServiceType,
             totalPrice: totalPrice,
+            studioId: studio?.id,
           },
         });
 
@@ -475,6 +478,7 @@ const AdminEventEditPanel = ({
             totalPrice: totalPrice,
             clientName: clientName || undefined,
             notes: notes || undefined,
+            studioId: studio?.id,
           },
         });
 

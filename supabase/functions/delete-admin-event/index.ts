@@ -124,13 +124,33 @@ serve(async (req) => {
     }
 
     // Logique de suppression
-    const { eventId } = await req.json();
+    const body = await req.json();
+    const { eventId, studioId } = body;
     if (!eventId) throw new Error("Event ID required");
 
-    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const calendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+    // Get Google Calendar credentials - try from studios table first, then env vars
+    let serviceAccountKey: string | null = null;
+    let calendarId: string | null = null;
+
+    if (studioId) {
+      const { data: studioData } = await supabase
+        .from("studios")
+        .select("google_calendar_id, google_service_account_key")
+        .eq("id", studioId)
+        .single();
+      
+      if (studioData) {
+        serviceAccountKey = studioData.google_service_account_key;
+        calendarId = studioData.google_calendar_id;
+        console.log(`[DELETE-ADMIN-EVENT] Using DB credentials for studio ${studioId}`);
+      }
+    }
+
+    // Fallback to env vars
+    if (!serviceAccountKey) serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    if (!calendarId) calendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID") || null;
     
-    if (!serviceAccountKey || !calendarId) throw new Error("Missing Secrets");
+    if (!serviceAccountKey || !calendarId) throw new Error("Missing calendar configuration");
 
     const accessToken = await getAccessToken(serviceAccountKey, ["https://www.googleapis.com/auth/calendar.events"]);
     await deleteCalendarEvent(accessToken, calendarId, eventId);

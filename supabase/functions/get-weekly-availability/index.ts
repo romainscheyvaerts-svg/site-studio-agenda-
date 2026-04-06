@@ -392,18 +392,45 @@ serve(async (req) => {
     }
     
     const { startDate, days, includeSuperadminCalendars } = validationResult.data;
+    const studioId = rawBody.studioId; // Optional: fetch credentials from studios table
     
-    console.log(`Fetching weekly availability starting from: ${startDate} for ${days} days`);
+    console.log(`Fetching weekly availability starting from: ${startDate} for ${days} days, studioId: ${studioId || 'env'}`);
 
-    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID");
-    const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
-    const claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL");
-    const secondaryCalendarId = Deno.env.get("GOOGLE_SECONDARY_CALENDAR_ID");
-    const tertiaryCalendarId = Deno.env.get("GOOGLE_TERTIARY_CALENDAR_ID");
+    // Try to get credentials from studios table if studioId is provided
+    let serviceAccountKey: string | null = null;
+    let patronCalendarId: string | null = null;
+    let studioCalendarId: string | null = null;
+    let claridgeIcalUrl: string | null = null;
+    let secondaryCalendarId: string | null = null;
+    let tertiaryCalendarId: string | null = null;
 
-    if (!serviceAccountKey || !patronCalendarId || !studioCalendarId) {
-      throw new Error("Missing calendar configuration");
+    if (studioId) {
+      const { data: studioData, error: studioError } = await supabase
+        .from("studios")
+        .select("google_calendar_id, google_patron_calendar_id, google_service_account_key")
+        .eq("id", studioId)
+        .single();
+      
+      if (!studioError && studioData) {
+        serviceAccountKey = studioData.google_service_account_key;
+        studioCalendarId = studioData.google_calendar_id;
+        patronCalendarId = studioData.google_patron_calendar_id;
+        console.log(`[STUDIO] Using credentials from DB for studio ${studioId}: calendar=${studioCalendarId ? 'yes' : 'no'}, key=${serviceAccountKey ? 'yes' : 'no'}`);
+      } else {
+        console.error(`[STUDIO] Failed to load studio ${studioId}:`, studioError);
+      }
+    }
+
+    // Fallback to env vars if no studioId or DB lookup failed
+    if (!serviceAccountKey) serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    if (!patronCalendarId) patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID") || null;
+    if (!studioCalendarId) studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID") || null;
+    claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL") || null;
+    secondaryCalendarId = Deno.env.get("GOOGLE_SECONDARY_CALENDAR_ID") || null;
+    tertiaryCalendarId = Deno.env.get("GOOGLE_TERTIARY_CALENDAR_ID") || null;
+
+    if (!serviceAccountKey || !studioCalendarId) {
+      throw new Error("Missing calendar configuration. Please configure Google Calendar ID and Service Account Key in studio settings.");
     }
 
     const start = new Date(startDate);
@@ -414,8 +441,8 @@ serve(async (req) => {
 
     // Fetch events from all calendars (including secondary and tertiary only if superadmin requested)
     const [patronEvents, studioEvents, claridgeEvents, secondaryEvents, tertiaryEvents] = await Promise.all([
-      getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString(), "Patron"),
-      getCalendarEvents(accessToken, studioCalendarId, start.toISOString(), end.toISOString(), "Studio"),
+      patronCalendarId ? getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString(), "Patron") : Promise.resolve([]),
+      getCalendarEvents(accessToken, studioCalendarId!, start.toISOString(), end.toISOString(), "Studio"),
       claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
       // Only fetch secondary/tertiary calendars if includeSuperadminCalendars is true
       (includeSuperadminCalendars && secondaryCalendarId) ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString(), "Secondary") : Promise.resolve([]),

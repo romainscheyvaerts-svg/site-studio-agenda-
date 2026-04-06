@@ -214,7 +214,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { title, clientName, clientEmail, description, date, time, hours, colorId, assignedAdminId, serviceType, totalPrice } = body;
+    const { title, clientName, clientEmail, description, date, time, hours, colorId, assignedAdminId, serviceType, totalPrice, studioId } = body;
 
     // The admin who creates the event is automatically the responsible person
     // Use assignedAdminId if provided, otherwise default to the creator (user.id)
@@ -230,13 +230,31 @@ serve(async (req) => {
       );
     }
 
-    // Get Google Calendar credentials
-    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+    // Get Google Calendar credentials - try from studios table first, then env vars
+    let serviceAccountKey: string | null = null;
+    let studioCalendarId: string | null = null;
+
+    if (studioId) {
+      const { data: studioData } = await supabase
+        .from("studios")
+        .select("google_calendar_id, google_service_account_key")
+        .eq("id", studioId)
+        .single();
+      
+      if (studioData) {
+        serviceAccountKey = studioData.google_service_account_key;
+        studioCalendarId = studioData.google_calendar_id;
+        console.log(`[CREATE-ADMIN-EVENT] Using DB credentials for studio ${studioId}`);
+      }
+    }
+
+    // Fallback to env vars
+    if (!serviceAccountKey) serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    if (!studioCalendarId) studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID") || null;
 
     if (!serviceAccountKey || !studioCalendarId) {
       return new Response(
-        JSON.stringify({ error: "Calendar configuration missing" }),
+        JSON.stringify({ error: "Calendar configuration missing. Configure Google Calendar in studio settings." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

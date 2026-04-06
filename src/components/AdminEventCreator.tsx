@@ -9,6 +9,7 @@ import { Plus, Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useStudio } from "@/hooks/useStudio";
 
 interface AdminEventCreatorProps {
   selectedDate?: string;
@@ -42,6 +43,7 @@ const AdminEventCreator = ({
   onCancel
 }: AdminEventCreatorProps) => {
   const { toast } = useToast();
+  const { studio } = useStudio();
   const [loading, setLoading] = useState(false);
   
   const [eventData, setEventData] = useState({
@@ -81,6 +83,7 @@ const AdminEventCreator = ({
           time: selectedTime,
           hours: duration,
           colorId: eventData.colorId,
+          studioId: studio?.id,
         },
       });
 

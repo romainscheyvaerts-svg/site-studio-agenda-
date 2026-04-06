@@ -335,9 +335,9 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { eventId, title, date, startTime, endTime, colorId, assignedAdminId, serviceType, totalPrice, clientName, notes } = body;
+    const { eventId, title, date, startTime, endTime, colorId, assignedAdminId, serviceType, totalPrice, clientName, notes, studioId } = body;
 
-    console.log("[UPDATE-ADMIN-EVENT] Request:", { eventId, title, date, startTime, endTime, assignedAdminId, serviceType, totalPrice });
+    console.log("[UPDATE-ADMIN-EVENT] Request:", { eventId, title, date, startTime, endTime, assignedAdminId, serviceType, totalPrice, studioId });
 
     // Validate required fields
     if (!eventId) {
@@ -347,9 +347,27 @@ serve(async (req) => {
       );
     }
 
-    // Get Google Calendar credentials
-    const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    const studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID");
+    // Get Google Calendar credentials - try from studios table first, then env vars
+    let serviceAccountKey: string | null = null;
+    let studioCalendarId: string | null = null;
+
+    if (studioId) {
+      const { data: studioData } = await supabase
+        .from("studios")
+        .select("google_calendar_id, google_service_account_key")
+        .eq("id", studioId)
+        .single();
+      
+      if (studioData) {
+        serviceAccountKey = studioData.google_service_account_key;
+        studioCalendarId = studioData.google_calendar_id;
+        console.log(`[UPDATE-ADMIN-EVENT] Using DB credentials for studio ${studioId}`);
+      }
+    }
+
+    // Fallback to env vars
+    if (!serviceAccountKey) serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
+    if (!studioCalendarId) studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID") || null;
 
     if (!serviceAccountKey || !studioCalendarId) {
       return new Response(
