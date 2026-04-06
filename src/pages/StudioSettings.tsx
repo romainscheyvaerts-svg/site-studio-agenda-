@@ -42,6 +42,16 @@ const StudioSettings = () => {
   const [resendApiKey, setResendApiKey] = useState("");
   const [resendFromEmail, setResendFromEmail] = useState("");
 
+  // Email Template
+  const [emailGreeting, setEmailGreeting] = useState("Bonjour {clientName},");
+  const [emailCustomMessage, setEmailCustomMessage] = useState("");
+  const [emailNoreplyText, setEmailNoreplyText] = useState("⚠️ Ceci est un email automatique, merci de ne pas y répondre.");
+  const [emailShowPhone, setEmailShowPhone] = useState(true);
+  const [emailShowGoogleCalendar, setEmailShowGoogleCalendar] = useState(true);
+  const [emailShowDriveLink, setEmailShowDriveLink] = useState(true);
+  const [emailFooterText, setEmailFooterText] = useState("");
+  const [emailContactText, setEmailContactText] = useState("Pour toute question, contactez-nous par téléphone ou via nos réseaux sociaux.");
+
 
   // Design - Hero
   const [heroTitleLine1, setHeroTitleLine1] = useState("");
@@ -155,21 +165,31 @@ const StudioSettings = () => {
     if (!studioId) return;
     const { data } = await supabase
       .from("studios")
-      .select("stripe_publishable_key, stripe_secret_key, paypal_client_id, paypal_client_secret, google_calendar_id, google_patron_calendar_id, google_drive_parent_folder_id, google_service_account_key, resend_api_key, resend_from_email, gemini_api_key")
+      .select("*")
       .eq("id", studioId)
       .single();
     
     if (data) {
-      setStripePublishableKey(data.stripe_publishable_key || "");
-      setStripeSecretKey(data.stripe_secret_key || "");
-      setPaypalClientId(data.paypal_client_id || "");
-      setPaypalClientSecret(data.paypal_client_secret || "");
-      setGoogleCalendarId(data.google_calendar_id || "");
-      setGooglePatronCalendarId(data.google_patron_calendar_id || "");
-      setGoogleDriveFolderId(data.google_drive_parent_folder_id || "");
-      setGoogleServiceAccountKey(data.google_service_account_key || "");
-      setResendApiKey(data.resend_api_key || "");
-      setResendFromEmail(data.resend_from_email || "");
+      const d = data as any;
+      setStripePublishableKey(d.stripe_publishable_key || "");
+      setStripeSecretKey(d.stripe_secret_key || "");
+      setPaypalClientId(d.paypal_client_id || "");
+      setPaypalClientSecret(d.paypal_client_secret || "");
+      setGoogleCalendarId(d.google_calendar_id || "");
+      setGooglePatronCalendarId(d.google_patron_calendar_id || "");
+      setGoogleDriveFolderId(d.google_drive_parent_folder_id || "");
+      setGoogleServiceAccountKey(d.google_service_account_key || "");
+      setResendApiKey(d.resend_api_key || "");
+      setResendFromEmail(d.resend_from_email || "");
+      // Email template
+      setEmailGreeting(d.email_greeting || "Bonjour {clientName},");
+      setEmailCustomMessage(d.email_custom_message || "");
+      setEmailNoreplyText(d.email_noreply_text || "⚠️ Ceci est un email automatique, merci de ne pas y répondre.");
+      setEmailShowPhone(d.email_show_phone ?? true);
+      setEmailShowGoogleCalendar(d.email_show_google_calendar ?? true);
+      setEmailShowDriveLink(d.email_show_drive_link ?? true);
+      setEmailFooterText(d.email_footer_text || "");
+      setEmailContactText(d.email_contact_text || "Pour toute question, contactez-nous par téléphone ou via nos réseaux sociaux.");
     }
   };
 
@@ -203,7 +223,18 @@ const StudioSettings = () => {
           google_service_account_key: googleServiceAccountKey || null,
         });
       } else if (activeTab === "email") {
-        Object.assign(updateData, { resend_api_key: resendApiKey || null, resend_from_email: resendFromEmail || null });
+        Object.assign(updateData, { 
+          resend_api_key: resendApiKey || null, 
+          resend_from_email: resendFromEmail || null,
+          email_greeting: emailGreeting || null,
+          email_custom_message: emailCustomMessage || null,
+          email_noreply_text: emailNoreplyText || null,
+          email_show_phone: emailShowPhone,
+          email_show_google_calendar: emailShowGoogleCalendar,
+          email_show_drive_link: emailShowDriveLink,
+          email_footer_text: emailFooterText || null,
+          email_contact_text: emailContactText || null,
+        });
       } else if (activeTab === "design") {
         Object.assign(updateData, {
           hero_title_line1: heroTitleLine1 || null,
@@ -787,6 +818,142 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                   </InfoBubble>
                 </div>
                 <input type="email" value={resendFromEmail} onChange={(e: any) => setResendFromEmail(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm" placeholder="noreply@votre-domaine.com" />
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* EMAIL TEMPLATE CUSTOMIZATION */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                  <Mail className="w-5 h-5" /> Personnalisation du template email
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Personnalisez le contenu des emails envoyés à vos clients. Utilisez <code className="bg-gray-800 px-1 rounded text-cyan-400">{'{clientName}'}</code> pour insérer le nom du client.
+                </p>
+
+                {/* Greeting */}
+                <InputField 
+                  label="Message d'accueil" 
+                  value={emailGreeting} 
+                  onChange={setEmailGreeting} 
+                  placeholder="Bonjour {clientName}," 
+                />
+
+                {/* Custom message */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Message personnalisé (affiché dans chaque email)</label>
+                  <textarea
+                    value={emailCustomMessage}
+                    onChange={(e: any) => setEmailCustomMessage(e.target.value)}
+                    rows={3}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm resize-none"
+                    placeholder="Merci d'avoir choisi notre studio ! Nous avons hâte de vous accueillir..."
+                  />
+                </div>
+
+                {/* No-reply notice */}
+                <InputField 
+                  label="Avertissement 'Ne pas répondre'" 
+                  value={emailNoreplyText} 
+                  onChange={setEmailNoreplyText} 
+                  placeholder="⚠️ Ceci est un email automatique, merci de ne pas y répondre." 
+                />
+
+                {/* Contact text */}
+                <InputField 
+                  label="Texte de contact" 
+                  value={emailContactText} 
+                  onChange={setEmailContactText} 
+                  placeholder="Pour toute question, contactez-nous par téléphone ou via nos réseaux sociaux." 
+                />
+
+                {/* Footer text */}
+                <InputField 
+                  label="Texte du pied de page email" 
+                  value={emailFooterText} 
+                  onChange={setEmailFooterText} 
+                  placeholder="© 2026 Mon Studio - Tous droits réservés" 
+                />
+
+                <hr className="border-gray-700 my-4" />
+
+                {/* Toggles */}
+                <h4 className="text-sm font-bold text-gray-300">Éléments à afficher dans l'email</h4>
+                <SectionToggle 
+                  label="📞 Numéro de téléphone" 
+                  description="Afficher le numéro du studio dans l'email" 
+                  enabled={emailShowPhone} 
+                  onChange={setEmailShowPhone} 
+                />
+                <SectionToggle 
+                  label="📅 Bouton 'Ajouter à Google Calendar'" 
+                  description="Permet au client d'ajouter la session à son agenda" 
+                  enabled={emailShowGoogleCalendar} 
+                  onChange={setEmailShowGoogleCalendar} 
+                />
+                <SectionToggle 
+                  label="📁 Lien vers le dossier Google Drive" 
+                  description="Lien vers le dossier client pour déposer des fichiers" 
+                  enabled={emailShowDriveLink} 
+                  onChange={setEmailShowDriveLink} 
+                />
+              </div>
+
+              <hr className="border-gray-700 my-6" />
+
+              {/* EMAIL PREVIEW */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-cyan-400 flex items-center gap-2">👁️ Aperçu de l'email</h3>
+                <div className="rounded-xl overflow-hidden border border-gray-700">
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-cyan-500 to-violet-500 p-4 text-center">
+                    <p className="text-white font-bold text-lg">🎵 {name || "Mon Studio"}</p>
+                    <p className="text-white/80 text-xs">Détails de votre session</p>
+                  </div>
+                  {/* Body */}
+                  <div className="bg-[#1a1a2e] p-5 space-y-3">
+                    <p className="text-white text-sm">{(emailGreeting || "Bonjour {clientName},").replace("{clientName}", "Artiste")}</p>
+                    
+                    {emailNoreplyText && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                        <p className="text-amber-400 text-xs">{emailNoreplyText}</p>
+                      </div>
+                    )}
+
+                    {emailCustomMessage && (
+                      <div className="bg-violet-500/10 border-l-4 border-violet-500 rounded-r-lg p-3">
+                        <p className="text-white text-xs">{emailCustomMessage}</p>
+                      </div>
+                    )}
+
+                    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
+                      <p className="text-cyan-400 text-xs font-bold mb-2">📅 Détails de la session</p>
+                      <p className="text-gray-300 text-xs">Service : Session avec ingénieur son</p>
+                      <p className="text-gray-300 text-xs">Date : 2026-04-10</p>
+                      <p className="text-yellow-400 text-xs font-bold mt-1">💰 Montant : 150€</p>
+                    </div>
+
+                    {emailShowGoogleCalendar && (
+                      <div className="text-center">
+                        <span className="inline-block bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold px-4 py-2 rounded-full">📆 Ajouter à mon agenda</span>
+                      </div>
+                    )}
+
+                    {emailShowPhone && phone && (
+                      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-center">
+                        <p className="text-gray-400 text-xs">📞 {phone}</p>
+                      </div>
+                    )}
+
+                    {emailContactText && (
+                      <p className="text-gray-400 text-xs text-center">{emailContactText}</p>
+                    )}
+                  </div>
+                  {/* Footer */}
+                  <div className="bg-black/30 p-3 text-center">
+                    <p className="text-gray-500 text-xs">{emailFooterText || name || "Mon Studio"}</p>
+                  </div>
+                </div>
               </div>
             </>
           )}

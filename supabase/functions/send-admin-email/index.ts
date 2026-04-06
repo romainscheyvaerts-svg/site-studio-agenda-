@@ -81,7 +81,7 @@ serve(async (req) => {
     if (studioId) {
       const { data } = await supabaseAdmin
         .from("studios")
-        .select("name, email, resend_api_key, resend_from_email, stripe_secret_key")
+      .select("name, email, phone, resend_api_key, resend_from_email, stripe_secret_key, email_greeting, email_custom_message, email_noreply_text, email_show_phone, email_show_google_calendar, email_show_drive_link, email_footer_text, email_contact_text")
         .eq("id", studioId)
         .single();
       studioData = data;
@@ -227,8 +227,31 @@ serve(async (req) => {
       googleCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calendarTitle}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${calendarDetails}`;
     }
 
+    // Email template settings from DB
+    const emailGreeting = (studioData?.email_greeting || "Bonjour {clientName},").replace("{clientName}", clientName || "Artiste");
+    const emailCustomMsg = studioData?.email_custom_message || "";
+    const emailNoreplyText = studioData?.email_noreply_text || "⚠️ Ceci est un email automatique, merci de ne pas y répondre.";
+    const emailShowPhone = studioData?.email_show_phone ?? true;
+    const emailShowCalendar = studioData?.email_show_google_calendar ?? true;
+    const emailShowDrive = studioData?.email_show_drive_link ?? true;
+    const emailFooter = studioData?.email_footer_text || studioName;
+    const emailContactText = studioData?.email_contact_text || "";
+    const studioPhone = studioData?.phone || "";
+
     // Build email HTML
     const extraContentHtml = `
+      ${emailNoreplyText ? `
+      <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 15px; margin: 0 0 20px 0;">
+        <p style="color: #ffc107; font-size: 13px; margin: 0; text-align: center;">${emailNoreplyText}</p>
+      </div>
+      ` : ''}
+
+      ${emailCustomMsg ? `
+      <div style="background: rgba(124, 58, 237, 0.2); border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 0 0 20px 0;">
+        <p style="color: #ffffff; font-size: 15px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${emailCustomMsg}</p>
+      </div>
+      ` : ''}
+
       ${customMessage ? `
       <div style="background: rgba(124, 58, 237, 0.2); border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 0 0 20px 0;">
         <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0; white-space: pre-wrap;">
@@ -250,10 +273,10 @@ serve(async (req) => {
 
       <div style="text-align: center; margin: 20px 0;">
         ${stripePaymentUrl ? `<a href="${stripePaymentUrl}" style="display: inline-block; background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%); color: white; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4); margin-bottom: 15px;">💳 Payer maintenant (${totalPrice}€)</a><br><br>` : ''}
-        ${googleCalendarLink ? `<a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 2px solid #00d4ff; color: #00d4ff; text-decoration: none; padding: 14px 30px; border-radius: 50px; font-size: 14px; font-weight: bold;">📆 Ajouter à mon agenda</a>` : ''}
+        ${emailShowCalendar && googleCalendarLink ? `<a href="${googleCalendarLink}" target="_blank" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 2px solid #00d4ff; color: #00d4ff; text-decoration: none; padding: 14px 30px; border-radius: 50px; font-size: 14px; font-weight: bold;">📆 Ajouter à mon agenda</a>` : ''}
       </div>
 
-      ${driveFolderLink ? `
+      ${emailShowDrive && driveFolderLink ? `
       <div style="background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; padding: 20px; margin: 20px 0;">
         <h3 style="color: #ffc107; margin: 0 0 15px 0; font-size: 16px;">📁 Votre dossier Google Drive</h3>
         <p style="color: #ffffff; margin: 0 0 15px 0; font-size: 14px;">Vous pouvez déposer vos fichiers audio ici :</p>
@@ -280,16 +303,26 @@ serve(async (req) => {
 
     <div style="padding: 40px 30px;">
       <p style="color: #ffffff; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-        Bonjour ${clientName || 'Artiste'},
+        ${emailGreeting}
       </p>
 
       ${extraContentHtml}
+
+      ${emailShowPhone && studioPhone ? `
+      <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; margin: 20px 0; text-align: center;">
+        <p style="color: #ffffff; font-size: 14px; margin: 0;">📞 <strong>${studioPhone}</strong></p>
+      </div>
+      ` : ''}
+
+      ${emailContactText ? `
+      <p style="color: #a0a0a0; font-size: 13px; text-align: center; margin: 20px 0 0 0;">${emailContactText}</p>
+      ` : ''}
 
     </div>
 
     <div style="background: rgba(0,0,0,0.3); padding: 25px 30px; text-align: center;">
       <p style="color: #888; margin: 0; font-size: 12px;">
-        ${studioName}
+        ${emailFooter}
       </p>
     </div>
   </div>
