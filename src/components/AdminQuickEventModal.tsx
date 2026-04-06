@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import AdminPriceCalculator from "./AdminPriceCalculator";
+import { useStudio } from "@/hooks/useStudio";
 
 interface AdminQuickEventModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ interface TimeSlot {
 
 const AdminQuickEventModal = ({ isOpen, onClose, onEventCreated }: AdminQuickEventModalProps) => {
   const { toast } = useToast();
+  const { studio } = useStudio();
   
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
@@ -74,6 +76,7 @@ const AdminQuickEventModal = ({ isOpen, onClose, onEventCreated }: AdminQuickEve
           body: {
             startDate: selectedDate,
             days: 1,
+            studioId: studio?.id,
           },
         });
 
@@ -113,6 +116,7 @@ const AdminQuickEventModal = ({ isOpen, onClose, onEventCreated }: AdminQuickEve
             time: selectedTime,
             duration: selectedDuration,
             sessionType: "with-engineer",
+            studioId: studio?.id,
           },
         });
 

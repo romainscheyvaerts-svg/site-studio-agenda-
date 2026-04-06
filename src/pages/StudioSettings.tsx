@@ -309,7 +309,7 @@ const StudioSettings = () => {
     { id: "design", label: "Design", icon: Layout },
     { id: "branding", label: "Couleurs", icon: Palette },
     { id: "payment", label: "Paiements", icon: CreditCard },
-    { id: "google", label: "Google", icon: Calendar },
+    { id: "google", label: "Google Drive", icon: Calendar },
     { id: "email", label: "Emails", icon: Mail },
   ];
 
@@ -704,68 +704,15 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
 
           {activeTab === "google" && (
             <>
-              <p className="text-sm text-gray-400 mb-4">
-                📅 Connectez votre Google Calendar et Google Drive pour synchroniser les réservations et stocker les fichiers clients.
-              </p>
-
-              {/* Google Calendar ID (principal) */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-300">Google Calendar ID (principal)</label>
-                  <InfoBubble>
-                    <p className="font-semibold mb-1">📅 Comment trouver votre Calendar ID ?</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Allez sur <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Calendar → Paramètres</a></li>
-                      <li>Cliquez sur le calendrier souhaité dans la colonne gauche</li>
-                      <li>Descendez jusqu'à <strong>"Intégrer l'agenda"</strong></li>
-                      <li>Copiez l'<strong>ID de l'agenda</strong> (format : <code className="bg-gray-900 px-1 rounded">xxx@group.calendar.google.com</code>)</li>
-                    </ol>
-                    <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs font-semibold text-green-400 mb-1">✅ Vous pouvez aussi coller directement :</p>
-                      <ul className="text-xs space-y-1 text-gray-300">
-                        <li>• L'<strong>URL d'intégration iframe</strong> (le code copié depuis "Intégrer l'agenda")</li>
-                        <li>• L'<strong>URL publique</strong> du calendrier</li>
-                      </ul>
-                      <p className="text-xs text-gray-400 mt-1">Le Calendar ID sera extrait automatiquement ! 🎉</p>
-                    </div>
-                    <p className="text-xs mt-2 text-gray-400">💡 Ce calendrier sera utilisé pour afficher les créneaux disponibles et créer les événements de session.</p>
-                  </InfoBubble>
-                </div>
-                <input
-                  type="text"
-                  value={googleCalendarId}
-                  onChange={(e: any) => setGoogleCalendarId(e.target.value)}
-                  onBlur={() => setGoogleCalendarId(extractCalendarId(googleCalendarId))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
-                  placeholder="xxx@group.calendar.google.com — ou collez l'URL iframe"
-                />
-                {googleCalendarId && googleCalendarId.includes("iframe") && (
-                  <p className="text-xs text-amber-400 mt-1">⚠️ URL iframe détectée — elle sera convertie en Calendar ID à la sauvegarde</p>
-                )}
+              {/* === GOOGLE DRIVE CONFIGURATION === */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/30 mb-4">
+                <h3 className="text-lg font-bold text-white mb-2">📁 Google Drive — Dossiers clients</h3>
+                <p className="text-sm text-gray-300">Connectez Google Drive pour créer automatiquement un dossier par client et stocker les fichiers de session.</p>
               </div>
 
-              {/* Google Calendar ID (patron) */}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-gray-300">Google Calendar ID (patron)</label>
-                  <InfoBubble>
-                    <p className="font-semibold mb-1">👤 Calendar ID du patron / propriétaire</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Allez sur <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Calendar → Paramètres</a></li>
-                      <li>Sélectionnez le calendrier <strong>personnel</strong> du patron</li>
-                      <li>Copiez l'<strong>ID de l'agenda</strong></li>
-                    </ol>
-                    <p className="text-xs mt-2 text-gray-400">💡 Optionnel — Permet d'ajouter aussi les sessions au calendrier personnel du gérant. Laissez vide si non nécessaire.</p>
-                  </InfoBubble>
-                </div>
-                <input
-                  type="text"
-                  value={googlePatronCalendarId}
-                  onChange={(e: any) => setGooglePatronCalendarId(e.target.value)}
-                  onBlur={() => setGooglePatronCalendarId(extractCalendarId(googlePatronCalendarId))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm"
-                  placeholder="xxx@group.calendar.google.com — ou collez l'URL iframe"
-                />
+              <div className="p-4 rounded-xl bg-green-900/20 border border-green-500/30 mb-4">
+                <p className="text-sm text-green-400">✅ <strong>L'agenda est géré directement dans la base de données</strong> — pas besoin de Google Calendar !</p>
+                <p className="text-xs text-gray-400 mt-1">Les événements sont stockés dans Supabase. Un email avec un lien "Ajouter à Google Calendar" est envoyé automatiquement lors de la création d'un événement.</p>
               </div>
 
               {/* Google Drive Parent Folder ID */}
@@ -807,14 +754,13 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                       <li>Un fichier <code className="bg-gray-900 px-1 rounded">.json</code> sera téléchargé — <strong>collez son contenu ici</strong></li>
                     </ol>
                     <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ APIs à activer :</p>
+                      <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ API à activer :</p>
                       <ul className="text-xs space-y-1">
-                        <li>• <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Calendar API</a></li>
                         <li>• <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Drive API</a></li>
                       </ul>
                     </div>
                     <div className="mt-2 pt-2 border-t border-gray-700">
-                      <p className="text-xs text-gray-400">💡 Partagez aussi votre calendrier et dossier Drive avec l'email du compte de service (visible dans le JSON sous <code className="bg-gray-900 px-1 rounded">client_email</code>).</p>
+                      <p className="text-xs text-gray-400">💡 Partagez votre dossier Drive avec l'email du compte de service (visible dans le JSON sous <code className="bg-gray-900 px-1 rounded">client_email</code>).</p>
                     </div>
                   </InfoBubble>
                 </div>
@@ -824,6 +770,34 @@ const studioUrl = `https://www.studiobooking.art/${studio?.slug}`;
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:outline-none text-sm font-mono h-32"
                   placeholder='{"type": "service_account", ...}'
                 />
+                {/* Prominent sharing reminder */}
+                {googleServiceAccountKey && (() => {
+                  try {
+                    const parsed = JSON.parse(googleServiceAccountKey);
+                    if (parsed.client_email) {
+                      return (
+                        <div className="mt-2 p-3 bg-amber-900/30 border border-amber-500/50 rounded-lg">
+                          <p className="text-xs font-bold text-amber-400 mb-1">⚠️ N'oubliez pas de partager votre dossier Google Drive avec :</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <code className="text-sm text-cyan-400 bg-gray-900 px-2 py-1 rounded flex-1 break-all">{parsed.client_email}</code>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(parsed.client_email);
+                                toast({ title: "Copié !", description: "Email du service account copié dans le presse-papier" });
+                              }}
+                              className="shrink-0 px-2 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-xs rounded transition-colors"
+                            >
+                              📋 Copier
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-2">→ Google Drive → Clic droit sur le dossier → Partager → Ajouter cette adresse avec le rôle <strong className="text-white">"Éditeur"</strong></p>
+                        </div>
+                      );
+                    }
+                  } catch {}
+                  return null;
+                })()}
               </div>
             </>
           )}

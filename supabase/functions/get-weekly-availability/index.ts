@@ -1,371 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Supabase client
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Escape single quotes in Drive API query values to prevent injection
-function escapeDriveQueryValue(value: string): string {
-  return value.replace(/'/g, "\\'");
-}
-
-// Validate folder name matches expected safe pattern
-function isValidFolderName(name: string): boolean {
-  const SAFE_FOLDER_NAME = /^[a-zA-Z0-9\s\-_@.àâäéèêëïîôùûüç]+$/i;
-  return SAFE_FOLDER_NAME.test(name) && name.length <= 200;
-}
-
-// Input validation schema
-const AvailabilityRequestSchema = z.object({
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
-  days: z.number().int().min(1).max(90).default(14), // Increased to 90 for monthly view
-  includeSuperadminCalendars: z.boolean().optional().default(false), // Only include 2nd/3rd calendars if superadmin
-});
-
-interface CalendarEvent {
-  id?: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
-  summary?: string;
-  description?: string;
-}
-
-interface CalendarResponse {
-  items?: CalendarEvent[];
-}
-
-interface ICalEvent {
-  start: Date;
-  end: Date;
-  isAllDay: boolean;
-}
-
-interface TimeSlot {
-  hour: number;
-  available: boolean;
-  status: "available" | "unavailable" | "on-request";
-  eventName?: string;
-  eventId?: string;
-  clientEmail?: string;
-  driveFolderLink?: string;
-  driveSessionFolderLink?: string;
-  secondaryCalendarEventName?: string; // For secondary calendar events (visible to admin only)
-  hasSecondaryCalendarConflict?: boolean;
-  tertiaryCalendarEventName?: string; // For tertiary calendar events (visible to admin only)
-  hasTertiaryCalendarConflict?: boolean;
-}
-
-interface DayAvailability {
-  date: string;
-  slots: TimeSlot[];
-}
-
-async function getAccessToken(serviceAccountKey: string): Promise<string> {
-  const key = JSON.parse(serviceAccountKey);
-  
-  const header = {
-    alg: "RS256",
-    typ: "JWT",
-  };
-
-  const now = Math.floor(Date.now() / 1000);
-  const claim = {
-    iss: key.client_email,
-    scope: "https://www.googleapis.com/auth/calendar.readonly",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  };
-
-  const encoder = new TextEncoder();
-  
-  const base64UrlEncode = (data: Uint8Array): string => {
-    const base64 = btoa(String.fromCharCode(...data));
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  };
-
-  const headerB64 = base64UrlEncode(encoder.encode(JSON.stringify(header)));
-  const claimB64 = base64UrlEncode(encoder.encode(JSON.stringify(claim)));
-  const signatureInput = `${headerB64}.${claimB64}`;
-
-  const pemContents = key.private_key
-    .replace("-----BEGIN PRIVATE KEY-----", "")
-    .replace("-----END PRIVATE KEY-----", "")
-    .replace(/\n/g, "");
-  
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    encoder.encode(signatureInput)
-  );
-
-  const signatureB64 = base64UrlEncode(new Uint8Array(signature));
-  const jwt = `${signatureInput}.${signatureB64}`;
-
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-
-  const tokenData = await tokenResponse.json();
-  
-  if (!tokenData.access_token) {
-    console.error("Token response:", tokenData);
-    throw new Error("Failed to get access token");
-  }
-  
-  return tokenData.access_token;
-}
-
-async function getCalendarEvents(
-  accessToken: string,
-  calendarId: string,
-  timeMin: string,
-  timeMax: string,
-  calendarName?: string
-): Promise<CalendarEvent[]> {
-  const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
-  url.searchParams.set("timeMin", timeMin);
-  url.searchParams.set("timeMax", timeMax);
-  url.searchParams.set("singleEvents", "true");
-  url.searchParams.set("orderBy", "startTime");
-  // Request full event details including description
-  url.searchParams.set("fields", "items(id,summary,description,start,end)");
-
-  const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    const label = calendarName || calendarId;
-    console.error(`[${label}] Calendar API error (${response.status}):`, errorText);
-    // For secondary/tertiary calendars, don't throw - just return empty array with warning
-    // This usually means the service account doesn't have access to the calendar
-    if (errorText.includes("notFound") || errorText.includes("403") || errorText.includes("Not Found")) {
-      console.warn(`[${label}] ⚠️ Le compte de service n'a pas accès à cet agenda. Partagez l'agenda avec le compte de service dans les paramètres Google Calendar.`);
-      return [];
-    }
-    throw new Error(`Failed to fetch calendar events: ${response.status}`);
-  }
-
-  const data: CalendarResponse = await response.json();
-  console.log(`[${calendarName || calendarId}] Successfully fetched ${data.items?.length || 0} events`);
-  return data.items || [];
-}
-
-// Parse iCal date format (YYYYMMDD or YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ)
-function parseICalDate(dateStr: string): Date {
-  // Remove any timezone suffix for simplicity
-  const cleanStr = dateStr.replace(/Z$/, "");
-  
-  if (cleanStr.includes("T")) {
-    // DateTime format: YYYYMMDDTHHMMSS
-    const year = parseInt(cleanStr.substring(0, 4));
-    const month = parseInt(cleanStr.substring(4, 6)) - 1;
-    const day = parseInt(cleanStr.substring(6, 8));
-    const hour = parseInt(cleanStr.substring(9, 11));
-    const minute = parseInt(cleanStr.substring(11, 13));
-    const second = parseInt(cleanStr.substring(13, 15)) || 0;
-    return new Date(year, month, day, hour, minute, second);
-  } else {
-    // Date only format: YYYYMMDD
-    const year = parseInt(cleanStr.substring(0, 4));
-    const month = parseInt(cleanStr.substring(4, 6)) - 1;
-    const day = parseInt(cleanStr.substring(6, 8));
-    return new Date(year, month, day);
-  }
-}
-
-// Fetch and parse iCal from webcal URL
-async function fetchICalEvents(icalUrl: string, startDate: Date, endDate: Date): Promise<ICalEvent[]> {
-  try {
-    // Convert webcal:// to https://
-    const httpsUrl = icalUrl.replace("webcal://", "https://");
-    console.log(`Fetching iCal from: ${httpsUrl}`);
-    
-    const response = await fetch(httpsUrl);
-    if (!response.ok) {
-      console.error(`Failed to fetch iCal: ${response.status}`);
-      return [];
-    }
-    
-    const icalData = await response.text();
-    const events: ICalEvent[] = [];
-    
-    // Simple iCal parser - extract VEVENT blocks
-    const eventBlocks = icalData.split("BEGIN:VEVENT");
-    
-    for (let i = 1; i < eventBlocks.length; i++) {
-      const block = eventBlocks[i].split("END:VEVENT")[0];
-      
-      let dtstart = "";
-      let dtend = "";
-      let isAllDay = false;
-      
-      const lines = block.split(/\r?\n/);
-      for (const line of lines) {
-        if (line.startsWith("DTSTART")) {
-          // Check if it's a date-only (all-day) event
-          if (line.includes("VALUE=DATE:") || (!line.includes("T") && line.match(/:\d{8}$/))) {
-            isAllDay = true;
-          }
-          const match = line.match(/:(\d{8}(?:T\d{6}Z?)?)/);
-          if (match) {
-            dtstart = match[1];
-          }
-        } else if (line.startsWith("DTEND")) {
-          const match = line.match(/:(\d{8}(?:T\d{6}Z?)?)/);
-          if (match) {
-            dtend = match[1];
-          }
-        }
-      }
-      
-      if (dtstart) {
-        const eventStart = parseICalDate(dtstart);
-        const eventEnd = dtend ? parseICalDate(dtend) : new Date(eventStart.getTime() + 3600000); // Default 1 hour
-        
-        // Only include events that overlap with our date range
-        if (eventEnd >= startDate && eventStart <= endDate) {
-          events.push({ start: eventStart, end: eventEnd, isAllDay });
-        }
-      }
-    }
-    
-    console.log(`Parsed ${events.length} iCal events from Claridge calendar`);
-    return events;
-  } catch (error) {
-    console.error("Error fetching iCal:", error);
-    return [];
-  }
-}
-
-// Extract local hour from Google Calendar dateTime string (e.g., "2026-02-05T10:00:00+01:00" -> 10)
-function extractLocalHour(dateTimeStr: string): number {
-  // Format: YYYY-MM-DDTHH:MM:SS+TZ or YYYY-MM-DDTHH:MM:SSZ
-  const match = dateTimeStr.match(/T(\d{2}):/);
-  return match ? parseInt(match[1], 10) : 0;
-}
-
-// Extract local date from Google Calendar dateTime string (e.g., "2026-02-05T10:00:00+01:00" -> "2026-02-05")
-function extractLocalDate(dateTimeStr: string): string {
-  return dateTimeStr.split("T")[0];
-}
-
-function isSlotAvailableInGoogle(
-  events: CalendarEvent[],
-  slotDate: string,  // YYYY-MM-DD format
-  slotHour: number   // 0-23 local hour
-): { available: boolean; eventName?: string; eventId?: string; clientEmail?: string } {
-  for (const event of events) {
-    // Extract client email from event details if present
-    let clientEmail: string | undefined;
-    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
-
-    const descriptionText = event.description || "";
-    const summaryText = event.summary || "";
-
-    // Prefer explicit "Email:" label if present, fallback to any email in description/summary
-    const labeledMatch = descriptionText.match(/Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
-    const anyDescMatch = descriptionText.match(emailRegex);
-    const anySummaryMatch = summaryText.match(emailRegex);
-
-    clientEmail = (labeledMatch?.[1] || anyDescMatch?.[1] || anySummaryMatch?.[1])?.toLowerCase();
-    
-    // Check for all-day events
-    if (event.start.date && !event.start.dateTime) {
-      if (event.start.date === slotDate) {
-        return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
-      }
-      continue;
-    }
-    
-    // For timed events, extract local times directly from the dateTime strings
-    // This preserves the timezone info without UTC conversion
-    if (event.start.dateTime && event.end.dateTime) {
-      const eventStartDate = extractLocalDate(event.start.dateTime);
-      const eventEndDate = extractLocalDate(event.end.dateTime);
-      const eventStartHour = extractLocalHour(event.start.dateTime);
-      const eventEndHour = extractLocalHour(event.end.dateTime);
-      
-      // Check if the slot overlaps with this event
-      // Slot is [slotHour, slotHour+1)
-      // Event spans from eventStartHour to eventEndHour (exclusive end)
-      
-      // Same day event
-      if (eventStartDate === slotDate && eventEndDate === slotDate) {
-        // Slot overlaps if: slotHour >= eventStartHour AND slotHour < eventEndHour
-        if (slotHour >= eventStartHour && slotHour < eventEndHour) {
-          return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
-        }
-      }
-      // Multi-day event or event ending next day (e.g., 22h -> 02h)
-      else if (eventStartDate === slotDate) {
-        // First day of multi-day event: slot is busy if slotHour >= eventStartHour
-        if (slotHour >= eventStartHour) {
-          return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
-        }
-      }
-      else if (eventEndDate === slotDate) {
-        // Last day of multi-day event: slot is busy if slotHour < eventEndHour (and eventEndHour > 0)
-        if (eventEndHour > 0 && slotHour < eventEndHour) {
-          return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
-        }
-      }
-      else if (eventStartDate < slotDate && eventEndDate > slotDate) {
-        // Middle of multi-day event - all hours are busy
-        return { available: false, eventName: event.summary, eventId: event.id, clientEmail };
-      }
-    }
-  }
-  return { available: true };
-}
-
-function isSlotBusyInICal(
-  events: ICalEvent[],
-  slotStart: Date,
-  slotEnd: Date
-): boolean {
-  for (const event of events) {
-    // Check for all-day events
-    if (event.isAllDay) {
-      const eventDate = event.start.toISOString().split("T")[0];
-      const slotDate = slotStart.toISOString().split("T")[0];
-      if (eventDate === slotDate) {
-        return true;
-      }
-    }
-    
-    // Check for overlap
-    if (event.start < slotEnd && event.end > slotStart) {
-      return true;
-    }
-  }
-  return false;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -373,254 +16,149 @@ serve(async (req) => {
   }
 
   try {
-    // Parse and validate input
-    const rawBody = await req.json();
-    const validationResult = AvailabilityRequestSchema.safeParse(rawBody);
-    
-    if (!validationResult.success) {
-      console.error("Validation error:", validationResult.error.errors);
+    const { startDate, days, studioId } = await req.json();
+
+    if (!startDate || !days) {
       return new Response(
-        JSON.stringify({ 
-          error: "Invalid input", 
-          details: validationResult.error.errors.map(e => e.message) 
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Missing startDate or days" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
-    const { startDate, days, includeSuperadminCalendars } = validationResult.data;
-    const studioId = rawBody.studioId; // Optional: fetch credentials from studios table
-    
-    console.log(`Fetching weekly availability starting from: ${startDate} for ${days} days, studioId: ${studioId || 'env'}`);
 
-    // Try to get credentials from studios table if studioId is provided
-    let serviceAccountKey: string | null = null;
-    let patronCalendarId: string | null = null;
-    let studioCalendarId: string | null = null;
-    let claridgeIcalUrl: string | null = null;
-    let secondaryCalendarId: string | null = null;
-    let tertiaryCalendarId: string | null = null;
+    console.log(`[AVAILABILITY] Fetching from DB: ${startDate} for ${days} days, studio: ${studioId || "all"}`);
 
-    if (studioId) {
-      const { data: studioData, error: studioError } = await supabase
-        .from("studios")
-        .select("google_calendar_id, google_patron_calendar_id, google_service_account_key")
-        .eq("id", studioId)
-        .single();
-      
-      if (!studioError && studioData) {
-        serviceAccountKey = studioData.google_service_account_key;
-        studioCalendarId = studioData.google_calendar_id;
-        patronCalendarId = studioData.google_patron_calendar_id;
-        console.log(`[STUDIO] Using credentials from DB for studio ${studioId}: calendar=${studioCalendarId ? 'yes' : 'no'}, key=${serviceAccountKey ? 'yes' : 'no'}`);
-      } else {
-        console.error(`[STUDIO] Failed to load studio ${studioId}:`, studioError);
-      }
-    }
-
-    // Fallback to env vars if no studioId or DB lookup failed
-    if (!serviceAccountKey) serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || null;
-    if (!patronCalendarId) patronCalendarId = Deno.env.get("GOOGLE_PATRON_CALENDAR_ID") || null;
-    if (!studioCalendarId) studioCalendarId = Deno.env.get("GOOGLE_STUDIO_CALENDAR_ID") || null;
-    claridgeIcalUrl = Deno.env.get("CLARIDGE_ICAL_URL") || null;
-    secondaryCalendarId = Deno.env.get("GOOGLE_SECONDARY_CALENDAR_ID") || null;
-    tertiaryCalendarId = Deno.env.get("GOOGLE_TERTIARY_CALENDAR_ID") || null;
-
-    if (!serviceAccountKey || !studioCalendarId) {
-      throw new Error("Missing calendar configuration. Please configure Google Calendar ID and Service Account Key in studio settings.");
-    }
-
+    // Calculate date range
     const start = new Date(startDate);
     const end = new Date(start);
-    end.setDate(end.getDate() + days);
+    end.setDate(end.getDate() + days - 1);
+    const endDateStr = end.toISOString().split("T")[0];
 
-    const accessToken = await getAccessToken(serviceAccountKey);
+    // Fetch events from studio_events table
+    let query = supabase
+      .from("studio_events")
+      .select("*")
+      .gte("event_date", startDate)
+      .lte("event_date", endDateStr)
+      .eq("status", "confirmed")
+      .order("event_date")
+      .order("start_time");
 
-    // Fetch events from all calendars (including secondary and tertiary only if superadmin requested)
-    const [patronEvents, studioEvents, claridgeEvents, secondaryEvents, tertiaryEvents] = await Promise.all([
-      patronCalendarId ? getCalendarEvents(accessToken, patronCalendarId, start.toISOString(), end.toISOString(), "Patron") : Promise.resolve([]),
-      getCalendarEvents(accessToken, studioCalendarId!, start.toISOString(), end.toISOString(), "Studio"),
-      claridgeIcalUrl ? fetchICalEvents(claridgeIcalUrl, start, end) : Promise.resolve([]),
-      // Only fetch secondary/tertiary calendars if includeSuperadminCalendars is true
-      (includeSuperadminCalendars && secondaryCalendarId) ? getCalendarEvents(accessToken, secondaryCalendarId, start.toISOString(), end.toISOString(), "Secondary") : Promise.resolve([]),
-      (includeSuperadminCalendars && tertiaryCalendarId) ? getCalendarEvents(accessToken, tertiaryCalendarId, start.toISOString(), end.toISOString(), "Tertiary") : Promise.resolve([]),
-    ]);
-
-    // Only studio calendar determines main availability (unavailable)
-    // Patron calendar + Claridge calendar trigger "on-request"
-    // Secondary and tertiary calendar events are marked for admin visibility
-    console.log(`Studio events found: ${studioEvents.length}`);
-    console.log(`Patron (personal) events found: ${patronEvents.length}`);
-    console.log(`Claridge events found: ${claridgeEvents.length}`);
-    console.log(`Secondary calendar events found: ${secondaryEvents.length}`);
-    console.log(`Tertiary calendar events found: ${tertiaryEvents.length}`);
-
-    // Generate availability for each day
-    const availability: DayAvailability[] = [];
-    const workingHours = { start: 0, end: 24 }; // 24h/24
-
-    // Build a map of client email -> Drive folder info (from database)
-    const driveLinkMap = new Map<string, { link: string; folderId: string }>();
-    try {
-      const { data: folders } = await supabase
-        .from("client_drive_folders")
-        .select("client_email, drive_folder_link, drive_folder_id");
-
-      (folders || []).forEach((f: any) => {
-        if (f?.client_email && f?.drive_folder_link && f?.drive_folder_id) {
-          driveLinkMap.set(String(f.client_email).toLowerCase(), {
-            link: String(f.drive_folder_link),
-            folderId: String(f.drive_folder_id),
-          });
-        }
-      });
-    } catch (e) {
-      console.error("Failed to load drive folders map", e);
+    if (studioId) {
+      query = query.eq("studio_id", studioId);
     }
 
-    // Helper function to find session subfolder by date
-    async function findSessionSubfolder(
-      parentFolderId: string,
-      sessionDate: string,
-      accessToken: string
-    ): Promise<string | undefined> {
-      try {
-        // Validate sessionDate format (YYYY-MM-DD) to prevent injection
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
-          console.error(`[SECURITY] Invalid session date format rejected: ${sessionDate}`);
-          return undefined;
-        }
-        
-        // Escape the session date value for safety
-        const escapedDate = escapeDriveQueryValue(sessionDate);
-        const query = `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '${escapedDate}' and trashed = false`;
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`;
-        
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        
-        if (!response.ok) {
-          console.log("Failed to search for session subfolder:", await response.text());
-          return undefined;
-        }
-        
-        const data = await response.json();
-        if (data.files && data.files.length > 0) {
-          return `https://drive.google.com/drive/folders/${data.files[0].id}`;
-        }
-        return undefined;
-      } catch (e) {
-        console.error("Error finding session subfolder:", e);
-        return undefined;
-      }
+    const { data: events, error: eventsError } = await query;
+
+    if (eventsError) {
+      console.error("[AVAILABILITY] DB error:", eventsError);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch events", details: eventsError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    // Also fetch bookings
+    let bookingsQuery = supabase
+      .from("bookings")
+      .select("*")
+      .gte("session_date", startDate)
+      .lte("session_date", endDateStr)
+      .in("status", ["confirmed", "pending"]);
+
+    if (studioId) {
+      bookingsQuery = bookingsQuery.eq("studio_id", studioId);
+    }
+
+    const { data: bookings } = await bookingsQuery;
+
+    console.log(`[AVAILABILITY] Found ${events?.length || 0} events + ${bookings?.length || 0} bookings`);
+
+    // Build availability map
+    const availability = [];
+    const workingHours = { start: 0, end: 24 };
 
     for (let d = 0; d < days; d++) {
       const currentDate = new Date(start);
       currentDate.setDate(currentDate.getDate() + d);
-      
       const dateStr = currentDate.toISOString().split("T")[0];
-      const slots: TimeSlot[] = [];
+
+      // Get events for this day
+      const dayEvents = (events || []).filter(e => e.event_date === dateStr);
+      const dayBookings = (bookings || []).filter(b => b.session_date === dateStr);
+
+      const slots = [];
 
       for (let hour = workingHours.start; hour < workingHours.end; hour++) {
-        const slotStart = new Date(currentDate);
-        slotStart.setHours(hour, 0, 0, 0);
-        
-        const slotEnd = new Date(slotStart);
-        slotEnd.setHours(hour + 1, 0, 0, 0);
-
-        // Check if slot is in the past - still show event info for history
+        // Check if this hour is in the past
         const now = new Date();
-        const isInPast = slotStart < now;
+        const slotTime = new Date(dateStr + "T" + String(hour).padStart(2, "0") + ":00:00");
+        // Adjust for timezone (Europe/Brussels is UTC+1 or UTC+2)
+        const isPast = slotTime.getTime() < (now.getTime() - 2 * 3600 * 1000);
 
-        // Check ONLY studio calendar for event info (even in past)
-        const studioResultForHistory = isSlotAvailableInGoogle(studioEvents, dateStr, hour);
-        
-        if (isInPast) {
-          // Show past events with their info for historical purposes
-          if (!studioResultForHistory.available) {
-            const clientEmail = studioResultForHistory.clientEmail;
-            const driveInfo = clientEmail ? driveLinkMap.get(clientEmail.toLowerCase()) : undefined;
-            
-            slots.push({
-              hour,
-              available: false,
-              status: "unavailable",
-              eventName: studioResultForHistory.eventName,
-              eventId: studioResultForHistory.eventId,
-              clientEmail,
-              driveFolderLink: driveInfo?.link,
-            });
-          } else {
-            // No event in the past - just mark as unavailable (empty past slot)
-            slots.push({ hour, available: false, status: "unavailable" });
+        // Check events
+        let matchedEvent = null;
+        for (const event of dayEvents) {
+          const eventStartHour = parseInt(event.start_time.split(":")[0]);
+          const eventEndHour = parseInt(event.end_time.split(":")[0]);
+          const eventEndMinute = parseInt(event.end_time.split(":")[1] || "0");
+          const effectiveEndHour = eventEndMinute > 0 ? eventEndHour + 1 : eventEndHour;
+
+          if (hour >= eventStartHour && hour < effectiveEndHour) {
+            matchedEvent = event;
+            break;
           }
-          continue;
         }
 
-        // Check ONLY studio calendar for main availability
-        const studioResult = isSlotAvailableInGoogle(studioEvents, dateStr, hour);
-        
-        if (!studioResult.available) {
-          const clientEmail = studioResult.clientEmail;
-          const driveInfo = clientEmail ? driveLinkMap.get(clientEmail.toLowerCase()) : undefined;
-          
-          // Try to find session subfolder by date
-          let driveSessionFolderLink: string | undefined;
-          if (driveInfo?.folderId) {
-            driveSessionFolderLink = await findSessionSubfolder(driveInfo.folderId, dateStr, accessToken);
+        // Check bookings
+        let matchedBooking = null;
+        if (!matchedEvent) {
+          for (const booking of dayBookings) {
+            const bookingStartHour = parseInt(booking.start_time.split(":")[0]);
+            const bookingEndHour = parseInt(booking.end_time.split(":")[0]);
+            if (hour >= bookingStartHour && hour < bookingEndHour) {
+              matchedBooking = booking;
+              break;
+            }
           }
+        }
 
-          // Studio is booked - unavailable
+        if (matchedEvent) {
           slots.push({
             hour,
             available: false,
             status: "unavailable",
-            eventName: studioResult.eventName,
-            eventId: studioResult.eventId,
-            clientEmail,
-            driveFolderLink: driveInfo?.link,
-            driveSessionFolderLink,
+            eventName: matchedEvent.title,
+            eventId: matchedEvent.id,
+            clientEmail: matchedEvent.client_email || undefined,
+            clientName: matchedEvent.client_name || undefined,
+            colorId: matchedEvent.color_id || undefined,
+            serviceType: matchedEvent.service_type || undefined,
+            totalPrice: matchedEvent.total_price || undefined,
+          });
+        } else if (matchedBooking) {
+          slots.push({
+            hour,
+            available: false,
+            status: "unavailable",
+            eventName: `${matchedBooking.session_type || "Réservation"} - ${matchedBooking.client_name || "Client"}`,
+            eventId: matchedBooking.id,
+            clientEmail: matchedBooking.client_email || undefined,
+            clientName: matchedBooking.client_name || undefined,
+          });
+        } else if (isPast) {
+          slots.push({
+            hour,
+            available: false,
+            status: "unavailable",
           });
         } else {
-          // Studio is free, check if patron is busy in personal Google calendar OR Claridge
-          const patronResult = isSlotAvailableInGoogle(patronEvents, dateStr, hour);
-          const isPatronBusyInClaridge = isSlotBusyInICal(claridgeEvents, slotStart, slotEnd);
-          
-        // For available or on-request slots, check if there's a secondary or tertiary calendar event
-        const secondaryResult = isSlotAvailableInGoogle(secondaryEvents, dateStr, hour);
-        const hasSecondaryConflict = !secondaryResult.available;
-        
-        const tertiaryResult = isSlotAvailableInGoogle(tertiaryEvents, dateStr, hour);
-        const hasTertiaryConflict = !tertiaryResult.available;
-
-        if (!patronResult.available || isPatronBusyInClaridge) {
-            // Patron busy (personal or Claridge) but studio is free - show "on request"
-            slots.push({ 
-              hour, 
-              available: true, 
-              status: "on-request",
-              hasSecondaryCalendarConflict: hasSecondaryConflict,
-              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined,
-              hasTertiaryCalendarConflict: hasTertiaryConflict,
-              tertiaryCalendarEventName: hasTertiaryConflict ? tertiaryResult.eventName : undefined
-            });
-          } else {
-            // Fully available
-            slots.push({ 
-              hour, 
-              available: true, 
-              status: "available",
-              hasSecondaryCalendarConflict: hasSecondaryConflict,
-              secondaryCalendarEventName: hasSecondaryConflict ? secondaryResult.eventName : undefined,
-              hasTertiaryCalendarConflict: hasTertiaryConflict,
-              tertiaryCalendarEventName: hasTertiaryConflict ? tertiaryResult.eventName : undefined
-            });
-          }
+          slots.push({
+            hour,
+            available: true,
+            status: "available",
+            hasSecondaryCalendarConflict: false,
+            hasTertiaryCalendarConflict: false,
+          });
         }
       }
 
@@ -629,21 +167,14 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ availability }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error fetching weekly availability:", errorMessage);
-    
+
+  } catch (err) {
+    console.error("[AVAILABILITY] Error:", err);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: (err as Error).message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

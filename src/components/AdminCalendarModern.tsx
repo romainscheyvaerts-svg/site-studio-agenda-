@@ -90,7 +90,8 @@ const AdminCalendarModern = ({
   const { studio } = useStudio();
 
   // Vérifier si Google Calendar est configuré pour ce studio
-  const isCalendarConfigured = studio?.google_calendar_id && studio?.google_service_account_key;
+  // Calendar is always configured now - events stored in Supabase DB (no Google Calendar dependency)
+  const isCalendarConfigured = !!studio?.id;
 
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -165,7 +166,7 @@ const AdminCalendarModern = ({
     } finally {
       setLoading(false);
     }
-  }, [currentDate, viewMode, isSuperAdmin]);
+  }, [currentDate, viewMode, isSuperAdmin, studio?.id, isCalendarConfigured]);
 
   // Function to load admin data (profiles and assignments)
   const loadAdminData = useCallback(async () => {
