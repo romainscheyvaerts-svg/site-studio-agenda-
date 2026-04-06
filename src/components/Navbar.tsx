@@ -224,7 +224,10 @@ const Navbar = () => {
   // Admin Drive functions
   const openAllClientsFolder = () => {
     // Use the correct parent folder link (CLOUD CLIENT MAKE MUSIC)
-    window.open("https://drive.google.com/drive/folders/1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh", "_blank");
+    const folderId = (studio as any)?.google_drive_parent_folder_id || "";
+    if (folderId) {
+      window.open(`https://drive.google.com/drive/folders/${folderId}`, "_blank");
+    }
   };
 
   const openClientFolder = (folderLink: string) => {

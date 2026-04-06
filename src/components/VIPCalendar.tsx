@@ -804,7 +804,10 @@ const VIPCalendar = ({
                 "gap-1",
                 isMobileView && "h-7 px-2 text-xs"
               )}
-              onClick={() => window.open("https://drive.google.com/drive/folders/1AXGpSHUP0OyY2tWvCk573xb--Dj2jvLh", "_blank")}
+              onClick={() => {
+                const folderId = (studio as any)?.google_drive_parent_folder_id || "";
+                if (folderId) window.open(`https://drive.google.com/drive/folders/${folderId}`, "_blank");
+              }}
               title="Ouvrir le Drive principal"
             >
               <HardDrive className={cn(isMobileView ? "w-3 h-3" : "w-4 h-4")} />
@@ -1076,12 +1079,6 @@ const VIPCalendar = ({
                     {/* Day columns with event blocks using absolute positioning */}
                     {displayDays.map((day) => {
                       const eventBlocks = getEventBlocksForDay(day.slots);
-                      // Debug: log event blocks for first day with events
-                      if (eventBlocks.length > 0 && !window.__eventBlocksLogged) {
-                        console.log("Event blocks for", day.date, ":", eventBlocks);
-                        console.log("Sample slots:", day.slots.filter(s => s.eventName).slice(0, 3));
-                        window.__eventBlocksLogged = true;
-                      }
 
                       // Build a set of hours covered by event blocks
                       const eventHours = new Set<number>();
