@@ -51,7 +51,7 @@ const BookingSection = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
-  const { pricing: dbPricing, loading: pricingLoading, getEffectivePrice: getPricingEffectivePrice } = usePricing();
+  const { pricing: dbPricing, loading: pricingLoading, getEffectivePrice: getPricingEffectivePrice, services: dbServices } = usePricing();
   const navigate = useNavigate();
   const [sessionType, setSessionType] = useState<SessionType>(null);
   const [hours, setHours] = useState(2);
@@ -777,6 +777,18 @@ const BookingSection = () => {
     }
   };
 
+  // Helper: check if a service_key is active in the DB
+  const activeServiceKeys = useMemo(() => dbServices.map(s => s.service_key), [dbServices]);
+  const isServiceActive = (key: string) => activeServiceKeys.length === 0 || activeServiceKeys.includes(key);
+  
+  // Services with custom keys (not one of the 7 known types)
+  const KNOWN_SERVICE_KEYS = ["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast", "composition"];
+  const customServices = useMemo(() => dbServices.filter(s => !KNOWN_SERVICE_KEYS.includes(s.service_key) && s.is_active), [dbServices]);
+  
+  // Check if any studio session or post-production service is active
+  const hasStudioSessions = isServiceActive("with-engineer") || isServiceActive("without-engineer");
+  const hasPostProduction = isServiceActive("mixing") || isServiceActive("mastering") || isServiceActive("analog-mastering") || isServiceActive("podcast") || isServiceActive("composition");
+
   // Handle cash-only booking (no payment, but create calendar event and send email)
   const handleCashOnlyBooking = async () => {
     if (!validateForm()) return;
@@ -1029,10 +1041,12 @@ const BookingSection = () => {
               </p>
             </div>
             
-            {/* Sessions studio */}
+            {/* Sessions studio - only if any studio service is active */}
+            {hasStudioSessions && (
+            <>
             <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{t("booking.studio_sessions")}</p>
             <div className="grid md:grid-cols-2 gap-4 mb-6" id="booking-form">
-              <button
+              {isServiceActive("with-engineer") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("with-engineer");
@@ -1061,10 +1075,10 @@ const BookingSection = () => {
                   {t("booking.with_engineer_desc")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.deposit_50")} • 🪪 {t("booking.id_required")}</p>
-                <p className="text-xs text-accent mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["with-engineer"] * 0.89)}€/h ({t("booking.deducted_session")})</p>
-              </button>
+               <p className="text-xs text-accent mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["with-engineer"] * 0.89)}€/h ({t("booking.deducted_session")})</p>
+              </button>}
 
-              <button
+              {isServiceActive("without-engineer") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("without-engineer");
@@ -1094,13 +1108,17 @@ const BookingSection = () => {
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.full_payment")} • 🪪 {t("booking.id_required")}</p>
                 <p className="text-xs text-primary mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["without-engineer"] * 0.91)}€/h ({t("booking.deducted_session")})</p>
-              </button>
+              </button>}
             </div>
+            </>
+            )}
 
             {/* Services post-production */}
+            {hasPostProduction && (
+            <>
             <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{t("booking.post_production")} ({t("booking.delay_2_weeks")})</p>
             <div className="grid md:grid-cols-3 gap-4">
-              <button
+              {isServiceActive("mixing") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("mixing");
@@ -1123,9 +1141,9 @@ const BookingSection = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
-              </button>
+              </button>}
 
-              <button
+              {isServiceActive("mastering") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("mastering");
@@ -1148,9 +1166,9 @@ const BookingSection = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
-              </button>
+              </button>}
 
-              <button
+              {isServiceActive("analog-mastering") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("analog-mastering");
@@ -1173,9 +1191,9 @@ const BookingSection = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{t("booking.deposit_80")}</p>
-              </button>
+              </button>}
 
-              <button
+              {isServiceActive("podcast") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("podcast");
@@ -1198,9 +1216,9 @@ const BookingSection = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{t("booking.deposit_50")}</p>
-              </button>
+              </button>}
 
-              <button
+              {isServiceActive("composition") && <button
                 type="button"
                 onClick={() => {
                   setSessionType("composition");
@@ -1224,8 +1242,38 @@ const BookingSection = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">{t("booking.composition_desc")}</p>
                 <p className="text-xs text-pink-500 mt-1">🌐 {t("booking.composition_remote")}</p>
-              </button>
+              </button>}
+
+              {/* Custom services from DB */}
+              {customServices.map((service) => (
+                <button
+                  key={service.service_key}
+                  type="button"
+                  onClick={() => {
+                    setSessionType("custom" as SessionType);
+                    setShowPayment(false);
+                  }}
+                  className={cn(
+                    "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                    sessionType === "custom"
+                      ? "border-primary bg-primary/10 box-glow-cyan"
+                      : "border-border bg-card hover:border-primary/50"
+                  )}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Mic className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-display text-lg text-foreground">{service.name_fr}</h4>
+                      <p className="text-primary font-semibold text-sm">{service.base_price}€{service.price_unit}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
+            </>
+            )}
           </div>
           )}
 

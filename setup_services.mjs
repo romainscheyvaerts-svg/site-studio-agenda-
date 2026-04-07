@@ -18,17 +18,11 @@ async function run() {
   await client.query("DELETE FROM services");
   console.log('Cleared all services');
 
-  // Insert 7 standard services
+  // Restore owner's original service: test at 0€
   const result = await client.query(`
     INSERT INTO services (service_key, name_fr, base_price, price_unit, is_active, sort_order)
     VALUES
-      ('with-engineer', 'Avec Ingenieur', 45, '/h', true, 1),
-      ('without-engineer', 'Location Seche', 22, '/h', true, 2),
-      ('mixing', 'Mixage', 200, '/projet', true, 3),
-      ('mastering', 'Mastering', 60, '/titre', true, 4),
-      ('analog-mastering', 'Mastering Analogique', 100, '/titre', true, 5),
-      ('podcast', 'Mixage Podcast', 40, '/min', true, 6),
-      ('composition', 'Composition', 200, '/projet', true, 7)
+      ('test', 'test', 0, '/h', true, 1)
   `);
   console.log('Inserted:', result.rowCount, 'services');
 
