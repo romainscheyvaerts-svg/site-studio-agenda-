@@ -240,7 +240,8 @@ const BookingSection = () => {
   };
 
   // Check if identity verification should be skipped (promo code OR trusted user)
-  const skipIdentityVerification = combinedPromoEffects.skipIdentityVerification || isTrustedUser;
+  // Identity verification completely disabled
+  const skipIdentityVerification = true;
   
   // Check if cashonly777 is active (skip payment, but still create calendar event and send email)
   const isCashOnly = activePromos.some(p => p.code.toLowerCase() === "cashonly777");
@@ -1078,7 +1079,7 @@ const BookingSection = () => {
                 <p className="text-sm text-muted-foreground">
                   {t("booking.with_engineer_desc")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.deposit_50")} • 🪪 {t("booking.id_required")}</p>
+                <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.deposit_50")}</p>
                <p className="text-xs text-accent mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["with-engineer"] * 0.89)}€/h ({t("booking.deducted_session")})</p>
               </button>}
 
@@ -1110,7 +1111,7 @@ const BookingSection = () => {
                 <p className="text-sm text-muted-foreground">
                   {t("booking.without_engineer_desc")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.full_payment")} • 🪪 {t("booking.id_required")}</p>
+                <p className="text-xs text-muted-foreground mt-1">💳 {t("booking.full_payment")}</p>
                 <p className="text-xs text-primary mt-1">⭐ {t("booking.from_5h")} : {Math.round(pricing["without-engineer"] * 0.91)}€/h ({t("booking.deducted_session")})</p>
               </button>}
             </div>
@@ -1860,31 +1861,6 @@ const BookingSection = () => {
               </div>
             )}
 
-            {/* Identity Verification - Only for studio sessions and if not skipped by promo */}
-            {!isImmediateService && !skipIdentityVerification && sessionType && formData.name && (availabilityStatus === "available" || combinedPromoEffects.fullCalendarVisibility) && (
-              <div className="mb-6">
-                <h4 className="font-display text-lg text-foreground flex items-center gap-2 mb-4">
-                  <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-sm text-primary">3</span>
-                  {t("booking.identity_verification")}
-                </h4>
-                <IdentityVerification
-                  formName={formData.name}
-                  onVerified={handleIdentityVerified}
-                  isVerified={identityVerified}
-                  verifiedName={verifiedName}
-                />
-              </div>
-            )}
-
-            {/* Show skip notice for promo codes that skip ID verification */}
-            {!isImmediateService && skipIdentityVerification && sessionType && (
-              <div className="mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
-                <p className="text-sm text-green-500 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  {t("booking.id_not_required_vip")}
-                </p>
-              </div>
-            )}
 
             {/* Price display - Hidden for admin, VIP codes that skip payment, and composition remote */}
             {sessionType && !skipPayment && !isAdmin && !(sessionType === "composition" && compositionMode === "remote") && (
