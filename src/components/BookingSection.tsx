@@ -784,7 +784,13 @@ const BookingSection = () => {
 
   // Helper: check if a service_key is active in the DB
   const activeServiceKeys = useMemo(() => dbServices.map(s => s.service_key), [dbServices]);
-  const isServiceActive = (key: string) => activeServiceKeys.length === 0 || activeServiceKeys.includes(key);
+  const isServiceActive = (key: string) => {
+    // While loading, don't show any service (prevents flash of hardcoded services)
+    if (pricingLoading) return false;
+    // If no services in DB at all, show all as fallback
+    if (activeServiceKeys.length === 0) return true;
+    return activeServiceKeys.includes(key);
+  };
   
   // Services with custom keys (not one of the 7 known types)
   const KNOWN_SERVICE_KEYS = ["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast", "composition"];
@@ -1045,6 +1051,13 @@ const BookingSection = () => {
                 {t("booking.select_service_desc")}
               </p>
             </div>
+
+            {/* Loading state while services are being fetched */}
+            {pricingLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            )}
             
             {/* Sessions studio - only if any studio service is active */}
             {hasStudioSessions && (
