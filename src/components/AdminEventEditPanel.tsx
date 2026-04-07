@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 
 interface AdminEventEditPanelProps {
   // For editing existing events
@@ -74,6 +75,7 @@ const AdminEventEditPanel = ({
 }: AdminEventEditPanelProps) => {
   const { toast } = useToast();
   const { studio } = useStudio();
+  const { i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -502,6 +504,7 @@ const AdminEventEditPanel = ({
             includeDriveLink,
             customMessage: notes,
             studioId: studio?.id,
+            lang: i18n.language?.substring(0, 2) || "fr",
           },
         });
 
@@ -574,6 +577,7 @@ const AdminEventEditPanel = ({
           includeDriveLink,
           customMessage: notes,
           studioId: studio?.id,
+          lang: i18n.language?.substring(0, 2) || "fr",
         },
       });
 

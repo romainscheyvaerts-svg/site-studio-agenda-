@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useStudio } from "@/hooks/useStudio";
+import { useTranslation } from "react-i18next";
 
 interface AdminEventCreatorProps {
   selectedDate?: string;
@@ -44,6 +45,7 @@ const AdminEventCreator = ({
 }: AdminEventCreatorProps) => {
   const { toast } = useToast();
   const { studio } = useStudio();
+  const { i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   
   const [eventData, setEventData] = useState({
@@ -104,6 +106,7 @@ const AdminEventCreator = ({
             isDeposit: false,
             isAdmin: true,
             isCashPayment: false,
+            lang: i18n.language?.substring(0, 2) || "fr",
           },
         });
 

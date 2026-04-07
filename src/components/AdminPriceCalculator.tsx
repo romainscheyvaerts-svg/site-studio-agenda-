@@ -42,6 +42,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePricing } from "@/hooks/usePricing";
 import { useStudio } from "@/hooks/useStudio";
+import { useTranslation } from "react-i18next";
 
 type SessionType = string | null;
 
@@ -91,6 +92,7 @@ const AdminPriceCalculator = ({
 }: AdminPriceCalculatorProps) => {
   const { studio } = useStudio();
   const { toast } = useToast();
+  const { i18n } = useTranslation();
   const { getPrice, services: dbServices, loading: loadingServices } = usePricing();
 
   const [selectedService, setSelectedService] = useState<SessionType>(null);
@@ -867,6 +869,7 @@ const AdminPriceCalculator = ({
                               includeDriveLink,
                               customMessage,
                               studioId: studio?.id,
+                              lang: i18n.language?.substring(0, 2) || "fr",
                             },
                           });
                           setSendingEmail(false);

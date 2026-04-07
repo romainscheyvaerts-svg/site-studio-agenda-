@@ -7,6 +7,7 @@ import {
   generateFallbackEmailHtml,
   TemplateVariables,
 } from "../_shared/email-templates.ts";
+import { getEmailTranslations, getServiceLabel, formatDateForLang } from "../_shared/email-translations.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +62,7 @@ const BookingNotificationSchema = z.object({
   isCashPayment: z.boolean().default(false),
   validationToken: z.string().optional(),
   bookingId: z.string().optional(),
+  lang: z.string().optional(), // fr, en, nl, es
 });
 
 const escapeHtml = (str: string) =>
