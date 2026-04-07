@@ -1,13 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Service {
+export interface Service {
   id: string;
   service_key: string;
   name_fr: string;
   base_price: number;
   price_unit: string;
   is_active: boolean;
+  sort_order: number;
+  category: string; // "studio" | "post-production" | "other"
+  requires_calendar: boolean;
+  requires_identity: boolean;
+  deposit_type: string; // "full" | "half" | "fixed" | "none"
+  deposit_fixed_amount: number;
+  description_fr: string;
+  icon_name: string;
+  color: string; // "primary" | "accent" | "pink" | "green" | etc.
 }
 
 interface SalesConfig {
@@ -48,7 +57,25 @@ export const usePricing = () => {
         ]);
 
         if (servicesRes.data) {
-          setServices(servicesRes.data);
+          // Map DB data with defaults for new columns
+          const mapped = servicesRes.data.map((s: any) => ({
+            id: s.id,
+            service_key: s.service_key,
+            name_fr: s.name_fr,
+            base_price: Number(s.base_price) || 0,
+            price_unit: s.price_unit || '/h',
+            is_active: s.is_active ?? true,
+            sort_order: s.sort_order || 0,
+            category: s.category || 'studio',
+            requires_calendar: s.requires_calendar ?? true,
+            requires_identity: s.requires_identity ?? true,
+            deposit_type: s.deposit_type || 'half',
+            deposit_fixed_amount: Number(s.deposit_fixed_amount) || 0,
+            description_fr: s.description_fr || '',
+            icon_name: s.icon_name || 'Mic',
+            color: s.color || 'primary',
+          }));
+          setServices(mapped);
         }
         if (salesRes.data) {
           setSalesConfig(salesRes.data as any);
@@ -63,9 +90,8 @@ export const usePricing = () => {
     fetchData();
   }, []);
 
-  // Get base price for a service (by service_key - using dashes like in DB)
+  // Get base price for a service (by service_key)
   const getPrice = (serviceKey: string): number => {
-    // Service keys in DB use dashes (with-engineer), so normalize input
     const normalizedKey = serviceKey.replace(/_/g, '-');
     const service = services.find(s => s.service_key === normalizedKey);
     return service?.base_price || 0;
@@ -105,11 +131,10 @@ export const usePricing = () => {
     return specificDiscount ?? salesConfig.discount_percentage ?? 0;
   };
 
-  // Pricing object for backward compatibility (keys use dashes like DB)
+  // Pricing object for backward compatibility
   const pricing: Record<string, number> = useMemo(() => {
     const result: Record<string, number> = {};
     services.forEach(service => {
-      // Use service_key directly (already has dashes)
       result[service.service_key] = service.base_price;
     });
     return result;
@@ -124,12 +149,24 @@ export const usePricing = () => {
     return result;
   }, [services, salesConfig]);
 
+  // Group services by category
+  const servicesByCategory = useMemo(() => {
+    const groups: Record<string, Service[]> = {};
+    services.forEach(service => {
+      const cat = service.category || 'other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(service);
+    });
+    return groups;
+  }, [services]);
+
   return {
     services,
     salesConfig,
     loading,
     pricing,
     effectivePricing,
+    servicesByCategory,
     getPrice,
     getDiscountedPrice,
     getEffectivePrice,

@@ -81,7 +81,7 @@ const Hero = () => {
   };
 
   const goToOffers = () => {
-    navigate(`${base}/offres`);
+    navigate(`${base}/reservation`);
   };
 
   const goToInstrumentals = () => {
@@ -157,27 +157,16 @@ const Hero = () => {
             <div className="space-y-3 mb-6">
               {!isAdmin && showBooking && (
                 <Button 
-                  variant="hero" 
+                  variant="neon" 
                   size="lg" 
-                  onClick={goToBooking}
+                  onClick={goToOffers}
                   className="w-full h-14 text-base"
                 >
-                  <Mic className="w-5 h-5" />
-                  {t("hero.cta_book").toUpperCase()}
+                  <Euro className="w-5 h-5" />
+                  {t("nav.book").toUpperCase()}
                 </Button>
               )}
               <div className="grid grid-cols-2 gap-3">
-                {showPricing && (
-                  <Button 
-                    variant="neon" 
-                    size="default"
-                    onClick={goToOffers}
-                    className="h-12"
-                  >
-                    <Euro className="w-4 h-4" />
-                    {t("quick_nav.offers").toUpperCase()}
-                  </Button>
-                )}
                 {showGear && (
                   <Button 
                     variant="outline" 
@@ -209,24 +198,13 @@ const Hero = () => {
             <div className={cn("flex gap-4 mb-4", btnLayoutClass, heroLayoutAlign === "center" ? "justify-center" : heroLayoutAlign === "left" ? "justify-start" : "justify-end")}>
               {!isAdmin && showBooking && (
                 <Button 
-                  variant="hero" 
-                  size={btnSize}
-                  onClick={goToBooking}
-                  className={btnRoundedClass}
-                >
-                  <Mic className="w-5 h-5" />
-                  {t("hero.cta_book").toUpperCase()}
-                </Button>
-              )}
-              {showPricing && (
-                <Button 
                   variant="neon" 
                   size={btnSize}
                   onClick={goToOffers}
                   className={btnRoundedClass}
                 >
                   <Euro className="w-5 h-5" />
-                  {t("quick_nav.offers").toUpperCase()}
+                  {t("nav.book").toUpperCase()}
                 </Button>
               )}
               {showGear && (

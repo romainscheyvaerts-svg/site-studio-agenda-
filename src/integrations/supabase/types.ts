@@ -784,33 +784,57 @@ export type Database = {
       services: {
         Row: {
           base_price: number
+          category: string
+          color: string
           created_at: string
+          deposit_fixed_amount: number
+          deposit_type: string
+          description_fr: string
+          icon_name: string
           id: string
           is_active: boolean
           name_fr: string
           price_unit: string
+          requires_calendar: boolean
+          requires_identity: boolean
           service_key: string
           sort_order: number
           updated_at: string
         }
         Insert: {
           base_price: number
+          category?: string
+          color?: string
           created_at?: string
+          deposit_fixed_amount?: number
+          deposit_type?: string
+          description_fr?: string
+          icon_name?: string
           id?: string
           is_active?: boolean
           name_fr: string
           price_unit?: string
+          requires_calendar?: boolean
+          requires_identity?: boolean
           service_key: string
           sort_order?: number
           updated_at?: string
         }
         Update: {
           base_price?: number
+          category?: string
+          color?: string
           created_at?: string
+          deposit_fixed_amount?: number
+          deposit_type?: string
+          description_fr?: string
+          icon_name?: string
           id?: string
           is_active?: boolean
           name_fr?: string
           price_unit?: string
+          requires_calendar?: boolean
+          requires_identity?: boolean
           service_key?: string
           sort_order?: number
           updated_at?: string

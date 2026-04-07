@@ -278,8 +278,7 @@ const Navbar = () => {
   const navLinks = [
     { label: t("nav.home"), path: "/", visible: true },
     { label: t("nav.gear"), path: "/arsenal", visible: showGear },
-    { label: t("nav.pricing"), path: "/offres", visible: showPricing },
-    { label: t("nav.booking"), path: "/reservation", visible: showBooking },
+    { label: t("nav.book"), path: "/reservation", visible: showBooking || showPricing },
     { label: "⚙ Paramètres", path: "/settings", visible: isAdmin },
   ].filter(l => l.visible);
 
@@ -620,9 +619,6 @@ const Navbar = () => {
                   </Button>
                 )}
                 
-                <Button variant="neon" onClick={() => goToPage("/reservation")}>
-                  {t("nav.booking").toUpperCase()}
-                </Button>
                 <Button
                   variant="outline"
                   size="icon"
@@ -641,9 +637,6 @@ const Navbar = () => {
                 >
                   <User className="w-4 h-4" />
                   {t("auth.login")}
-                </Button>
-                <Button variant="neon" onClick={() => goToPage("/reservation")}>
-                  {t("nav.booking").toUpperCase()}
                 </Button>
               </>
             )}
@@ -698,14 +691,6 @@ const Navbar = () => {
               </div>
               
               <div className="flex flex-col gap-3 mt-8">
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="w-full h-14 text-lg"
-                  onClick={() => goToPage("/reservation")}
-                >
-                  {t("nav.booking").toUpperCase()}
-                </Button>
                 {user ? (
                   <>
                     <Button

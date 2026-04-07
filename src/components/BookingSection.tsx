@@ -22,20 +22,22 @@ import AdminQuickEventModal from "./AdminQuickEventModal";
 import StripeCheckoutButton from "./StripeCheckoutButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-import { usePricing } from "@/hooks/usePricing";
+import { usePricing, type Service } from "@/hooks/usePricing";
 
-type SessionType = "with-engineer" | "without-engineer" | "mixing" | "mastering" | "analog-mastering" | "podcast" | "composition" | "custom" | null;
+type SessionType = string | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
 type CompositionMode = "remote" | "onsite";
 
-// Services qui ne nécessitent pas de calendrier ni de vérification d'identité
-// Pour "composition", cela dépend du mode (remote = pas de calendrier, onsite = calendrier + acompte 20€)
-const IMMEDIATE_SERVICES: SessionType[] = ["mixing", "mastering", "analog-mastering", "podcast"];
+// Icon mapping for dynamic services
+const ICON_MAP: Record<string, any> = {
+  Mic, Music, Headphones, Disc, Radio, Building2,
+};
 
 // Acompte pour composition en présentiel
 const COMPOSITION_ONSITE_DEPOSIT = 20;
+
 type PromoEffects = {
-  code: string; // Only stored after validation, for display/removal purposes
+  code: string;
   fullCalendarVisibility: boolean;
   skipPayment: boolean;
   skipIdentityVerification: boolean;
@@ -275,12 +277,14 @@ const BookingSection = () => {
     return getPricingEffectivePrice(service) || pricing[service] || 0;
   };
 
-  // Pour les services immédiats, pas de notion d'heures
-  // La composition à distance est aussi considérée comme immédiate (pas de calendrier)
-  const isImmediateService = sessionType && (
-    IMMEDIATE_SERVICES.includes(sessionType) || 
-    (sessionType === "composition" && compositionMode === "remote")
-  );
+  // Get the selected service from DB
+  const selectedService = useMemo(() => {
+    if (!sessionType) return null;
+    return dbServices.find(s => s.service_key === sessionType) || null;
+  }, [sessionType, dbServices]);
+
+  // Service doesn't require calendar = "immediate" (no date/time needed)
+  const isImmediateService = sessionType && selectedService && !selectedService.requires_calendar;
   
   // Composition en présentiel nécessite le calendrier
   const isCompositionOnsite = sessionType === "composition" && compositionMode === "onsite";
@@ -1244,33 +1248,100 @@ const BookingSection = () => {
                 <p className="text-xs text-pink-500 mt-1">🌐 {t("booking.composition_remote")}</p>
               </button>}
 
-              {/* Custom services from DB */}
-              {customServices.map((service) => (
-                <button
-                  key={service.service_key}
-                  type="button"
-                  onClick={() => {
-                    setSessionType("custom" as SessionType);
-                    setShowPayment(false);
-                  }}
-                  className={cn(
-                    "p-4 rounded-xl border-2 text-left transition-all duration-300",
-                    sessionType === "custom"
-                      ? "border-primary bg-primary/10 box-glow-cyan"
-                      : "border-border bg-card hover:border-primary/50"
-                  )}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                      <Mic className="w-4 h-4 text-primary" />
+              {/* Custom services from DB (inside post-production grid) */}
+              {customServices.map((service) => {
+                const IconComponent = ICON_MAP[service.icon_name] || Mic;
+                return (
+                  <button
+                    key={service.service_key}
+                    type="button"
+                    onClick={() => {
+                      setSessionType(service.service_key);
+                      setShowPayment(false);
+                      if (service.requires_calendar) {
+                        setTimeout(() => {
+                          document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 150);
+                      }
+                    }}
+                    className={cn(
+                      "p-4 rounded-xl border-2 text-left transition-all duration-300",
+                      sessionType === service.service_key
+                        ? "border-primary bg-primary/10 box-glow-cyan"
+                        : "border-border bg-card hover:border-primary/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                        <IconComponent className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-display text-lg text-foreground">{service.name_fr}</h4>
+                        <p className="text-primary font-semibold text-sm">
+                          {service.base_price > 0 ? `${service.base_price}€${service.price_unit}` : t("pricing.free", "Gratuit")}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-display text-lg text-foreground">{service.name_fr}</h4>
-                      <p className="text-primary font-semibold text-sm">{service.base_price}€{service.price_unit}</p>
+                    {service.description_fr && (
+                      <p className="text-xs text-muted-foreground">{service.description_fr}</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            </>
+            )}
+
+            {/* Custom services (not known types) - Show even if no standard services active */}
+            {!hasStudioSessions && !hasPostProduction && customServices.length > 0 && (
+            <>
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{t("booking.our_services", "Nos services")}</p>
+            <div className="grid md:grid-cols-2 gap-4" id="booking-form">
+              {customServices.map((service) => {
+                const IconComponent = ICON_MAP[service.icon_name] || Mic;
+                return (
+                  <button
+                    key={service.service_key}
+                    type="button"
+                    onClick={() => {
+                      setSessionType(service.service_key);
+                      setShowPayment(false);
+                      if (service.requires_calendar) {
+                        setTimeout(() => {
+                          document.getElementById('booking-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 150);
+                      }
+                    }}
+                    className={cn(
+                      "p-6 rounded-xl border-2 text-left transition-all duration-300",
+                      sessionType === service.service_key
+                        ? "border-primary bg-primary/10 box-glow-cyan"
+                        : "border-border bg-card hover:border-primary/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                        <IconComponent className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-display text-xl text-foreground">{service.name_fr}</h4>
+                        <p className="text-primary font-semibold">
+                          {service.base_price > 0 ? `${service.base_price}€${service.price_unit}` : t("pricing.free", "Gratuit")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                    {service.description_fr && (
+                      <p className="text-sm text-muted-foreground">{service.description_fr}</p>
+                    )}
+                    {service.requires_calendar && (
+                      <p className="text-xs text-muted-foreground mt-1">📅 {t("booking.calendar_required", "Réservation avec créneau")}</p>
+                    )}
+                    {!service.requires_calendar && (
+                      <p className="text-xs text-muted-foreground mt-1">⚡ {t("booking.no_calendar", "Sans réservation de créneau")}</p>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             </>
             )}
@@ -2160,7 +2231,7 @@ const BookingSection = () => {
                         {paypalClientId ? (
                           <PayPalCheckout
                             amount={paymentAmount}
-                            sessionType={sessionType!}
+                            sessionType={sessionType as any}
                             hours={hours}
                             formData={formData}
                             clientId={paypalClientId}
