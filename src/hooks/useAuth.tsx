@@ -91,6 +91,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (!error) {
               // Clear the hash from URL immediately for security
               window.history.replaceState(null, '', window.location.pathname);
+              
+              // Check if user needs to be redirected back to a studio page
+              // This handles the case where Google OAuth redirects to the wrong URL
+              const returnStudio = localStorage.getItem("auth_return_studio");
+              const currentPath = window.location.pathname;
+              
+              // Only redirect if we're NOT already on a studio page or auth page for that studio
+              if (returnStudio && !currentPath.startsWith(`/${returnStudio}`)) {
+                localStorage.removeItem("auth_return_studio");
+                window.location.href = `/${returnStudio}`;
+                return;
+              }
+              
+              // If we're on the root and there's a saved studio, redirect
+              if (returnStudio && (currentPath === '/' || currentPath === '/auth')) {
+                localStorage.removeItem("auth_return_studio");
+                window.location.href = `/${returnStudio}`;
+                return;
+              }
             }
           } catch {
             // Silent fail - auth state listener will handle the state

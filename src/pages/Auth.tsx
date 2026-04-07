@@ -525,8 +525,15 @@ const Auth = () => {
             onClick={async () => {
               setLoading(true);
               try {
+                // Save studio slug BEFORE Google OAuth redirect so we can return here after
+                if (effectiveStudioSlug) {
+                  localStorage.setItem("auth_return_studio", effectiveStudioSlug);
+                }
+                
+                // Always redirect to a path that handles the OAuth callback
+                // The studio redirect will happen via localStorage after auth completes
                 const redirectTo = effectiveStudioSlug 
-                  ? `${window.location.origin}/${effectiveStudioSlug}`
+                  ? `${window.location.origin}/${effectiveStudioSlug}/auth`
                   : `${window.location.origin}/auth`;
                 const { error } = await supabase.auth.signInWithOAuth({
                   provider: 'google',
