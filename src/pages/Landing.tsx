@@ -4,12 +4,13 @@ import { Music, Calendar, CreditCard, Shield, Headphones, ArrowRight, Check, Log
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useTranslation } from "react-i18next";
+import { SUPER_ADMIN_EMAIL, PLATFORM_NAME } from "@/config/constants";
 
 const Landing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const isSuperAdmin = user?.email === "romain.scheyvaerts@gmail.com";
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
   const [userStudioSlug, setUserStudioSlug] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,7 +70,7 @@ const Landing = () => {
         <nav className="relative z-10 flex items-center justify-between p-6 max-w-7xl mx-auto">
           <div className="flex items-center gap-2">
             <Headphones className="w-8 h-8 text-cyan-400" />
-            <span className="text-xl font-bold">StudioBooking</span>
+            <span className="text-xl font-bold">{PLATFORM_NAME}</span>
           </div>
           <div className="flex gap-4 items-center">
             {/* Language switcher */}
@@ -197,7 +198,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-gray-800 py-8 text-center text-sm text-gray-500">
-        <p>© {new Date().getFullYear()} StudioBooking — {t("landing.footer")}</p>
+        <p>© {new Date().getFullYear()} {PLATFORM_NAME} — {t("landing.footer")}</p>
       </footer>
     </div>
   );

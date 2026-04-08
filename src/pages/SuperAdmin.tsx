@@ -5,8 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Headphones, Check, X, Clock, Building2, MapPin, Phone, Mail, Shield, Pause, Play, Trash2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-
-const SUPER_ADMIN_EMAIL = "romain.scheyvaerts@gmail.com";
+import { SUPER_ADMIN_EMAIL, PLATFORM_NAME } from "@/config/constants";
 
 interface StudioRequest {
   id: string;
@@ -233,7 +232,7 @@ const SuperAdmin = () => {
       <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto w-full">
         <Link to="/" className="flex items-center gap-2">
           <Headphones className="w-8 h-8 text-cyan-400" />
-          <span className="text-xl font-bold">StudioBooking</span>
+          <span className="text-xl font-bold">{PLATFORM_NAME}</span>
         </Link>
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-amber-400" />

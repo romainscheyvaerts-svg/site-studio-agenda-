@@ -26,6 +26,7 @@ import {
   AtSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DEFAULT_EMAIL_CONFIG as DEFAULTS } from "@/config/constants";
 
 interface EmailConfig {
   id: string;
@@ -54,28 +55,28 @@ interface EmailConfig {
 }
 
 const DEFAULT_CONFIG: Omit<EmailConfig, "id"> = {
-  primary_color: "#22d3ee",
-  secondary_color: "#7c3aed",
-  background_color: "#0a0a0a",
-  card_color: "#1a1a1a",
-  text_color: "#ffffff",
-  muted_text_color: "#a1a1aa",
-  border_color: "#262626",
-  success_color: "#10b981",
-  logo_url: "https://www.studiomakemusic.com/favicon.png",
-  studio_name: "Make Music Studio",
-  footer_text: "Make Music Studio - Studio d'enregistrement professionnel à Bruxelles",
-  footer_address: "Rue de la Loi 42, 1000 Bruxelles",
-  footer_phone: "+32 456 123 789",
-  footer_email: "prod.makemusic@gmail.com",
-  social_instagram: "https://instagram.com/makemusic.studio",
-  social_facebook: "",
-  social_youtube: "",
-  social_tiktok: "",
-  show_calendar_button: true,
-  show_social_links: true,
-  show_logo: true,
-  font_family: "Arial, Helvetica, sans-serif",
+  primary_color: DEFAULTS.primary_color,
+  secondary_color: DEFAULTS.secondary_color,
+  background_color: DEFAULTS.background_color,
+  card_color: DEFAULTS.card_color,
+  text_color: DEFAULTS.text_color,
+  muted_text_color: DEFAULTS.muted_text_color,
+  border_color: DEFAULTS.border_color,
+  success_color: DEFAULTS.success_color,
+  logo_url: DEFAULTS.logo_url,
+  studio_name: DEFAULTS.studio_name,
+  footer_text: DEFAULTS.footer_text,
+  footer_address: DEFAULTS.footer_address,
+  footer_phone: DEFAULTS.footer_phone,
+  footer_email: DEFAULTS.footer_email,
+  social_instagram: DEFAULTS.social_instagram,
+  social_facebook: DEFAULTS.social_facebook,
+  social_youtube: DEFAULTS.social_youtube,
+  social_tiktok: DEFAULTS.social_tiktok,
+  show_calendar_button: DEFAULTS.show_calendar_button,
+  show_social_links: DEFAULTS.show_social_links,
+  show_logo: DEFAULTS.show_logo,
+  font_family: DEFAULTS.font_family,
 };
 
 const ColorPicker = ({

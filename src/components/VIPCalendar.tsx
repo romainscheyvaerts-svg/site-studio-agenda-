@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useStudio } from "@/hooks/useStudio";
+import { WHATSAPP_NUMBER } from "@/config/constants";
 
 // Types pour le panneau Drive
 interface ClientDriveFolder {
@@ -605,7 +606,7 @@ const VIPCalendar = ({
   })();
 
   const openWhatsApp = () => {
-    const phoneNumber = "+32476094172";
+    const phoneNumber = WHATSAPP_NUMBER;
     const message = selectedDay && selectedHour !== null
       ? `Bonjour, je souhaite réserver le studio le ${format(new Date(selectedDay), "EEEE d MMMM yyyy", { locale: fr })} de ${formatHour(selectedHour)} à ${formatHour(selectedHour + duration)}. Ce créneau est-il disponible ?`
       : "Bonjour, je souhaite vérifier la disponibilité du studio.";

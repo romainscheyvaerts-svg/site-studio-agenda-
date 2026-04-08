@@ -23,6 +23,7 @@ import StripeCheckoutButton from "./StripeCheckoutButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { usePricing, type Service } from "@/hooks/usePricing";
+import { COMPOSITION_ONSITE_DEPOSIT as COMP_DEPOSIT, KNOWN_SERVICE_KEYS as KNOWN_KEYS, PROMO_CODE_CASHONLY, DEFAULT_PRICING, WHATSAPP_MIX_NUMBER, STUDIO_EMAIL } from "@/config/constants";
 
 type SessionType = string | null;
 type AvailabilityStatus = "idle" | "checking" | "available" | "unavailable" | "error";
@@ -34,7 +35,7 @@ const ICON_MAP: Record<string, any> = {
 };
 
 // Acompte pour composition en présentiel
-const COMPOSITION_ONSITE_DEPOSIT = 20;
+const COMPOSITION_ONSITE_DEPOSIT = COMP_DEPOSIT;
 
 type PromoEffects = {
   code: string;
@@ -244,7 +245,7 @@ const BookingSection = () => {
   const skipIdentityVerification = true;
   
   // Check if cashonly777 is active (skip payment, but still create calendar event and send email)
-  const isCashOnly = activePromos.some(p => p.code.toLowerCase() === "cashonly777");
+  const isCashOnly = activePromos.some(p => p.code.toLowerCase() === PROMO_CODE_CASHONLY);
   
   // Trusted users can always pay in cash
   const canPayCash = isTrustedUser || isCashOnly;
@@ -254,15 +255,7 @@ const BookingSection = () => {
 
   // Use dynamic pricing from database, with fallbacks
   const pricing: Record<string, number> = useMemo(() => {
-    const fallbackPricing: Record<string, number> = {
-      "with-engineer": 45,
-      "without-engineer": 22,
-      "mixing": 200,
-      "mastering": 60,
-      "analog-mastering": 100,
-      "podcast": 40,
-      "composition": 200,
-    };
+    const fallbackPricing: Record<string, number> = { ...DEFAULT_PRICING };
     
     // Merge DB pricing with fallbacks
     return { ...fallbackPricing, ...dbPricing };
@@ -793,7 +786,7 @@ const BookingSection = () => {
   };
   
   // Services with custom keys (not one of the 7 known types)
-  const KNOWN_SERVICE_KEYS = ["with-engineer", "without-engineer", "mixing", "mastering", "analog-mastering", "podcast", "composition"];
+  const KNOWN_SERVICE_KEYS = KNOWN_KEYS;
   const customServices = useMemo(() => dbServices.filter(s => !KNOWN_SERVICE_KEYS.includes(s.service_key) && s.is_active), [dbServices]);
   
   // Check if any studio session or post-production service is active
@@ -1443,16 +1436,16 @@ const BookingSection = () => {
                     {t("booking.composition_refs_desc", "Pour nous aider à comprendre votre vision, envoyez-nous des exemples de morceaux qui vous inspirent par email :")}
                   </p>
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-pink-500/10 border border-pink-500/30">
-                    <span className="font-mono text-pink-500 font-semibold flex-1">prod.makemusic@gmail.com</span>
+                    <span className="font-mono text-pink-500 font-semibold flex-1">{STUDIO_EMAIL}</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        navigator.clipboard.writeText("prod.makemusic@gmail.com");
+                        navigator.clipboard.writeText(STUDIO_EMAIL);
                         toast({
                           title: t("booking.email_copied", "Email copié !"),
-                          description: "prod.makemusic@gmail.com",
+                          description: STUDIO_EMAIL,
                         });
                       }}
                       className="h-8 px-2 text-pink-500 hover:bg-pink-500/20"
@@ -1480,7 +1473,7 @@ const BookingSection = () => {
                 <p className="text-sm text-muted-foreground">
                   💬 {t("booking.be_present_mixing")}{" "}
                   <a 
-                    href="https://wa.me/33612345678?text=Bonjour%2C%20je%20souhaite%20%C3%AAtre%20pr%C3%A9sent%20pendant%20le%20mix%20de%20mon%20projet."
+                    href={`https://wa.me/${WHATSAPP_MIX_NUMBER.replace("+", "")}?text=Bonjour%2C%20je%20souhaite%20%C3%AAtre%20pr%C3%A9sent%20pendant%20le%20mix%20de%20mon%20projet.`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary underline hover:text-primary/80 transition-colors"

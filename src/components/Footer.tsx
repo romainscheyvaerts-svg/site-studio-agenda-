@@ -3,12 +3,13 @@ import { Mic, Phone, Mail, MapPin, ExternalLink } from "lucide-react";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useStudio } from "@/hooks/useStudio";
 import { cn } from "@/lib/utils";
+import { DEFAULT_STUDIO_NAME, STUDIO_PHONE, STUDIO_EMAIL, STUDIO_LOCATION, STUDIO_LOCATION_FULL, SOCIAL_LINKS_URL } from "@/config/constants";
 
 const Footer = () => {
   const { t } = useTranslation();
   const { isMobileView } = useViewMode();
   const { studio } = useStudio();
-  const studioName = studio?.name || "Make Music";
+  const studioName = studio?.name || DEFAULT_STUDIO_NAME;
 
   return (
     <footer className={cn("border-t border-border bg-secondary/20", isMobileView ? "py-6" : "py-12")}>
@@ -37,24 +38,24 @@ const Footer = () => {
             
             {/* Quick contact */}
             <div className="flex justify-center gap-6 text-xs text-muted-foreground">
-              <a href="tel:+32476094172" className="flex items-center gap-1.5 hover:text-primary transition-colors">
+              <a href={`tel:${STUDIO_PHONE}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
                 <Phone className="w-3.5 h-3.5" />
                 {t("footer.call")}
               </a>
-              <a href="mailto:prod.makemusic@gmail.com" className="flex items-center gap-1.5 hover:text-primary transition-colors">
+              <a href={`mailto:${STUDIO_EMAIL}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
                 <Mail className="w-3.5 h-3.5" />
                 Email
               </a>
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
-                Bruxelles
+                {STUDIO_LOCATION}
               </span>
             </div>
 
             {/* Social Links */}
             <div className="flex justify-center">
               <a
-                href="https://music-artist.art/lennon"
+                href={SOCIAL_LINKS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-all duration-300 hover:scale-105 text-sm font-medium"
@@ -113,9 +114,8 @@ const Footer = () => {
                   {t("footer.contact").toUpperCase()}
                 </h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>prod.makemusic@gmail.com</li>
-                  <li>+32 476 09 41 72</li>
-                  <li>Bruxelles, Belgique</li>
+                  <li>{STUDIO_EMAIL}</li>
+                  <li>{STUDIO_LOCATION_FULL}</li>
                 </ul>
               </div>
 
@@ -125,7 +125,7 @@ const Footer = () => {
                   SUIVEZ-NOUS
                 </h4>
                 <a
-                  href="https://music-artist.art/lennon"
+                  href={SOCIAL_LINKS_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-primary/20 text-primary hover:bg-primary/30 transition-all duration-300 hover:scale-105 font-medium"

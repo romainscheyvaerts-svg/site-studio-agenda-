@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
+import { STUDIO_EXCLUDED_EMAILS, DEFAULT_ENGINEER_NAME } from "@/config/constants";
 
 interface AdminEventEditPanelProps {
   // For editing existing events
@@ -303,13 +304,13 @@ const AdminEventEditPanel = ({
         if (!hasUserSelectedAdmin.current && !adminsLoadedRef.current) {
           // Special rule: if current user is prod.makemusic@gmail.com or romain.scheyvaerts@gmail.com
           // set LENNON as default responsible (if available)
-          const studioEmails = ['prod.makemusic@gmail.com', 'romain.scheyvaerts@gmail.com'];
+          const studioEmails = STUDIO_EXCLUDED_EMAILS;
           const currentUserEmail = Object.entries(userEmails).find(([id]) => id === user?.id)?.[1]?.toLowerCase();
           
           if (currentUserEmail && studioEmails.includes(currentUserEmail)) {
             // Find Lennon in the list (by display_name containing LENNON)
             const lennonAdmin = adminsList.find(a => 
-              a.display_name.toUpperCase().includes('LENNON')
+              a.display_name.toUpperCase().includes(DEFAULT_ENGINEER_NAME)
             );
             if (lennonAdmin) {
               console.log("[ADMINS] Studio email detected, defaulting to LENNON:", lennonAdmin.user_id);

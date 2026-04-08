@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { MessageCircle, X, Send, Sparkles, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { DEFAULT_CHATBOT_GREETING } from "@/config/constants";
 
 interface Message {
   id: number;
@@ -14,7 +15,7 @@ interface Message {
 const initialMessages: Message[] = [
   {
     id: 1,
-    text: "Salut ! 👋 Je suis l'assistant de Make Music, studio d'enregistrement à Bruxelles. Je connais tout notre équipement (le Neumann U87, la chaîne SSL, les Genelec...) et nos tarifs. Comment puis-je t'aider pour ton projet ?",
+    text: DEFAULT_CHATBOT_GREETING,
     isBot: true,
   },
 ];
