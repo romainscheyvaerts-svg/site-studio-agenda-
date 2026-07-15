@@ -26,6 +26,7 @@ const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const FeatureDetail = lazy(() => import("./pages/FeatureDetail"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
 // Studio pages (lazy loaded)
 const Index = lazy(() => import("./pages/Index"));
@@ -109,7 +110,9 @@ const App = () => (
               <Route path="/studio-pending" element={<StudioPending />} />
               <Route path="/super-admin" element={<SuperAdmin />} />
               <Route path="/features/:featureId" element={<FeatureDetail />} />
-              
+              <Route path="/politique-confidentialite" element={<PrivacyPolicy />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+
               {/* Studio-scoped routes: /:studioSlug/* */}
               <Route path="/:studioSlug/*" element={<StudioLayout />} />
               
