@@ -113,8 +113,25 @@ async function listAllDriveFiles(accessToken: string, folderId: string): Promise
     
     console.log(`[DRIVE] Fetched ${data.files?.length || 0} items (total: ${allFiles.length}), hasMore: ${!!pageToken}`);
   } while (pageToken);
-  
+
   return allFiles;
+}
+
+// Renvoie true UNIQUEMENT si le fichier Drive est réellement supprimé (404).
+// Un fichier encore présent ailleurs (200) — ou en cas de doute (403/5xx/erreur
+// réseau) — est considéré comme existant : on ne l'efface jamais par erreur.
+// C'est ce qui empêche une instru publiée depuis l'app (autre dossier) de
+// disparaître du store juste après sa publication.
+async function isDriveFileGone(accessToken: string, fileId: string): Promise<boolean> {
+  try {
+    const resp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id&supportsAllDrives=true`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    return resp.status === 404;
+  } catch (_err) {
+    return false;
+  }
 }
 
 serve(async (req) => {
@@ -250,12 +267,27 @@ serve(async (req) => {
     // Create a Set of all drive file IDs from Google Drive
     const driveFileIds = new Set(audioFiles.map((f: any) => f.id));
     
-    // ========== DELETION: Find instrumentals in DB that no longer exist in Drive ==========
+    // ========== DELETION: only instrumentals whose Drive file is TRULY gone ==========
+    // Un fichier absent du dossier scanné n'est PAS forcément supprimé : il peut
+    // avoir été publié depuis un AUTRE dossier accessible au compte de service
+    // (cas des publications faites depuis l'app iPhone, qui disparaissaient juste
+    // après la publication). On ne supprime donc QUE si Drive répond 404 (fichier
+    // réellement introuvable) — jamais sur simple absence du dossier scanné.
     const deletedFromDrive: string[] = [];
-    const toDelete = (existingInstrumentals || []).filter(
+    const deletionCandidates = (existingInstrumentals || []).filter(
       instrumental => instrumental.drive_file_id && !driveFileIds.has(instrumental.drive_file_id)
     );
-    
+
+    const toDelete: any[] = [];
+    for (const inst of deletionCandidates) {
+      const gone = await isDriveFileGone(accessToken, inst.drive_file_id);
+      if (gone) {
+        toDelete.push(inst);
+      } else {
+        console.log(`[KEEP] Hors dossier scanné mais toujours accessible, conservé: ${inst.title}`);
+      }
+    }
+
     if (toDelete.length > 0) {
       const deleteIds = toDelete.map(i => i.id);
       console.log(`[DELETE] Removing ${toDelete.length} files no longer in Drive:`, toDelete.map(i => i.title));

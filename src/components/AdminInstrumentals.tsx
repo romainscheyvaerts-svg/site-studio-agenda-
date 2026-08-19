@@ -274,7 +274,10 @@ const AdminInstrumentals = () => {
 
   useEffect(() => {
     fetchInstrumentals();
-    scanGoogleDrive();
+    // ⚠️ Scan Drive NON lancé automatiquement : il supprime les instrus dont le
+    // fichier n'est pas dans le dossier scanné, ce qui faisait DISPARAÎTRE juste
+    // après publication les instrus publiées depuis l'app (autre dossier). On
+    // laisse l'admin le déclencher volontairement via le bouton « Scanner ».
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
