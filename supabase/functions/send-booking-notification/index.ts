@@ -8,6 +8,7 @@ import {
   TemplateVariables,
 } from "../_shared/email-templates.ts";
 import { getEmailTranslations, getServiceLabel, formatDateForLang } from "../_shared/email-translations.ts";
+import { artistCtaEmailBlock } from "../_shared/artist-cta-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -552,6 +553,8 @@ function generateFallbackClientEmailPending(
         </p>
       </div>
 
+      ${artistCtaEmailBlock()}
+
       <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
         L'équipe Make Music
       </p>
@@ -635,6 +638,8 @@ function generateFallbackClientEmailConfirmed(
           Email : <a href="mailto:prod.makemusic@gmail.com" style="color: #22d3ee;">prod.makemusic@gmail.com</a>
         </p>
       </div>
+
+      ${artistCtaEmailBlock()}
 
       <p style="margin-top: 30px; color: #a1a1aa; font-size: 12px; text-align: center;">
         À très bientôt au studio ! 🎵<br>

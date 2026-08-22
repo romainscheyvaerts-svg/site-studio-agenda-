@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { renderEmailHtml, TemplateVariables } from "../_shared/email-templates.ts";
+import { artistCtaEmailBlock } from "../_shared/artist-cta-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -312,6 +313,8 @@ serve(async (req) => {
           <li style="color: #ff6b6b;"><strong>Ce lien expire le ${expirationDate}</strong></li>
         </ul>
       </div>
+
+      ${artistCtaEmailBlock()}
     </div>
 
     <!-- Footer -->
