@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ArtistPageCTA from "@/components/ArtistPageCTA";
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -182,7 +183,8 @@ const PaymentSuccess = () => {
             <p className="text-muted-foreground">
               {getSuccessMessage()}
             </p>
-            <Button onClick={() => navigate("/")} className="mt-4">
+            <ArtistPageCTA className="mt-2" />
+            <Button onClick={() => navigate("/")} variant="outline" className="mt-4">
               Retour à l'accueil
             </Button>
           </>
