@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Menu, X, LogOut, User, Music, ShoppingBag, FolderOpen, Loader2, Users, Calendar, ChevronDown, Search, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SOCIAL_ARTIST_URL } from "@/config/constants";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useViewMode } from "@/hooks/useViewMode";
@@ -577,6 +578,17 @@ const Navbar = () => {
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-neon-gold transition-all duration-300 group-hover:w-full" />
               </button>
             )}
+            {/* Accès au réseau social des artistes (Music Artist) */}
+            <a
+              href={SOCIAL_ARTIST_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full bg-primary/15 px-3.5 py-1.5 text-sm font-medium text-primary transition-all hover:bg-primary/25 hover:scale-105"
+            >
+              <Users className="h-4 w-4" />
+              Réseau social
+              <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+            </a>
           </div>
 
           {/* Language switcher & Auth/CTA - Desktop only */}
@@ -688,6 +700,18 @@ const Navbar = () => {
                     {t("nav.instrumentals").toUpperCase()}
                   </button>
                 )}
+                {/* Accès au réseau social des artistes (Music Artist) */}
+                <a
+                  href={SOCIAL_ARTIST_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-left text-primary hover:text-primary/80 transition-colors py-4 flex items-center gap-3 text-xl font-display border-b border-border/50"
+                >
+                  <Users className="h-5 w-5" />
+                  RÉSEAU SOCIAL
+                  <ExternalLink className="h-4 w-4 opacity-70" />
+                </a>
               </div>
               
               <div className="flex flex-col gap-3 mt-8">
