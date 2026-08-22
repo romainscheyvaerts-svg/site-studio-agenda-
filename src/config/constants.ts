@@ -54,6 +54,8 @@ export const STUDIO_TAGLINE = "Studio d'enregistrement professionnel à Bruxelle
 export const LOGO_URL = "https://www.studiomakemusic.com/favicon.png";
 export const SOCIAL_LINKS_URL = "https://music-artist.art/lennon";
 export const INSTAGRAM_URL = "https://instagram.com/makemusic.studio";
+// Réseau social dédié aux artistes (plateforme Music Artist / Social Artist)
+export const SOCIAL_ARTIST_URL = "https://www.music-artist.art";
 
 // -----------------------------------------------------------------------------
 // 💰 TARIFS PAR DÉFAUT (fallbacks si la BDD ne répond pas)

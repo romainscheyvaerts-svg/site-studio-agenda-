@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import SocialArtistBanner from "@/components/SocialArtistBanner";
 import Footer from "@/components/Footer";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useStudio } from "@/hooks/useStudio";
@@ -15,6 +16,7 @@ const Index = () => {
         <div id="hero">
           <Hero />
         </div>
+        <SocialArtistBanner />
         <Footer />
       </div>
     </main>
