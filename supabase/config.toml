@@ -3,6 +3,9 @@
 # =============================================================================
 project_id = "mxdrxpzxbgybchzzvpkf"
 
+[functions.sync-user-to-social-artist]
+verify_jwt = true
+
 [functions.scan-drive-instrumentals]
 verify_jwt = true
 

@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const driveCreationAttempted = useRef<Set<string>>(new Set());
+  const socialArtistSyncAttempted = useRef<Set<string>>(new Set());
 
   // Log activity
   const logActivity = async (action: string, userEmail?: string, userId?: string) => {
@@ -68,6 +69,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("[AUTH] Failed to create Drive folder:", error);
+    }
+  };
+
+  // Créer automatiquement le compte réseau social (Music Artist) + email de bienvenue
+  const syncUserToSocialArtist = async (accessToken: string, userEmail: string) => {
+    if (socialArtistSyncAttempted.current.has(userEmail)) {
+      return;
+    }
+    socialArtistSyncAttempted.current.add(userEmail);
+
+    try {
+      const { error } = await supabase.functions.invoke("sync-user-to-social-artist", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error) {
+        console.error("[AUTH] Error syncing user to Social Artist:", error);
+      }
+    } catch (error) {
+      console.error("[AUTH] Failed to sync user to Social Artist:", error);
     }
   };
 
@@ -137,12 +157,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Use setTimeout to avoid blocking the auth flow
             setTimeout(() => {
               createDriveFolderForUser(session.access_token, session.user.email!);
+              syncUserToSocialArtist(session.access_token, session.user.email!);
             }, 1000);
           }
         } else if (event === "SIGNED_OUT") {
           logActivity("logout");
           // Clear the drive creation tracking on logout
           driveCreationAttempted.current.clear();
+          socialArtistSyncAttempted.current.clear();
         }
       }
     );
@@ -158,6 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (session.access_token && session.user.email) {
           setTimeout(() => {
             createDriveFolderForUser(session.access_token, session.user.email!);
+            syncUserToSocialArtist(session.access_token, session.user.email!);
           }, 2000);
         }
       }
@@ -174,6 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     // Clear the drive creation tracking on logout
     driveCreationAttempted.current.clear();
+    socialArtistSyncAttempted.current.clear();
   };
 
   return (
